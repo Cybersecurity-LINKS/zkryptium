@@ -1,0 +1,19 @@
+[package]
+name = "links-crypto"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rand = {version = "0.8.5"}
+num-bigint = { version = "0.4.3",  features = ["rand"] }
+zeroize = { version = "1.5" }
+
+[lib]
+name = "links_crypto"
+path = "src/lib.rs"
+
+[[bin]]
+name = "demo"
+path = "src/main.rs"
