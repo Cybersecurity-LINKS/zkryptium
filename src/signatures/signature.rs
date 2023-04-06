@@ -20,7 +20,7 @@ pub trait Verify {
   
     /// Verifies the authenticity of `data` and `signature` with `key`.
     fn verify(message: &[u8], signature: &[u8], key: &Self::Public) -> bool;
-  }
+}
 
 
 
