@@ -1,12 +1,15 @@
 use std::time::Instant;
 
-use links_crypto::{utils::random, keys::{cl03_key::{CL03KeyPair, CL03PublicKey}, pair::{KeyPair, KeyPairI}, bbsplus_key::{BBSplusKeyPair, BBSplusSecretKey}}, bbsplus::{generators::{make_generators, global_generators, signer_specific_generators, print_generators}, ciphersuites::Bls12381Shake256}, schemes::algorithms::{CL03, BBSplus}};
+use hex::ToHex;
+use links_crypto::{utils::random, keys::{cl03_key::{CL03PublicKey}, pair::{KeyPair}, bbsplus_key::{BBSplusSecretKey}}, bbsplus::{generators::{make_generators, global_generators, signer_specific_generators, print_generators}, ciphersuites::Bls12381Shake256}, schemes::algorithms::{CL03, BBSplus, Scheme}};
 
 use links_crypto::keys::key::PrivateKey;
 
-fn prova<T: KeyPairI>(keypair: &T){
-    println!("SK: {}", keypair.private().encode());
-    let sk  = keypair.private();
+fn prova<S: Scheme>(keypair: &KeyPair<S>){
+    let sk = keypair.private_key();
+
+    println!("SK: {}", sk.encode());
+
     
 }
 
@@ -24,15 +27,13 @@ fn main() {
     );
 
     println!("BBS+ KeyPair = {:?}", bbsplus_keypair);
-    println!("SK: {}", bbsplus_keypair.private().encode());
-    println!("PK: {}", bbsplus_keypair.public().encode());
+    println!("SK: {}", bbsplus_keypair.private_key().encode());
+    println!("PK: {}", bbsplus_keypair.public_key().encode());
 
     println!("Create Key {:.2?}", write_data_start_time.elapsed());
 
     println!("CL03 KeyPair = {:?}", cl03_keypair);
 
-
-    
 
     // Suite specific create generators function
     let get_generators_fn = make_generators::<Bls12381Shake256>;
@@ -42,12 +43,8 @@ fn main() {
 
     print_generators(&generators);
 
-    let bbskp = BBSplusKeyPair::generate(
-        &hex::decode(&IKM).unwrap(),
-        Some(&hex::decode(&KEY_INFO).unwrap())
-    );
+    prova(&bbsplus_keypair);
 
-    prova(&bbskp);
-
+    bbsplus_keypair.write_keypair_to_file(Some("keypair.txt".to_string()));
 
 }

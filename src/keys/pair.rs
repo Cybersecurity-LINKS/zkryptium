@@ -23,11 +23,11 @@ use crate::schemes::algorithms::Scheme;
 use crate::utils::random::random_prime;
 use crate::utils::random::random_qr;
 
-use super::bbsplus_key::BBSplusKeyPair;
+// use super::bbsplus_key::BBSplusKeyPair;
 
 use super::bbsplus_key::BBSplusPublicKey;
 use super::bbsplus_key::BBSplusSecretKey;
-use super::cl03_key::CL03KeyPair;
+// use super::cl03_key::CL03KeyPair;
 use super::cl03_key::CL03PublicKey;
 use super::cl03_key::CL03SecretKey;
 
@@ -39,16 +39,25 @@ use sha2::Digest;
 
 
 
+
+
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct KeyPair<S: Scheme>{
     public: S::PubKey,
     private: S::PrivKey,
-    p: PhantomData<S>
 }
 
-impl <T> KeyPair<T> 
-where T: Scheme
+impl <S> KeyPair<S> 
+where S: Scheme
 {
+
+    pub fn public_key(&self) -> &S::PubKey{
+        &self.public
+    }
+
+    pub fn private_key(&self) -> &S::PrivKey {
+        &self.private
+    }
 
     pub fn write_keypair_to_file(&self, file: Option<String>)
     {
@@ -78,57 +87,57 @@ where T: Scheme
 }
 
 
-pub trait KeyPairI {
-    type PrivKey: PrivateKey;
-    type PubKey: PublicKey;
+// pub trait KeyPairI {
+//     type PrivKey: PrivateKey;
+//     type PubKey: PublicKey;
 
-    fn public(&self) -> &Self::PubKey;
-    fn private(&self) -> &Self::PrivKey;
-}
+//     fn public(&self) -> &Self::PubKey;
+//     fn private(&self) -> &Self::PrivKey;
+// }
 
-impl KeyPairI for CL03KeyPair {
-    type PrivKey = CL03SecretKey;
+// impl KeyPairI for CL03KeyPair {
+//     type PrivKey = CL03SecretKey;
 
-    type PubKey = CL03PublicKey;
+//     type PubKey = CL03PublicKey;
 
-    fn public(&self) -> &Self::PubKey {
-        self.public()
-    }
+//     fn public(&self) -> &Self::PubKey {
+//         self.public()
+//     }
 
-    fn private(&self) -> &Self::PrivKey {
-       self.private()
-    }
-}
+//     fn private(&self) -> &Self::PrivKey {
+//        self.private()
+//     }
+// }
 
 
-impl KeyPairI for BBSplusKeyPair {
-    type PrivKey = BBSplusSecretKey;
+// impl KeyPairI for BBSplusKeyPair {
+//     type PrivKey = BBSplusSecretKey;
 
-    type PubKey = BBSplusPublicKey;
+//     type PubKey = BBSplusPublicKey;
 
-    fn public(&self) -> &Self::PubKey {
-        self.public()
-    }
+//     fn public(&self) -> &Self::PubKey {
+//         self.public()
+//     }
 
-    fn private(&self) -> &Self::PrivKey {
-       self.private()
-    }
-}
+//     fn private(&self) -> &Self::PrivKey {
+//        self.private()
+//     }
+// }
 
-impl<S: Scheme> KeyPairI for KeyPair<S>{
-    type PrivKey = S::PrivKey;
-    type PubKey = S::PubKey;
+// impl<S: Scheme> KeyPairI for KeyPair<S>{
+//     type PrivKey = S::PrivKey;
+//     type PubKey = S::PubKey;
 
-    fn public(&self) -> &Self::PubKey {
-        &self.public
-    }
+//     fn public(&self) -> &Self::PubKey {
+//         &self.public
+//     }
 
-    fn private(&self) -> &Self::PrivKey {
-        &self.private
-    }
+//     fn private(&self) -> &Self::PrivKey {
+//         &self.private
+//     }
 
     
-}
+// }
 
 
 impl KeyPair<CL03>{
@@ -177,7 +186,7 @@ impl KeyPair<CL03>{
         let sk = CL03SecretKey::new(p, q);
 
         //let pair = CL03KeyPair::new(sk, pk);
-        Self{public: pk, private: sk, p: PhantomData }
+        Self{public: pk, private: sk}
         // Self{public: PublicKey::new(PublicKeyData::CL03(pk)), private: PrivateKey::new(PrivateKeyData::CL03(sk)), p: PhantomData}
 
     }
@@ -190,7 +199,7 @@ impl KeyPair<BBSplus>{
         let pk: G2Projective = G2Affine::generator() * sk;
         // BBSplusKeyPair::new(BBSplusSecretKey(sk), BBSplusPublicKey(pk))
 
-        Self{public: BBSplusPublicKey(pk), private: BBSplusSecretKey(sk), p: PhantomData}
+        Self{public: BBSplusPublicKey(pk), private: BBSplusSecretKey(sk)}
     }
 
     pub fn generate<T>(ikm: T, key_info: Option<&[u8]>) -> Self
@@ -243,9 +252,11 @@ impl KeyPair<BBSplus>{
 
         // BBSplusKeyPair::new(BBSplusSecretKey(sk), BBSplusPublicKey(pk))
 
-        Self{public: BBSplusPublicKey(pk), private: BBSplusSecretKey(sk), p: PhantomData}
+        Self{public: BBSplusPublicKey(pk), private: BBSplusSecretKey(sk)}
     }
 
 }
+
+
 
 
