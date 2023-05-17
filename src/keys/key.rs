@@ -5,82 +5,74 @@
 // use core::fmt::Result;
 // use zeroize::Zeroize;
 
-// /// A cryptographic key with `Public` components.
-// pub type PublicKey = Key<Public>;
+use std::{marker::PhantomData, process::Output};
 
-// /// A cryptographic key with `Private` components.
-// pub type PrivateKey = Key<Private>;
+use bls12_381_plus::{Scalar, G2Projective};
+use elliptic_curve::group::Curve;
+use rug::Integer;
+use serde::{Serialize, Deserialize, de::DeserializeOwned};
 
-// // =============================================================================
-// // =============================================================================
+use crate::schemes::algorithms::{Scheme, CL03, BBSplus};
 
-// mod private {
-//   pub trait Sealed {}
-// }
-
-// // A marker type for the `Public` components of an asymmetric cryptographic key.
-// #[derive(Clone, Copy, Debug)]
-// pub enum Public {}
-
-// // A marker type for the `Private` components of an asymmetric cryptographic key.
-// #[derive(Clone, Copy, Debug)]
-// pub enum Private {}
-
-// impl private::Sealed for Public {}
-
-// impl private::Sealed for Private {}
+use super::{cl03_key::{CL03PublicKey, CL03SecretKey}, bbsplus_key::{BBSplusPublicKey, BBSplusSecretKey}};
 
 
 
+pub trait PublicKey: Serialize + DeserializeOwned + Send + Sync + 'static {
+    type Output;
+    fn to_bytes(&self) -> Self::Output;
+    fn encode(&self) -> String;
+}
+pub trait PrivateKey: Serialize + DeserializeOwned + Send + Sync + 'static {
+    type Output;
+    fn to_bytes(&self) -> Self::Output;
+    fn encode(&self) -> String;
+}
 
-// /// A cryptographic key.
-// #[derive(Clone)]
-// pub struct Key<V: private::Sealed> {
-//   key: Box<[u8]>,
-//   vis: PhantomData<V>,
-// }
+impl PublicKey for BBSplusPublicKey{
+    type Output = [u8;96];
+    fn to_bytes(&self) -> Self::Output {
+        self.0.to_affine().to_compressed()
+    }
 
-// impl<V: private::Sealed> Debug for Key<V> {
-//   fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-//     f.write_str("Key")
-//   }
-// }
+    fn encode(&self) -> String {
+        let pk_bytes = self.to_bytes();
+        hex::encode(pk_bytes)
+    }
+}
+impl PublicKey for CL03PublicKey{
+    type Output = [u8; 512];
 
-// impl<V: private::Sealed> Display for Key<V> {
-//   fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-//     f.write_str("Key")
-//   }
-// }
+    fn encode(&self) -> String {
+        todo!()
+    }
 
-// impl<V: private::Sealed> Drop for Key<V> {
-//   fn drop(&mut self) {
-//     self.key.zeroize();
-//   }
-// }
+    fn to_bytes(&self) -> Self::Output {
+        todo!()
+    }
+}
 
-// impl<V: private::Sealed> Zeroize for Key<V> {
-//   fn zeroize(&mut self) {
-//     self.key.zeroize();
-//   }
-// }
+impl PrivateKey for BBSplusSecretKey{
+    type Output = [u8; 32];
+    //in BE order
+    fn to_bytes(&self) -> Self::Output{
+        let mut bytes = self.0.to_bytes();
+        bytes.reverse();
+        bytes
+    }
 
-// impl<V: private::Sealed> AsRef<[u8]> for Key<V> {
-//   fn as_ref(&self) -> &[u8] {
-//     &self.key
-//   }
-// }
+    fn encode(&self) -> String {
+        let sk_bytes = self.to_bytes();
+        hex::encode(sk_bytes)
+    }
+}
+impl PrivateKey for CL03SecretKey{
+    type Output = [u8; 512];
+    fn encode(&self) -> String {
+        todo!()
+    }
 
-// impl<V: private::Sealed> From<Box<[u8]>> for Key<V> {
-//   fn from(other: Box<[u8]>) -> Self {
-//     Self {
-//       key: other,
-//       vis: PhantomData,
-//     }
-//   }
-// }
-
-// impl<V: private::Sealed> From<Vec<u8>> for Key<V> {
-//   fn from(other: Vec<u8>) -> Self {
-//     other.into_boxed_slice().into()
-//   }
-// }
+    fn to_bytes(&self) -> Self::Output {
+        todo!()
+    }
+}

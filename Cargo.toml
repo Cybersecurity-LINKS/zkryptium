@@ -9,13 +9,12 @@ edition = "2021"
 rand = {version = "0.8.5"}
 num-bigint = { version = "0.4.3",  features = ["rand"] }
 zeroize = { version = "1.5" }
-serde = { version = "1.0", default-features = false, features = ["std", "derive"] }
-serde_jcs = { version = "0.1", default-features = false }
+serde = { version = "1.0.25", default_feature = false, features = ["derive"] }
+# serde_jcs = { version = "0.1", default-features = false }
 serde_json = "1.0.59"
-serde_derive = "1.0.163"
 num-prime = "0.4.3"
 num-integer = "0.1.45"
-rug = "1.19.2"
+rug = { verson = "1.19.2", features = ["serde"]}
 hex = "0.4.3"
 # rust-gmp = "0.5.0"
 

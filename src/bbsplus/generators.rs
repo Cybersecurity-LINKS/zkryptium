@@ -11,8 +11,9 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 use serde::ser::{Serialize, Serializer, SerializeStruct};
 
-use crate::keys::bbsplus_key::BBSplusKeyPair;
-use crate::keys::pair::KeyPair;
+// use crate::keys::bbsplus_key::BBSplusKeyPair;
+use crate::keys::pair::{KeyPair, KeyPairI};
+use crate::schemes::algorithms::BBSplus;
 
 use super::ciphersuites::BbsCiphersuite;
 
@@ -60,7 +61,7 @@ where
 {
 
     let mut rng = rand::thread_rng();
-    let kp = KeyPair::<BBSplusKeyPair>::generate_rng(&mut rng);
+    let kp = KeyPair::<BBSplus>::generate_rng(&mut rng);
 
 
     make_generators_fn(Some(&kp.public().to_bytes()), len)

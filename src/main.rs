@@ -1,7 +1,14 @@
 use std::time::Instant;
 
-use links_crypto::{utils::random, keys::{cl03_key::CL03KeyPair, pair::KeyPair, bbsplus_key::BBSplusKeyPair}, bbsplus::{generators::{make_generators, global_generators, signer_specific_generators, print_generators}, ciphersuites::Bls12381Shake256}};
+use links_crypto::{utils::random, keys::{cl03_key::{CL03KeyPair, CL03PublicKey}, pair::{KeyPair, KeyPairI}, bbsplus_key::{BBSplusKeyPair, BBSplusSecretKey}}, bbsplus::{generators::{make_generators, global_generators, signer_specific_generators, print_generators}, ciphersuites::Bls12381Shake256}, schemes::algorithms::{CL03, BBSplus}};
 
+use links_crypto::keys::key::PrivateKey;
+
+fn prova<T: KeyPairI>(keypair: &T){
+    println!("SK: {}", keypair.private().encode());
+    let sk  = keypair.private();
+    
+}
 
 fn main() {
 
@@ -10,8 +17,8 @@ fn main() {
 
     let write_data_start_time = Instant::now();
     
-    let cl03_keypair = KeyPair::<CL03KeyPair>::generate();
-    let bbsplus_keypair = KeyPair::<BBSplusKeyPair>::generate(
+    let cl03_keypair = KeyPair::<CL03>::generate();
+    let bbsplus_keypair = KeyPair::<BBSplus>::generate(
         &hex::decode(&IKM).unwrap(),
         Some(&hex::decode(&KEY_INFO).unwrap())
     );
@@ -34,4 +41,13 @@ fn main() {
     let generators2 = signer_specific_generators(get_generators_fn, 5);
 
     print_generators(&generators);
+
+    let bbskp = BBSplusKeyPair::generate(
+        &hex::decode(&IKM).unwrap(),
+        Some(&hex::decode(&KEY_INFO).unwrap())
+    );
+
+    prova(&bbskp);
+
+
 }

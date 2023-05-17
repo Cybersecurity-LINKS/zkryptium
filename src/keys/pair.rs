@@ -10,60 +10,130 @@ use hkdf::Hkdf;
 use rand::RngCore;
 use rug::Integer;
 use rug::integer::IsPrime;
-use serde_derive::Deserialize;
-use serde_derive::Serialize;
+use serde::Deserialize;
+use serde::Serialize;
 use sha2::Sha256;
 
 use crate::errors::BadParams;
 use crate::keys::type_::KeyType;
-// use crate::keys::key::PublicKey;
-// use crate::keys::key::PrivateKey;
-use crate::keys::cl03_key::CL03KeyPair;
+
+use crate::schemes::algorithms::BBSplus;
+use crate::schemes::algorithms::CL03;
+use crate::schemes::algorithms::Scheme;
 use crate::utils::random::random_prime;
 use crate::utils::random::random_qr;
 
 use super::bbsplus_key::BBSplusKeyPair;
+
 use super::bbsplus_key::BBSplusPublicKey;
 use super::bbsplus_key::BBSplusSecretKey;
+use super::cl03_key::CL03KeyPair;
 use super::cl03_key::CL03PublicKey;
 use super::cl03_key::CL03SecretKey;
 
+use super::key::PrivateKey;
+use super::key::PublicKey;
+
+
 use sha2::Digest;
-// use super::key::Private;
-// use super::key::Public;
-
-// #[derive(Clone, Debug)]
-// pub struct KeyPair {
-//   type_: KeyType,
-//   public: PublicKey,
-//   private: PrivateKey,
-// }
 
 
-// pub trait KeyPair {
-//     type PublicKey;
-//     type PrivateKey;
 
-//     fn new() -> Self;
-// }
-
-
-pub trait IKeyPair{
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct KeyPair<S: Scheme>{
+    public: S::PubKey,
+    private: S::PrivKey,
+    p: PhantomData<S>
 }
 
-impl IKeyPair for CL03KeyPair {}
+impl <T> KeyPair<T> 
+where T: Scheme
+{
 
-impl IKeyPair for BBSplusKeyPair {}
+    pub fn write_keypair_to_file(&self, file: Option<String>)
+    {
+        println!("writhing to file...");
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct KeyPair<P: IKeyPair> {
-    phantom: PhantomData<P>,
+        // #[derive(Deserialize, Serialize, Debug)]
+        // #[allow(non_snake_case)]
+        // struct FileToWrite {
+        //     keyPair: Self
+        // }
+
+        // let key_pair_to_write: FileToWrite = FileToWrite { 
+        //     keyPair: key_pair
+        // };
+
+        let file = file.unwrap_or(String::from("../fixtures/fixture_data/keyPair.json"));
+        let current_path = env::current_dir().unwrap();
+        let file_to_write = current_path.join(file);
+
+        std::fs::write(
+            &file_to_write, 
+            serde_json::to_string_pretty(
+                &self
+            ).expect("failed to serializing key pair")
+        ).expect(&format!("failed to write key pair to file: {}", file_to_write.to_str().unwrap()));
+    }
 }
 
 
-impl KeyPair<CL03KeyPair> {
+pub trait KeyPairI {
+    type PrivKey: PrivateKey;
+    type PubKey: PublicKey;
 
-    pub fn generate() -> CL03KeyPair {
+    fn public(&self) -> &Self::PubKey;
+    fn private(&self) -> &Self::PrivKey;
+}
+
+impl KeyPairI for CL03KeyPair {
+    type PrivKey = CL03SecretKey;
+
+    type PubKey = CL03PublicKey;
+
+    fn public(&self) -> &Self::PubKey {
+        self.public()
+    }
+
+    fn private(&self) -> &Self::PrivKey {
+       self.private()
+    }
+}
+
+
+impl KeyPairI for BBSplusKeyPair {
+    type PrivKey = BBSplusSecretKey;
+
+    type PubKey = BBSplusPublicKey;
+
+    fn public(&self) -> &Self::PubKey {
+        self.public()
+    }
+
+    fn private(&self) -> &Self::PrivKey {
+       self.private()
+    }
+}
+
+impl<S: Scheme> KeyPairI for KeyPair<S>{
+    type PrivKey = S::PrivKey;
+    type PubKey = S::PubKey;
+
+    fn public(&self) -> &Self::PubKey {
+        &self.public
+    }
+
+    fn private(&self) -> &Self::PrivKey {
+        &self.private
+    }
+
+    
+}
+
+
+impl KeyPair<CL03>{
+
+    pub fn generate() -> Self {
         let n = 512; //SECPARAM
         let mut pprime = random_prime(n);
         let mut p = Integer::from(2) * pprime.clone() + Integer::from(1);
@@ -106,21 +176,24 @@ impl KeyPair<CL03KeyPair> {
         let pk = CL03PublicKey::new(N, b, c, a_bases);
         let sk = CL03SecretKey::new(p, q);
 
-        let pair = CL03KeyPair::new(sk, pk);
-
-        pair
+        //let pair = CL03KeyPair::new(sk, pk);
+        Self{public: pk, private: sk, p: PhantomData }
+        // Self{public: PublicKey::new(PublicKeyData::CL03(pk)), private: PrivateKey::new(PrivateKeyData::CL03(sk)), p: PhantomData}
 
     }
 }
 
-impl KeyPair<BBSplusKeyPair>{
-    pub fn generate_rng<R: RngCore>(rng: &mut R) -> BBSplusKeyPair {
+impl KeyPair<BBSplus>{
+     
+    pub fn generate_rng<R: RngCore>(rng: &mut R) -> Self {
         let sk = Scalar::random(rng);
         let pk: G2Projective = G2Affine::generator() * sk;
-        BBSplusKeyPair::new(BBSplusSecretKey(sk), BBSplusPublicKey(pk))
+        // BBSplusKeyPair::new(BBSplusSecretKey(sk), BBSplusPublicKey(pk))
+
+        Self{public: BBSplusPublicKey(pk), private: BBSplusSecretKey(sk), p: PhantomData}
     }
 
-    pub fn generate<T>(ikm: T, key_info: Option<&[u8]>) -> BBSplusKeyPair
+    pub fn generate<T>(ikm: T, key_info: Option<&[u8]>) -> Self
     where
         T: AsRef<[u8]>
     {
@@ -168,37 +241,9 @@ impl KeyPair<BBSplusKeyPair>{
         // let mut sk_bytes = sk.to_bytes();
         // sk_bytes.reverse();
 
-        BBSplusKeyPair::new(BBSplusSecretKey(sk), BBSplusPublicKey(pk))
-    }
+        // BBSplusKeyPair::new(BBSplusSecretKey(sk), BBSplusPublicKey(pk))
 
-    pub fn write_keypair_to_file(ikm: &str, key_info: Option<&str>, key_pair: KeyPair<BBSplusKeyPair>, file: Option<String>)
-    {
-        println!("writhing to file...");
-
-        #[derive(Deserialize, Serialize, Debug)]
-        #[allow(non_snake_case)]
-        struct FileToWrite<'a> {
-            ikm: &'a str,
-            keyInfo: &'a str,
-            keyPair: KeyPair<BBSplusKeyPair>
-        }
-
-        let key_pair_to_write: FileToWrite = FileToWrite { 
-            ikm,
-            keyInfo: key_info.unwrap_or(&""),
-            keyPair: key_pair
-        };
-
-        let file = file.unwrap_or(String::from("../fixtures/fixture_data/keyPair.json"));
-        let current_path = env::current_dir().unwrap();
-        let file_to_write = current_path.join(file);
-
-        std::fs::write(
-            &file_to_write, 
-            serde_json::to_string_pretty(
-                &key_pair_to_write
-            ).expect("failed to serializing key pair")
-        ).expect(&format!("failed to write key pair to file: {}", file_to_write.to_str().unwrap()));
+        Self{public: BBSplusPublicKey(pk), private: BBSplusSecretKey(sk), p: PhantomData}
     }
 
 }
