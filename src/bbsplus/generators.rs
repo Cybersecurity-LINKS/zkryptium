@@ -15,7 +15,7 @@ use serde::ser::{Serialize, Serializer, SerializeStruct};
 use crate::keys::pair::{KeyPair};
 use crate::schemes::algorithms::BBSplus;
 
-use super::ciphersuites::BbsCiphersuite;
+use super::ciphersuites::{BbsCiphersuite, Bls12381Sha256};
 
 pub struct Generators {
     g1_base_point: G1Projective,
@@ -61,7 +61,7 @@ where
 {
 
     let mut rng = rand::thread_rng();
-    let kp = KeyPair::<BBSplus>::generate_rng(&mut rng);
+    let kp = KeyPair::<BBSplus<Bls12381Sha256>>::generate_rng(&mut rng);
 
 
     make_generators_fn(Some(&kp.public_key().to_bytes()), len)

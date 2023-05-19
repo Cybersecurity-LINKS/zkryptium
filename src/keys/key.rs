@@ -19,12 +19,12 @@ use super::{cl03_key::{CL03PublicKey, CL03SecretKey}, bbsplus_key::{BBSplusPubli
 
 
 pub trait PublicKey: Serialize + DeserializeOwned + Send + Sync + 'static {
-    type Output;
+    type Output: ?Sized;
     fn to_bytes(&self) -> Self::Output;
     fn encode(&self) -> String;
 }
 pub trait PrivateKey: Serialize + DeserializeOwned + Send + Sync + 'static {
-    type Output;
+    type Output: ?Sized;
     fn to_bytes(&self) -> Self::Output;
     fn encode(&self) -> String;
 }

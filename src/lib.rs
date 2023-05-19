@@ -4,3 +4,4 @@ pub mod signatures;
 pub mod schemes;
 pub mod errors;
 pub mod bbsplus;
+pub mod cl03;

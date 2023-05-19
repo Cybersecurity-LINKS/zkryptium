@@ -14,6 +14,8 @@ use serde::Deserialize;
 use serde::Serialize;
 use sha2::Sha256;
 
+use crate::bbsplus::ciphersuites::BbsCiphersuite;
+use crate::cl03::ciphersuites::CLCiphersuite;
 use crate::errors::BadParams;
 use crate::keys::type_::KeyType;
 
@@ -140,7 +142,7 @@ where S: Scheme
 // }
 
 
-impl KeyPair<CL03>{
+impl <CS: CLCiphersuite> KeyPair<CL03<CS>>{
 
     pub fn generate() -> Self {
         let n = 512; //SECPARAM
@@ -192,7 +194,7 @@ impl KeyPair<CL03>{
     }
 }
 
-impl KeyPair<BBSplus>{
+impl <CS: BbsCiphersuite> KeyPair<BBSplus<CS>>{
      
     pub fn generate_rng<R: RngCore>(rng: &mut R) -> Self {
         let sk = Scalar::random(rng);
@@ -201,7 +203,7 @@ impl KeyPair<BBSplus>{
 
         Self{public: BBSplusPublicKey(pk), private: BBSplusSecretKey(sk)}
     }
-
+    
     pub fn generate<T>(ikm: T, key_info: Option<&[u8]>) -> Self
     where
         T: AsRef<[u8]>
