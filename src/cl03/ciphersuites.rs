@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 
-use crate::bbsplus::ciphersuites::Ciphersuite;
+use crate::schemes::algorithms::Ciphersuite;
 
 pub trait CLCiphersuite: Eq + 'static + Ciphersuite{
     const SECPARAM: usize;

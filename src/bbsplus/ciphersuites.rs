@@ -4,7 +4,7 @@ use sha2::Sha256;
 use elliptic_curve::hash2curve::{ExpandMsg, ExpandMsgXof, ExpandMsgXmd, Expander, ExpanderXmd};
 use digest::{HashMarker, OutputSizeUser};
 
-use crate::{schemes::algorithms::Scheme, keys::bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}};
+use crate::{schemes::algorithms::{Scheme, Ciphersuite}, keys::bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}};
 
 
 pub trait BbsCiphersuite: Eq + 'static + Ciphersuite{
@@ -14,20 +14,6 @@ pub trait BbsCiphersuite: Eq + 'static + Ciphersuite{
     const GENERATOR_SEED_DST: &'static [u8];
     const GENERATOR_DST: &'static [u8];
     type Expander: ExpandMsg<'static>;
-}
-
-pub trait Ciphersuite: 'static + Eq{
-    type HashAlg: HashMarker;
-
-}
-
-impl Ciphersuite for Bls12381Sha256{
-    type HashAlg = Shake256;
-
-}
-impl Ciphersuite for Bls12381Shake256{
-    type HashAlg = Sha256;
-
 }
 
 
