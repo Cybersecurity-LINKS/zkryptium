@@ -5,11 +5,12 @@ use elliptic_curve::group::Curve;
 use elliptic_curve::hash2curve::{ExpandMsg, ExpandMsgXmd, Expander};
 use ff::Field;
 use group::Curve as OtherCurve;
+use serde::{Serialize, Deserialize};
 use sha2::Sha256;
 use std::env;
 use std::fs::File;
 use std::io::{BufWriter, Write};
-use serde::ser::{Serialize, Serializer, SerializeStruct};
+use serde::ser::{Serializer, SerializeStruct};
 
 // use crate::keys::bbsplus_key::BBSplusKeyPair;
 use crate::keys::pair::{KeyPair};
@@ -17,11 +18,12 @@ use crate::schemes::algorithms::BBSplus;
 
 use super::ciphersuites::{BbsCiphersuite, Bls12381Sha256};
 
+#[derive(Clone, PartialEq, Eq, Debug, Deserialize)]
 pub struct Generators {
-    g1_base_point: G1Projective,
-    q1: G1Projective,
-    q2: G1Projective,
-    message_generators: Vec<G1Projective>
+    pub(crate) g1_base_point: G1Projective,
+    pub(crate) q1: G1Projective,
+    pub(crate) q2: G1Projective,
+    pub(crate) message_generators: Vec<G1Projective>
 }
 
 impl Serialize for Generators {
@@ -108,21 +110,20 @@ where
     X: BbsCiphersuite,
     X::Expander: for<'a> ExpandMsg<'a>,
 {
-    const EXPAND_LEN: usize = 48; //TODO make a property of X or calculate?
     let default_seed = &X::GENERATOR_SEED;
     let seed = seed.unwrap_or(default_seed);
 
     let base_point = make_g1_base_point::<X>();
     let mut generators = Vec::new();
 
-    let mut v = vec!(0u8; EXPAND_LEN);
-    let mut buffer = vec!(0u8; EXPAND_LEN);
+    let mut v = vec!(0u8; X::EXPAND_LEN);
+    let mut buffer = vec!(0u8; X::EXPAND_LEN);
 
-    X::Expander::expand_message(&[seed], &[X::GENERATOR_SEED_DST], EXPAND_LEN).unwrap().fill_bytes(&mut v);
+    X::Expander::expand_message(&[seed], &[X::GENERATOR_SEED_DST], X::EXPAND_LEN).unwrap().fill_bytes(&mut v);
     let mut n = 1u32;
     while generators.len() < len {
         v.append(n.to_be_bytes().to_vec().as_mut());
-        X::Expander::expand_message(&[&v], &[X::GENERATOR_SEED_DST], EXPAND_LEN).unwrap().fill_bytes(&mut buffer);
+        X::Expander::expand_message(&[&v], &[X::GENERATOR_SEED_DST], X::EXPAND_LEN).unwrap().fill_bytes(&mut buffer);
         v = buffer.clone();
         n += 1;
         let candidate = G1Projective::hash::<X::Expander>(&v, &X::GENERATOR_DST);
@@ -145,15 +146,14 @@ where
     X::Expander: for<'a> ExpandMsg<'a>,
 {
 
-    const EXPAND_LEN: usize = 48; //TODO make a property of X or calculate?
-    let mut v = [0u8; EXPAND_LEN];
-    X::Expander::expand_message(&[X::GENERATOR_SEED_BP], &[X::GENERATOR_SEED_DST], EXPAND_LEN).unwrap().fill_bytes(&mut v);
+    let mut v = [0u8; 48];
+    X::Expander::expand_message(&[X::GENERATOR_SEED_BP], &[X::GENERATOR_SEED_DST], X::EXPAND_LEN).unwrap().fill_bytes(&mut v);
 
     // TODO: implement a proper I2OSP
     let extra = 1u32.to_be_bytes().to_vec();
     let buffer = [v.as_ref(), &extra].concat();
 
-    X::Expander::expand_message(&[&buffer], &[X::GENERATOR_SEED_DST], EXPAND_LEN).unwrap().fill_bytes(&mut v);
+    X::Expander::expand_message(&[&buffer], &[X::GENERATOR_SEED_DST], X::EXPAND_LEN).unwrap().fill_bytes(&mut v);
 
     G1Projective::hash::<X::Expander>(&v, &X::GENERATOR_DST)
 }
