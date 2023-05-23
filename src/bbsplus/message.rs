@@ -2,9 +2,11 @@ use std::process::Output;
 
 use digest::{HashMarker, Digest};
 use elliptic_curve::hash2curve::ExpandMsg;
+use ff::Field;
 use rand::RngCore;
 use rug::{Integer, integer::Order};
 use bls12_381_plus::Scalar;
+use serde::{Serialize, Deserialize};
 
 use crate::{schemes::algorithms::Scheme, utils::util::hash_to_scalar, cl03::ciphersuites::CLCiphersuite};
 
@@ -14,10 +16,13 @@ pub const BBS_MESSAGE_LENGTH: usize = usize::MAX;
 
 
 pub trait Message {
+    type Value;
     fn random(rng: impl RngCore) -> Self;
     fn to_bytes(&self) -> [u8; 32];
+    fn get_value(&self) -> Self::Value;
 }
 
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusMessage{
     value: Scalar
 }
@@ -47,6 +52,7 @@ impl BBSplusMessage {
     }
 }
 
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct CL03Message{
     value: Integer
 }
@@ -70,13 +76,19 @@ impl CL03Message {
 
 impl Message for BBSplusMessage {
 
+    type Value = Scalar;
 
     fn random(rng: impl RngCore) -> Self {
-        todo!()
+
+        Self::new(Scalar::random(rng))
     }
 
     fn to_bytes(&self) -> [u8; 32] {
         self.value.to_bytes()
+    }
+    
+    fn get_value(&self) -> Scalar {
+        self.value
     }
 }
 

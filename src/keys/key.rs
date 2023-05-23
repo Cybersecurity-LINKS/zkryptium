@@ -30,7 +30,7 @@ pub trait PrivateKey: Serialize + DeserializeOwned + Send + Sync + 'static {
 }
 
 impl PublicKey for BBSplusPublicKey{
-    type Output = [u8;96];
+    type Output = [u8; 96];
     fn to_bytes(&self) -> Self::Output {
         self.0.to_affine().to_compressed()
     }

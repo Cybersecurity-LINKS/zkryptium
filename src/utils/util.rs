@@ -47,7 +47,7 @@ pub fn calculate_random_scalars(count: u8) -> Vec<Scalar> {
 }
 
 pub fn subgroup_check_g1(p: G1Projective) -> bool {
-    if p.is_on_curve().into() && p.is_identity().into() {
+    if p.is_on_curve().into() /*&& p.is_identity().into()*/ {
         true
     }
     else {
