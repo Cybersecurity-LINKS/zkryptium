@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use bls12_381_plus::{G1Affine, G2Affine, pairing, G1Projective, Scalar};
 use hex::ToHex;
-use links_crypto::{utils::random, keys::{cl03_key::{CL03PublicKey}, pair::{KeyPair}, bbsplus_key::{BBSplusSecretKey}}, bbsplus::{generators::{make_generators, global_generators, signer_specific_generators, print_generators}, ciphersuites::{Bls12381Shake256, BbsCiphersuite}, message::{Message, BBSplusMessage}}, schemes::algorithms::{CL03, BBSplus, Scheme, CL03Sha256, BBSplusShake256, BBSplusSha256}, signatures::{commitment::{BBSplusCommitmentContext, Commitment, BBSplusCommitment, CommitmentContext}}};
+use links_crypto::{utils::random, keys::{cl03_key::{CL03PublicKey}, pair::{KeyPair}, bbsplus_key::{BBSplusSecretKey}}, bbsplus::{generators::{make_generators, global_generators, signer_specific_generators, print_generators}, ciphersuites::{Bls12381Shake256, BbsCiphersuite}, message::{Message, BBSplusMessage}}, schemes::algorithms::{CL03, BBSplus, Scheme, CL03Sha256, BBSplusShake256, BBSplusSha256}, signatures::{commitment::{BBSplusCommitmentContext, Commitment, BBSplusCommitment, CommitmentContext}, prova::{self, BlindSignature, BBSplusBlindSignature}}};
 
 use links_crypto::keys::key::PrivateKey;
 
@@ -17,13 +17,23 @@ fn prova2<C>(commitment: C)
 where
     C: Commitment<Value = G1Projective, Randomness = Scalar>
 {
-
+    
     let value = commitment.value();
     let randomness = commitment.randomness();
     println!("commitment: {:?}", value);
     println!("randomness: {:?}", randomness);
 
 }
+
+fn prova3<CS: BbsCiphersuite>(signature: BlindSignature<BBSplus<CS>>)
+{
+    let (a, b, c) = signature.get_params();
+
+
+    println!("{:?}", a);
+}
+
+
 fn main() {
 
     const IKM: &str = "746869732d49532d6a7573742d616e2d546573742d494b4d2d746f2d67656e65726174652d246528724074232d6b6579";
@@ -74,4 +84,8 @@ fn main() {
 
     let commitment = bbs_ctx.commit();
     prova2(commitment);
+
+    // let sign = BlindSignatureGen::<BBSplusShake256>::prova();
+    let sign2 = BlindSignature::<BBSplusShake256>::prova();
+    prova3(sign2);
 }

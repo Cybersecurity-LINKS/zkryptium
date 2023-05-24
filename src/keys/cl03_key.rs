@@ -14,10 +14,10 @@ use super::bbsplus_key::{BBSplusPublicKey, BBSplusSecretKey};
 
 #[derive(Clone, PartialEq, PartialOrd, Eq, Hash, Debug, Ord, Serialize, Deserialize)]
 pub struct CL03PublicKey{
-    N: Integer,
-    b: Integer,
-    c: Integer,
-    a_bases: Vec<Integer>
+    pub(crate) N: Integer,
+    pub(crate) b: Integer,
+    pub(crate) c: Integer,
+    pub(crate) a_bases: Vec<Integer>
 }
 
 impl CL03PublicKey {
@@ -28,8 +28,8 @@ impl CL03PublicKey {
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct CL03SecretKey{
-    p: Integer,
-    q: Integer
+    pub(crate) p: Integer,
+    pub(crate) q: Integer
     
 }
 
