@@ -27,7 +27,7 @@ where
 
 fn prova3<CS: BbsCiphersuite>(signature: BlindSignature<BBSplus<CS>>)
 {
-    let (a, b, c) = signature.get_params();
+    let a = signature.a();
 
 
     println!("{:?}", a);
@@ -85,7 +85,6 @@ fn main() {
     let commitment = bbs_ctx.commit();
     prova2(commitment);
 
-    // let sign = BlindSignatureGen::<BBSplusShake256>::prova();
-    let sign2 = BlindSignature::<BBSplusShake256>::prova();
-    prova3(sign2);
+    // let sign = BlindSignature::<BBSplusShake256>::blind_sign(pk, sk, commitment);
+    // prova3(sign);
 }
