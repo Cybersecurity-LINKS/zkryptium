@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use bls12_381_plus::{G1Affine, G2Affine, pairing, G1Projective, Scalar};
 use hex::ToHex;
-use links_crypto::{utils::random, keys::{cl03_key::{CL03PublicKey}, pair::{KeyPair}, bbsplus_key::{BBSplusSecretKey}}, bbsplus::{generators::{make_generators, global_generators, signer_specific_generators, print_generators}, ciphersuites::{Bls12381Shake256, BbsCiphersuite}, message::{Message, BBSplusMessage}}, schemes::algorithms::{CL03, BBSplus, Scheme, CL03Sha256, BBSplusShake256, BBSplusSha256}, signatures::{commitment::{BBSplusCommitmentContext, Commitment, BBSplusCommitment, CommitmentContext}, prova::{self, BlindSignature, BBSplusBlindSignature}}};
+use links_crypto::{utils::random, keys::{cl03_key::{CL03PublicKey}, pair::{KeyPair}, bbsplus_key::{BBSplusSecretKey}}, bbsplus::{generators::{make_generators, global_generators, signer_specific_generators, print_generators}, ciphersuites::{Bls12381Shake256, BbsCiphersuite}, message::{Message, BBSplusMessage}}, schemes::algorithms::{CL03, BBSplus, Scheme, CL03Sha256, BBSplusShake256, BBSplusSha256}, signatures::{commitment::{Commitment, BBSplusCommitment, self}, blind::{self, BlindSignature, BBSplusBlindSignature}}};
 
 use links_crypto::keys::key::PrivateKey;
 
@@ -13,9 +13,7 @@ fn prova<S: Scheme>(keypair: &KeyPair<S>){
 
     
 }
-fn prova2<C>(commitment: C) 
-where
-    C: Commitment<Value = G1Projective, Randomness = Scalar>
+fn prova2<CS: BbsCiphersuite>(commitment: Commitment<BBSplus<CS>>)
 {
     
     let value = commitment.value();
@@ -80,9 +78,8 @@ fn main() {
     let mut rng = rand::thread_rng();
     let messages = BBSplusMessage::random(&mut rng);
     
-    let bbs_ctx = BBSplusCommitmentContext::<BBSplusShake256>::new(&[messages], Some(&generators), &[0usize]); 
+    let commitment = Commitment::<BBSplusShake256>::commit(&[messages], Some(&generators), &[0usize]); 
 
-    let commitment = bbs_ctx.commit();
     prova2(commitment);
 
     // let sign = BlindSignature::<BBSplusShake256>::blind_sign(pk, sk, commitment);
