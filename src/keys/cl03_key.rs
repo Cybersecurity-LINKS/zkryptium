@@ -17,11 +17,11 @@ pub struct CL03PublicKey{
     pub(crate) N: Integer,
     pub(crate) b: Integer,
     pub(crate) c: Integer,
-    pub(crate) a_bases: Vec<Integer>
+    pub(crate) a_bases: Vec<(Integer, bool)>
 }
 
 impl CL03PublicKey {
-    pub fn new(N: Integer, b: Integer, c: Integer, a_bases: Vec<Integer>) -> Self {
+    pub fn new(N: Integer, b: Integer, c: Integer, a_bases: Vec<(Integer, bool)>) -> Self {
         Self{N, b, c, a_bases}
     }
 }

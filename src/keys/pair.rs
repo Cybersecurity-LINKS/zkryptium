@@ -144,8 +144,8 @@ where S: Scheme
 
 impl <CS: CLCiphersuite> KeyPair<CL03<CS>>{
 
-    pub fn generate() -> Self {
-        let n = 512; //SECPARAM
+    pub fn generate(n_attributes: Option<u32>) -> Self {
+        let n = CS::SECPARAM; //SECPARAM
         let mut pprime = random_prime(n);
         let mut p = Integer::from(2) * pprime.clone() + Integer::from(1);
         loop{
@@ -176,10 +176,13 @@ impl <CS: CLCiphersuite> KeyPair<CL03<CS>>{
 
         let N = p.clone() * q.clone();
     
-        let mut a_bases: Vec<Integer> = Vec::new();
-        let a0 = random_qr(&N);
+        let mut a_bases: Vec<(Integer, bool)> = Vec::new();
 
-        a_bases.push(a0);
+        let n_attr = n_attributes.unwrap_or(1);
+        for i in 0..n_attr {
+            let a = random_qr(&N);
+            a_bases.push((a, true));
+        }
 
         let b = random_qr(&N);
         let c = random_qr(&N);

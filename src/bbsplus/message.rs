@@ -92,3 +92,19 @@ impl Message for BBSplusMessage {
     }
 }
 
+impl Message for CL03Message {
+    type Value = Integer;
+
+    fn random(rng: impl RngCore) -> Self {
+        todo!()
+    }
+
+    fn to_bytes(&self) -> [u8; 32] {
+        todo!()
+    }
+
+    fn get_value(&self) -> Integer {
+        self.value.clone()
+    }
+}
+

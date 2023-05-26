@@ -2,17 +2,19 @@ use std::time::Instant;
 
 use bls12_381_plus::{G1Affine, G2Affine, pairing, G1Projective, Scalar};
 use hex::ToHex;
-use links_crypto::{utils::random, keys::{cl03_key::{CL03PublicKey}, pair::{KeyPair}, bbsplus_key::{BBSplusSecretKey}}, bbsplus::{generators::{make_generators, global_generators, signer_specific_generators, print_generators}, ciphersuites::{Bls12381Shake256, BbsCiphersuite}, message::{Message, BBSplusMessage}}, schemes::algorithms::{CL03, BBSplus, Scheme, CL03Sha256, BBSplusShake256, BBSplusSha256}, signatures::{commitment::{Commitment, BBSplusCommitment, self}, blind::{self, BlindSignature, BBSplusBlindSignature}}};
+use links_crypto::{utils::random, keys::{cl03_key::{CL03PublicKey}, pair::{KeyPair}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, bbsplus::{generators::{make_generators, global_generators, signer_specific_generators, print_generators}, ciphersuites::{Bls12381Shake256, BbsCiphersuite}, message::{Message, BBSplusMessage}}, schemes::algorithms::{CL03, BBSplus, Scheme, CL03Sha256, BBSplusShake256, BBSplusSha256}, signatures::{commitment::{Commitment, BBSplusCommitment, self}, blind::{self, BlindSignature, BBSplusBlindSignature}}};
 
 use links_crypto::keys::key::PrivateKey;
 
-fn prova<S: Scheme>(keypair: &KeyPair<S>){
+fn prova<S: Scheme>(keypair: &KeyPair<S>)
+where
+    S: Scheme<PrivKey = BBSplusSecretKey, PubKey = BBSplusPublicKey>
+{
     let sk = keypair.private_key();
 
     println!("SK: {}", sk.encode());
-
-    
 }
+
 fn prova2<CS: BbsCiphersuite>(commitment: Commitment<BBSplus<CS>>)
 {
     
@@ -39,7 +41,7 @@ fn main() {
 
 
     
-    let cl03_keypair = KeyPair::<CL03Sha256>::generate();
+    let cl03_keypair = KeyPair::<CL03Sha256>::generate(None);
     let bbsplus_keypair = KeyPair::<BBSplusShake256>::generate(
         &hex::decode(&IKM).unwrap(),
         Some(&hex::decode(&KEY_INFO).unwrap())
@@ -84,4 +86,5 @@ fn main() {
 
     // let sign = BlindSignature::<BBSplusShake256>::blind_sign(pk, sk, commitment);
     // prova3(sign);
+
 }

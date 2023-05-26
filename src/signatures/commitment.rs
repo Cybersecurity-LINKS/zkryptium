@@ -1,11 +1,11 @@
 use std::{ops::Index, marker::PhantomData, borrow::Borrow};
 
 use bls12_381_plus::{Scalar, G1Projective, G1Affine};
-use elliptic_curve::{group::GroupEncoding, hash2curve::ExpandMsg};
+use elliptic_curve::{group::GroupEncoding, hash2curve::ExpandMsg, PublicKey};
 use rug::{Integer, integer::Order};
 use serde::{Deserialize, Serialize};
 
-use crate::{bbsplus::{message::{Message, self, BBSplusMessage}, ciphersuites::BbsCiphersuite, generators::{self, Generators, make_generators, global_generators}}, schemes::algorithms::{Scheme, BBSplus, CL03, Ciphersuite}, cl03::ciphersuites::CLCiphersuite, utils::util::{calculate_random_scalars, subgroup_check_g1}, keys::cl03_key::CL03PublicKey};
+use crate::{bbsplus::{message::{Message, self, BBSplusMessage, CL03Message}, ciphersuites::BbsCiphersuite, generators::{self, Generators, make_generators, global_generators}}, schemes::algorithms::{Scheme, BBSplus, CL03, Ciphersuite}, cl03::ciphersuites::CLCiphersuite, utils::{util::{calculate_random_scalars, subgroup_check_g1}, random::random_bits}, keys::{cl03_key::CL03PublicKey}};
 
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -97,13 +97,42 @@ impl <CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
 
 
 impl <CS: CLCiphersuite> Commitment<CL03<CS>> {
-    pub fn commit() -> Self {
-        todo!()
+    pub fn commit(messages: &[CL03Message], pk: &CL03PublicKey, unrevealed_message_indexes: &[usize]) -> Self {
+        let r = random_bits(CS::ln);
+        let mut Cx = Integer::from(1);
+
+        for i in unrevealed_message_indexes {
+            let ai = pk.a_bases.get(*i).and_then(|a| {a.1 == true; return Some(&a.0);}).expect("Invalid unrevealed message index!");
+            let mi = &messages[*i];
+            Cx = Cx * Integer::from(ai.pow_mod_ref(&mi.get_value(), &pk.N).unwrap());
+        }
+
+        Cx = (Cx * Integer::from(pk.b.pow_mod_ref(&r, &pk.N).unwrap())) % &pk.N;
+
+        Self::CL03(CL03Commitment { value: Cx, randomness: r })
+    }
+
+    pub fn extend_commitment(&mut self, messages: &[CL03Message], pk: &CL03PublicKey, revealed_message_indexes: &[usize]) {
+        let mut extended_Cx = self.value().clone();
+        for i in revealed_message_indexes {
+            let ai = pk.a_bases.get(*i).and_then(|a| {a.1 == true; return Some(&a.0);}).expect("Invalid revealed message index!");
+            let mi = &messages[*i];
+            extended_Cx = (extended_Cx * Integer::from(ai.pow_mod_ref(&mi.get_value(), &pk.N).unwrap())) % &pk.N;
+        }
+
+        self.set_value(extended_Cx);
     }
 
     pub fn value(&self) -> &Integer {
         match self {
             Self::CL03(inner) => &inner.value,
+            _ => panic!("Cannot happen!")
+        }
+    }
+
+    pub fn set_value(&mut self, value: Integer) {
+        match self {
+            Self::CL03(inner) => inner.value = value,
             _ => panic!("Cannot happen!")
         }
     }
