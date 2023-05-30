@@ -5,7 +5,10 @@ use bls12_381_plus::{G1Projective, Scalar};
 use rug::{Integer, ops::Pow};
 use serde::{Deserialize, Serialize};
 
-use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::CL03Message}, cl03::ciphersuites::CLCiphersuite, utils::random::{random_prime, random_bits}, keys::cl03_key::{CL03PublicKey, CL03SecretKey}};
+use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{CL03Message, BBSplusMessage, Message}, generators::Generators}, cl03::ciphersuites::CLCiphersuite, utils::{random::{random_prime, random_bits}, util::{calculate_domain, hash_to_scalar}}, keys::{cl03_key::{CL03PublicKey, CL03SecretKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}};
+
+use super::commitment::BBSplusCommitment;
+use elliptic_curve::hash2curve::{ExpandMsg, Expander};
 
 
 
@@ -34,8 +37,55 @@ pub enum Signature<S: Scheme> {
 
 impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
 
-    pub fn sign() -> Self {
-        todo!()
+    pub fn sign(messages: Option<&[BBSplusMessage]>, sk: &BBSplusSecretKey, pk: &BBSplusPublicKey, generators: &Generators, header: Option<&[u8]>) -> Self {
+        let header = header.unwrap_or(b"");
+
+        let messages = messages.unwrap_or(&[]);
+
+        let L = messages.len();
+
+        if generators.message_generators.len() < L {
+            panic!("not enough generators!");
+        }
+
+        let domain = calculate_domain(pk, generators.q1, generators.q2, &generators.message_generators, Some(header));
+        let e_s_for_hash: Vec<u8> = Vec::new();
+        e_s_for_hash.extend_from_slice(&sk.to_bytes());
+        e_s_for_hash.extend_from_slice(&domain.to_bytes());
+        messages.iter().map(|m| m.to_bytes()).for_each(|m| e_s_for_hash.extend_from_slice(&m));
+
+        // e_s_len = octet_scalar_length * 2
+        // 7.  e_s_expand = expand_message(e_s_octs, expand_dst, e_s_len)
+        // 8.  if e_s_expand is INVALID, return INVALID
+        // 9.  e = hash_to_scalar(e_s_expand[0..(octet_scalar_length - 1)])
+        // 10. s = hash_to_scalar(e_s_expand[octet_scalar_length..(e_s_len - 1)])
+
+        let e_s_len = CS::OCTECT_SCALAR_LEN * 2;
+
+
+        let mut e_s_expand = vec!(0u8; e_s_len);
+
+        CS::Expander::expand_message(&[&e_s_for_hash], &[CS::GENERATOR_SEED_DST], e_s_len).unwrap().fill_bytes(&mut e_s_expand);
+
+        let e = hash_to_scalar(&e_s_expand[0..(CS::OCTECT_SCALAR_LEN-1)], None);
+        let s = hash_to_scalar(&e_s_expand[CS::OCTECT_SCALAR_LEN..(e_s_len-1)], None);
+
+
+
+		// # B = P1 + Q_1 * s + Q_2 * domain + H_1 * msg_1 + ... + H_L * msg_L
+		// B = P1 + Q_1 * s + Q_2 * domain
+		// for i in range(0, L):
+		// 	B += H[i] * messages[i]	
+		// # Check if (SK + e) = 0 mod r
+		// SK_plus_e = (int(SK) + e) % bls12_381.r
+		// assert SK_plus_e != 0, "(SK + e) = 0 mod r"	
+		// # A = B * (1 / (SK + e) mod r)
+		// A = B * int(invert(SK_plus_e, bls12_381.r))
+		// # Check if A != Identity_G1
+		// assert A != G1Infinity(), "A == Identity_G1"
+		// # signature = (A, e, s)		
+		// signature = signature_to_octets(A, e, s)		
+		// return signature
     }
 
     pub fn verify() -> bool {
