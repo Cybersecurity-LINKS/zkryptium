@@ -1,8 +1,10 @@
 use std::time::Instant;
 
 use bls12_381_plus::{G1Affine, G2Affine, pairing, G1Projective, Scalar};
+use byteorder::BigEndian;
+use glass_pumpkin::prime::new;
 use hex::ToHex;
-use links_crypto::{utils::random, keys::{cl03_key::{CL03PublicKey}, pair::{KeyPair}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, bbsplus::{generators::{make_generators, global_generators, signer_specific_generators, print_generators}, ciphersuites::{Bls12381Shake256, BbsCiphersuite}, message::{Message, BBSplusMessage}}, schemes::algorithms::{CL03, BBSplus, Scheme, CL03Sha256, BBSplusShake256, BBSplusSha256}, signatures::{commitment::{Commitment, BBSplusCommitment, self}, blind::{self, BlindSignature, BBSplusBlindSignature}}};
+use links_crypto::{utils::random, keys::{cl03_key::{CL03PublicKey}, pair::{KeyPair}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, bbsplus::{generators::{make_generators, global_generators, signer_specific_generators, print_generators}, ciphersuites::{Bls12381Shake256, BbsCiphersuite, Bls12381Sha256}, message::{Message, BBSplusMessage}}, schemes::algorithms::{CL03, BBSplus, Scheme, CL03Sha256, BBSplusShake256, BBSplusSha256}, signatures::{commitment::{Commitment, BBSplusCommitment, self}, blind::{self, BlindSignature, BBSplusBlindSignature}}};
 
 use links_crypto::keys::key::PrivateKey;
 
@@ -31,6 +33,31 @@ fn prova3<CS: BbsCiphersuite>(signature: BlindSignature<BBSplus<CS>>)
 
 
     println!("{:?}", a);
+}
+
+fn test_bbsplus_sign() {
+
+    const msg: &str = "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02";
+    const dst: &str = "4242535f424c53313233383147315f584f463a5348414b452d3235365f535357555f524f5f4d41505f4d53475f544f5f5343414c41525f41535f484153485f";
+    const dst_sha256: &str = "4242535f424c53313233383147315f584d443a5348412d3235365f535357555f524f5f4d41505f4d53475f544f5f5343414c41525f41535f484153485f";
+    const header:&str = "11223344556677889900aabbccddeeff";
+
+
+    let message = BBSplusMessage::map_message_to_scalar_as_hash::<Bls12381Sha256>(&hex::decode(msg).unwrap(), Some(&hex::decode(dst_sha256).unwrap()));
+
+    let message_bytes = message.to_bytes_be();
+
+    // let mut message_bytes_be:Vec<u8> = Vec::new();
+
+    // println!("{:?}", message_bytes);
+
+    // for n in message_bytes {
+    //     message_bytes_be.push(n.to_be());
+    // }
+
+    // println!("{:?}", hex::encode(message_bytes_be.as_slice()));
+    println!("{:?}", hex::encode(message_bytes));
+    println!("{:?}", hex::decode("47f99622ec7bdc140b947eacc95f716a7223527751589febf4877e669a636667"));
 }
 
 
@@ -82,9 +109,12 @@ fn main() {
     
     let commitment = Commitment::<BBSplusShake256>::commit(&[messages], Some(&generators), &[0usize]); 
 
-    prova2(commitment);
+    // prova2(commitment);
 
     // let sign = BlindSignature::<BBSplusShake256>::blind_sign(pk, sk, commitment);
     // prova3(sign);
+
+    test_bbsplus_sign();
+
 
 }

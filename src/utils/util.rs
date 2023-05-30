@@ -15,7 +15,7 @@ where
     let default_dst = binding.as_slice();
     let dst = dst.unwrap_or(default_dst);
 
-    let mut counter = 0;
+    let mut counter: u8 = 0;
     let mut hashed_scalar = Scalar::from(0);
 
     let mut uniform_bytes = vec!(0u8; C::EXPAND_LEN);
@@ -24,9 +24,9 @@ where
 
     while hashed_scalar == Scalar::from(0) {
 
-        msg_prime = [msg_octects, &[counter; 1][..]].concat();
+        msg_prime = [msg_octects, &[counter; 1][..], &[0u8, 0u8, 0u8, 1u8][..]].concat();
+        // msg_prime = [msg_octects, &[counter; 1][..]].concat(); //from UPDATED STANDARD
         C::Expander::expand_message(&[msg_prime.as_slice()], &[dst], C::EXPAND_LEN).unwrap().fill_bytes(&mut uniform_bytes);
-        uniform_bytes.reverse();
         hashed_scalar = Scalar::from_okm(uniform_bytes.as_slice().try_into().unwrap());
 
         counter = counter + 1;
@@ -56,7 +56,10 @@ pub fn subgroup_check_g1(p: G1Projective) -> bool {
     }
 }
 
-pub(crate) fn calculate_domain<CS: BbsCiphersuite>(pk: &BBSplusPublicKey, q1: G1Projective, q2: G1Projective, h_points: &[G1Projective], header: Option<&[u8]>) -> Scalar{
+pub(crate) fn calculate_domain<CS: BbsCiphersuite>(pk: &BBSplusPublicKey, q1: G1Projective, q2: G1Projective, h_points: &[G1Projective], header: Option<&[u8]>) -> Scalar
+where
+    CS::Expander: for<'a> ExpandMsg<'a>,
+{
     let header = header.unwrap_or(b"");
 
     let L = h_points.len();

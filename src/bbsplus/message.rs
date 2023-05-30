@@ -18,7 +18,8 @@ pub const BBS_MESSAGE_LENGTH: usize = usize::MAX;
 pub trait Message {
     type Value;
     fn random(rng: impl RngCore) -> Self;
-    fn to_bytes(&self) -> [u8; 32];
+    fn to_bytes_be(&self) -> [u8; 32];
+    fn to_bytes_le(&self) -> [u8; 32];
     fn get_value(&self) -> Self::Value;
 }
 
@@ -29,11 +30,11 @@ pub struct BBSplusMessage{
 
 impl BBSplusMessage {
 
-    fn new(msg: Scalar) -> Self{
+    pub fn new(msg: Scalar) -> Self{
         Self{value: msg}
     }
 
-    fn map_message_to_scalar_as_hash<C: BbsCiphersuite>(data: &[u8], dst: Option<&[u8]>) -> Self 
+    pub fn map_message_to_scalar_as_hash<C: BbsCiphersuite>(data: &[u8], dst: Option<&[u8]>) -> Self 
     where
         C::Expander: for<'a> ExpandMsg<'a>,
     {
@@ -50,6 +51,7 @@ impl BBSplusMessage {
         Self { value: scalar }
 
     }
+
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -59,11 +61,11 @@ pub struct CL03Message{
 
 impl CL03Message {
 
-    fn new(msg: Integer) -> Self {
+    pub fn new(msg: Integer) -> Self {
         Self{value: msg}
     }
 
-    fn map_message_to_integer_as_hash<C: CLCiphersuite>(data: &[u8]) -> Self 
+    pub fn map_message_to_integer_as_hash<C: CLCiphersuite>(data: &[u8]) -> Self 
     where C::HashAlg: Digest
     {
         let binding = <C::HashAlg as Digest>::digest(data);
@@ -83,7 +85,14 @@ impl Message for BBSplusMessage {
         Self::new(Scalar::random(rng))
     }
 
-    fn to_bytes(&self) -> [u8; 32] {
+    //in BE
+    fn to_bytes_be(&self) -> [u8; 32] {
+        let mut bytes = self.value.to_bytes();
+        bytes.reverse();
+        bytes
+    }
+
+    fn to_bytes_le(&self) -> [u8; 32] {
         self.value.to_bytes()
     }
     
@@ -99,7 +108,11 @@ impl Message for CL03Message {
         todo!()
     }
 
-    fn to_bytes(&self) -> [u8; 32] {
+    fn to_bytes_be(&self) -> [u8; 32] {
+        todo!()
+    }
+
+    fn to_bytes_le(&self) -> [u8; 32] {
         todo!()
     }
 
