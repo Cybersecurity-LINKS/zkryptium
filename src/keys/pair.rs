@@ -17,8 +17,6 @@ use sha2::Sha256;
 use crate::bbsplus::ciphersuites::BbsCiphersuite;
 use crate::cl03::ciphersuites::CLCiphersuite;
 use crate::errors::BadParams;
-use crate::keys::type_::KeyType;
-
 use crate::schemes::algorithms::BBSplus;
 use crate::schemes::algorithms::CL03;
 use crate::schemes::algorithms::Scheme;

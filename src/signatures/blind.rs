@@ -5,9 +5,9 @@ use elliptic_curve::{group::Curve, subtle::{CtOption, Choice}};
 use rug::{Integer, ops::Pow};
 use serde::{Deserialize, Serialize};
 
-use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::ciphersuites::BbsCiphersuite, cl03::ciphersuites::CLCiphersuite, keys::cl03_key::{CL03PublicKey, CL03SecretKey}, utils::random::{random_prime, random_bits}};
+use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::CL03Message}, cl03::ciphersuites::CLCiphersuite, keys::cl03_key::{CL03PublicKey, CL03SecretKey}, utils::random::{random_prime, random_bits}};
 
-use super::commitment::CL03Commitment;
+use super::commitment::{CL03Commitment, self, Commitment};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusBlindSignature {
@@ -106,7 +106,10 @@ impl <CS:CLCiphersuite> BlindSignature<CL03<CS>> {
         }
     }
 
+    //TODO: ("remove the indexes");
+
     pub fn blind_sign(pk: &CL03PublicKey, sk: &CL03SecretKey, commitment: CL03Commitment) -> Self{
+
         let mut e = random_prime(CS::le);
         let phi_n = (&sk.p - Integer::from(1)) * (&sk.q - Integer::from(1));
         while ((&e > &Integer::from(2.pow(CS::le-1))) && (&e < &Integer::from(2.pow(CS::le))) && (Integer::from(e.gcd_ref(&phi_n)) == 1)) == false {

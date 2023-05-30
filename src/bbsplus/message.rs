@@ -24,7 +24,7 @@ pub trait Message {
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusMessage{
-    value: Scalar
+    pub value: Scalar
 }
 
 impl BBSplusMessage {
@@ -54,7 +54,7 @@ impl BBSplusMessage {
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct CL03Message{
-    value: Integer
+    pub value: Integer
 }
 
 impl CL03Message {
