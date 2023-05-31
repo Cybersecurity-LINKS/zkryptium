@@ -1,12 +1,16 @@
 
+use core::panic;
 use std::{borrow::Borrow, any::{TypeId, Any}};
 
 use bls12_381_plus::{Scalar, G1Projective, G2Projective};
 use digest::typenum::Pow;
 use elliptic_curve::{hash2curve::{ExpandMsg, Expander}, group::Curve};
 use ff::Field;
+use rand::RngCore;
 use serde::Serialize;
-use crate::{bbsplus::ciphersuites::BbsCiphersuite, keys::bbsplus_key::BBSplusPublicKey};
+use crate::{bbsplus::{ciphersuites::BbsCiphersuite, message::BBSplusMessage}, keys::bbsplus_key::BBSplusPublicKey};
+
+use super::random::random_bits;
 
 pub fn hash_to_scalar<C: BbsCiphersuite>(msg_octects: &[u8], dst: Option<&[u8]>) -> Scalar 
 where
@@ -87,16 +91,16 @@ where
 }
 
 
-pub fn calculate_random_scalars(count: u8) -> Vec<Scalar> {
-    let mut rng = rand::thread_rng();
-    let mut scalars = Vec::new();
-    for _i in 0..count {
-        scalars.push(Scalar::random(&mut rng))
-    }
+// pub fn calculate_random_scalars(count: u8) -> Vec<Scalar> {
+//     let mut rng = rand::thread_rng();
+//     let mut scalars = Vec::new();
+//     for _i in 0..count {
+//         scalars.push(Scalar::random(&mut rng))
+//     }
 
-    scalars
+//     scalars
 
-}
+// }
 
 pub fn subgroup_check_g1(p: G1Projective) -> bool {
     if p.is_on_curve().into() /*&& p.is_identity().into()*/ {
@@ -207,4 +211,65 @@ where
     }
 
     result
+}
+
+
+pub fn get_remaining_indexes(length: usize, indexes: &[usize]) -> Vec<usize>{
+    let mut remaining: Vec<usize> = Vec::new();
+
+    for i in 0..length {
+        if indexes.contains(&i) == false {
+            remaining.push(i);
+        }
+    }
+
+    remaining
+}
+
+pub fn get_messages(messages: &[BBSplusMessage], indexes: &[usize]) -> Vec<BBSplusMessage> {
+    let mut out: Vec<BBSplusMessage> = Vec::new();
+    for i in indexes {
+        out.push(messages[*i]);
+    }
+
+    out
+
+}
+
+pub fn calculate_random_scalars<CS>(count: usize, seed: Option<&[u8]>) -> Vec<Scalar> 
+where
+    CS: BbsCiphersuite,
+    CS::Expander: for<'a> ExpandMsg<'a>,
+{
+
+    let seed = seed.unwrap_or(b"");
+    let mut random_scalars: Vec<Scalar> =  Vec::new();
+
+    let mut rng = rand::thread_rng();
+
+    if seed ==  b"" {
+        for _i in 0..count {
+            let mut buf = [0; 48];
+            rng.fill_bytes(&mut buf);
+            let scalar = Scalar::from_okm(&buf);
+            random_scalars.push(scalar);
+        }
+    } else {
+        let dst = [CS::ID, b"MOCK_RANDOM_SCALARS_DST_"].concat();
+        if count * 48 > 65535 {
+            panic!("count * expend_len > 65535");
+        }
+
+        let out_len = 48 * count;
+        let mut v = vec!(0u8; out_len);
+        CS::Expander::expand_message(&[seed], &[&dst], out_len).unwrap().fill_bytes(&mut v);
+        for i in 0..count {
+            let start_idx = i * 48;
+            let end_idx = (i+1) * 48;
+            let slice: &[u8; 48] = &v[start_idx..end_idx].try_into().unwrap();
+            random_scalars.push(Scalar::from_okm(slice));
+        }
+    }
+
+    random_scalars
 }

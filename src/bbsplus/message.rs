@@ -23,7 +23,7 @@ pub trait Message {
     fn get_value(&self) -> Self::Value;
 }
 
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusMessage{
     pub value: Scalar
 }
