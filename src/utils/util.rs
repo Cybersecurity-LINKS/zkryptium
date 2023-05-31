@@ -12,7 +12,7 @@ pub fn hash_to_scalar<C: BbsCiphersuite>(msg_octects: &[u8], dst: Option<&[u8]>)
 where
     C::Expander: for<'a> ExpandMsg<'a>,
 {
-    let binding = [C::ID, "H2S_".as_bytes()].concat();
+    let binding = [C::ID, b"H2S_"].concat();
     let default_dst = binding.as_slice();
     let dst = dst.unwrap_or(default_dst);
 
@@ -31,7 +31,6 @@ where
         hashed_scalar = Scalar::from_okm(uniform_bytes.as_slice().try_into().unwrap());
 
         counter = counter + 1;
-
     }
 
     hashed_scalar

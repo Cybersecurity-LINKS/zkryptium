@@ -85,24 +85,23 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         e_s_for_hash_vec.push(domain);
         messages.iter().for_each(|m| e_s_for_hash_vec.push(m.value)); //the to_byte_le() may be needed instead
 
-        let e_s_for_hash = serialize(&e_s_for_hash_vec);
+        let mut e_s_for_hash = serialize(&e_s_for_hash_vec);
 
         println!("e_s: {}", hex::encode(e_s_for_hash.clone()));
 
+        //UPDATED from standard (NOT working!)
         // let e_s_len = CS::OCTECT_SCALAR_LEN * 2;
-
-
         // let mut e_s_expand = vec!(0u8; e_s_len);
-
         // CS::Expander::expand_message(&[&e_s_for_hash], &[CS::GENERATOR_SIG_DST], e_s_len).unwrap().fill_bytes(&mut e_s_expand);
-
         // println!("e_s_exp: {}", hex::encode(e_s_expand.clone()));
         // let e = hash_to_scalar::<CS>(&e_s_expand[0..(CS::OCTECT_SCALAR_LEN-1)], None);
         // let s = hash_to_scalar::<CS>(&e_s_expand[CS::OCTECT_SCALAR_LEN..(e_s_len-1)], None);
 
+        //Old standard
         let scalars = hash_to_scalar_old::<CS>(&e_s_for_hash,2, None);
         let e = scalars[0];
         let s = scalars[1];
+
         println!("e: {}", hex::encode(e.to_bytes_be()));
         let mut B = generators.g1_base_point + generators.q1 * s + generators.q2 *domain;
         println!("B: {}", hex::encode(B.to_affine().to_compressed()));
