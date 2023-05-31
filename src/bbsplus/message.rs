@@ -8,7 +8,7 @@ use rug::{Integer, integer::Order};
 use bls12_381_plus::Scalar;
 use serde::{Serialize, Deserialize};
 
-use crate::{schemes::algorithms::Scheme, utils::util::hash_to_scalar, cl03::ciphersuites::CLCiphersuite};
+use crate::{schemes::algorithms::Scheme, utils::util::{hash_to_scalar, hash_to_scalar_old}, cl03::ciphersuites::CLCiphersuite};
 
 use super::ciphersuites::BbsCiphersuite;
 
@@ -46,8 +46,8 @@ impl BBSplusMessage {
             panic!("INVALID");
         }
 
-        let scalar = hash_to_scalar::<C>(data, Some(dst));
-
+        // let scalar = hash_to_scalar::<C>(data, Some(dst));
+        let scalar = hash_to_scalar_old::<C>(data, 1, Some(dst))[0];
         Self { value: scalar }
 
     }

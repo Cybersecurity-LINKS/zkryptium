@@ -1,12 +1,12 @@
 use core::result::Result;
-use std::marker::PhantomData;
+use std::{marker::PhantomData, clone};
 
 use bls12_381_plus::{G1Projective, Scalar, G1Affine, G2Projective, Gt, multi_miller_loop, G2Prepared};
 use ff::Field;
 use rug::{Integer, ops::Pow};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 
-use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{CL03Message, BBSplusMessage, Message}, generators::Generators}, cl03::ciphersuites::CLCiphersuite, utils::{random::{random_prime, random_bits}, util::{calculate_domain, hash_to_scalar}}, keys::{cl03_key::{CL03PublicKey, CL03SecretKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}};
+use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{CL03Message, BBSplusMessage, Message}, generators::Generators}, cl03::ciphersuites::CLCiphersuite, utils::{random::{random_prime, random_bits}, util::{calculate_domain, hash_to_scalar, ScalarExt, serialize, hash_to_scalar_old}}, keys::{cl03_key::{CL03PublicKey, CL03SecretKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}};
 
 use super::commitment::BBSplusCommitment;
 use elliptic_curve::{hash2curve::{ExpandMsg, Expander}, group::Curve, subtle::{CtOption, Choice}};
@@ -73,30 +73,42 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         }
 
         let domain = calculate_domain::<CS>(pk, generators.q1, generators.q2, &generators.message_generators, Some(header));
-        let mut e_s_for_hash: Vec<u8> = Vec::new();
-        e_s_for_hash.extend_from_slice(&sk.to_bytes());
-        e_s_for_hash.extend_from_slice(&domain.to_bytes());
-        messages.iter().map(|m| m.to_bytes_be()).for_each(|m| e_s_for_hash.extend_from_slice(&m)); //the to_byte_le() may be needed instead
 
-        // e_s_len = octet_scalar_length * 2
-        // 7.  e_s_expand = expand_message(e_s_octs, expand_dst, e_s_len)
-        // 8.  if e_s_expand is INVALID, return INVALID
-        // 9.  e = hash_to_scalar(e_s_expand[0..(octet_scalar_length - 1)])
-        // 10. s = hash_to_scalar(e_s_expand[octet_scalar_length..(e_s_len - 1)])
+        println!("domain: {}", hex::encode(domain.to_bytes_be()));
+        // let mut e_s_for_hash: Vec<u8> = Vec::new();
+        // e_s_for_hash.extend_from_slice(&sk.to_bytes());
+        // e_s_for_hash.extend_from_slice(&domain.to_bytes_be());
+        // messages.iter().map(|m| m.to_bytes_be()).for_each(|m| e_s_for_hash.extend_from_slice(&m)); //the to_byte_le() may be needed instead
 
-        let e_s_len = CS::OCTECT_SCALAR_LEN * 2;
+        let mut e_s_for_hash_vec: Vec<Scalar> = Vec::new();
+        e_s_for_hash_vec.push(sk.0);
+        e_s_for_hash_vec.push(domain);
+        messages.iter().for_each(|m| e_s_for_hash_vec.push(m.value)); //the to_byte_le() may be needed instead
 
+        let e_s_for_hash = serialize(&e_s_for_hash_vec);
 
-        let mut e_s_expand = vec!(0u8; e_s_len);
+        println!("e_s: {}", hex::encode(e_s_for_hash.clone()));
 
-        CS::Expander::expand_message(&[&e_s_for_hash], &[CS::GENERATOR_SEED_DST], e_s_len).unwrap().fill_bytes(&mut e_s_expand);
-
-        let e = hash_to_scalar::<CS>(&e_s_expand[0..(CS::OCTECT_SCALAR_LEN-1)], None);
-        let s = hash_to_scalar::<CS>(&e_s_expand[CS::OCTECT_SCALAR_LEN..(e_s_len-1)], None);
+        // let e_s_len = CS::OCTECT_SCALAR_LEN * 2;
 
 
+        // let mut e_s_expand = vec!(0u8; e_s_len);
+
+        // CS::Expander::expand_message(&[&e_s_for_hash], &[CS::GENERATOR_SIG_DST], e_s_len).unwrap().fill_bytes(&mut e_s_expand);
+
+        // println!("e_s_exp: {}", hex::encode(e_s_expand.clone()));
+        // let e = hash_to_scalar::<CS>(&e_s_expand[0..(CS::OCTECT_SCALAR_LEN-1)], None);
+        // let s = hash_to_scalar::<CS>(&e_s_expand[CS::OCTECT_SCALAR_LEN..(e_s_len-1)], None);
+
+        let scalars = hash_to_scalar_old::<CS>(&e_s_for_hash,2, None);
+        let e = scalars[0];
+        let s = scalars[1];
+        println!("e: {}", hex::encode(e.to_bytes_be()));
         let mut B = generators.g1_base_point + generators.q1 * s + generators.q2 *domain;
-
+        println!("B: {}", hex::encode(B.to_affine().to_compressed()));
+        println!("s: {}", hex::encode(s.to_bytes_be()));
+        println!("P1: {}", hex::encode(generators.g1_base_point.to_affine().to_compressed()));
+        println!("L: {}", L);
         for i in 0..L {
             B = B + generators.message_generators[i] * messages[i].value;
         }
@@ -108,11 +120,11 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         }
 
         let A = B * SK_plus_e.invert().unwrap();
-
         if A == G1Projective::IDENTITY {
             panic!("A == Identity_G1");
         }
 
+        println!("A: {}", hex::encode(A.to_affine().to_compressed()));
         let signature = BBSplusSignature{a: A, e: e, s: s};
 
         Self::BBSplus(signature)
@@ -141,7 +153,6 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         }
 
         let P2 = G2Projective::GENERATOR;
-
         let A2 = pk.0 + P2 * signature.e;
 
         let identity_GT = Gt::IDENTITY;
