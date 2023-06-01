@@ -106,7 +106,7 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         let r3_tilde = random_scalars[4];
         let s_tilde = random_scalars[5];
 
-        let m_tilde = &random_scalars[6..U];
+        let m_tilde = &random_scalars[6..(6+U)];
 
         let mut B = generators.g1_base_point + generators.q1 * signature.s + generators.q2 * domain;
 
@@ -152,6 +152,39 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         let proof = Self::BBSplus(BBSplusPoKSignature{ A_prime, A_bar, D, c, e_cap, r2_cap, r3_cap, s_cap, m_cap });
 
         proof
+    }
+
+        // A_prime: G1Projective, //48
+        // A_bar: G1Projective, //48
+        // D: G1Projective, //48
+        // c: Scalar, //32
+        // e_cap: Scalar, //32
+        // r2_cap: Scalar, //32
+        // r3_cap: Scalar, //32
+        // s_cap: Scalar, //32
+        // m_cap: Vec<Scalar> //32 * len(m_cap)
+    pub fn to_bytes(&self) -> Vec<u8>{
+        let signature = self.to_bbsplus_proof();
+        let mut bytes: Vec<u8> = Vec::new();
+
+        bytes.extend_from_slice(&signature.A_prime.to_affine().to_compressed());
+        bytes.extend_from_slice(&signature.A_bar.to_affine().to_compressed());
+        bytes.extend_from_slice(&signature.D.to_affine().to_compressed());
+        bytes.extend_from_slice(&signature.c.to_bytes_be());
+        bytes.extend_from_slice(&signature.e_cap.to_bytes_be());
+        bytes.extend_from_slice(&signature.r2_cap.to_bytes_be());
+        bytes.extend_from_slice(&signature.r3_cap.to_bytes_be());
+        bytes.extend_from_slice(&signature.s_cap.to_bytes_be());
+        signature.m_cap.iter().for_each(|v| bytes.extend_from_slice(&v.to_bytes_be()));
+        
+        bytes
+    }
+
+    pub fn to_bbsplus_proof(&self) ->  &BBSplusPoKSignature {
+        match self {
+            Self::BBSplus(inner) => inner,
+            _ => panic!("Cannot happen!")
+        }
     }
 }
 

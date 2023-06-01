@@ -165,7 +165,7 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
 
     }
 
-    pub(crate) fn bbsPlusSignature(&self) -> &BBSplusSignature{
+    pub fn bbsPlusSignature(&self) -> &BBSplusSignature{
         match self {
             Self::BBSplus(inner) => inner,
             _ => panic!("Cannot happen!")
