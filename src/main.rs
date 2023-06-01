@@ -82,6 +82,9 @@ fn test_bbsplus_sign() {
 
     let signature_PoK = PoKSignature::<BBSplusSha256>::proof_gen(signature.bbsPlusSignature(), bbsplus_keypair.public_key(), Some(&messages), &generators, Some(&revealed_message_indexes), Some(&hex::decode(header).unwrap()), Some(&hex::decode(ph).unwrap()), Some(&hex::decode(seed).unwrap()));
     println!("SPoK: {}", hex::encode(signature_PoK.to_bytes()));
+
+    let valid = signature_PoK.proof_verify(bbsplus_keypair.public_key(), Some(&messages), &generators, Some(&revealed_message_indexes), Some(&hex::decode(header).unwrap()), Some(&hex::decode(ph).unwrap()));
+    println!("SPoK verify: {}", valid);
 }
 
 

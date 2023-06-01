@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use bls12_381_plus::{G1Projective, Scalar};
+use bls12_381_plus::{G1Projective, Scalar, G2Projective, G2Prepared, Gt, multi_miller_loop};
 use elliptic_curve::{hash2curve::ExpandMsg, group::Curve};
 
 use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::BBSplusMessage, generators::{self, Generators}}, cl03::ciphersuites::CLCiphersuite, keys::bbsplus_key::BBSplusPublicKey, utils::util::{get_remaining_indexes, get_messages, calculate_domain, calculate_random_scalars, ScalarExt, hash_to_scalar_old}};
@@ -152,6 +152,86 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         let proof = Self::BBSplus(BBSplusPoKSignature{ A_prime, A_bar, D, c, e_cap, r2_cap, r3_cap, s_cap, m_cap });
 
         proof
+    }
+
+    pub fn proof_verify(&self, pk: &BBSplusPublicKey, revealed_messages: Option<&[BBSplusMessage]>, generators: &Generators, revealed_message_indexes: Option<&[usize]>, header: Option<&[u8]>, ph: Option<&[u8]>) -> bool 
+    where
+        CS::Expander: for<'a> ExpandMsg<'a>,
+    {
+        let proof = self.to_bbsplus_proof();
+        let revealed_messages = revealed_messages.unwrap_or(&[]);
+        let revealed_message_indexes = revealed_message_indexes.unwrap_or(&[]);
+        let header = header.unwrap_or(b"");
+        let ph = ph.unwrap_or(b"");
+
+        let U = proof.m_cap.len();
+        let R = revealed_message_indexes.len();
+
+        let L = R + U;
+
+        let unrevealed_message_indexes = get_remaining_indexes(L, revealed_message_indexes);
+
+        for i in revealed_message_indexes {
+            if *i < 0 || *i > L {
+                panic!("i < 0 or i >= L");
+            }
+        }
+
+        if revealed_messages.len() != R {
+            panic!("len(revealed_messages) != R");
+        }
+
+        if generators.message_generators.len() < L {
+            panic!("len(generators) < (L)");
+        }
+
+        let mut H_i: Vec<G1Projective> = Vec::new();
+
+        for idx in revealed_message_indexes {
+            H_i.push(generators.message_generators[*idx]);
+        }
+
+        let mut H_j: Vec<G1Projective> = Vec::new();
+
+        for idx in unrevealed_message_indexes {
+            H_j.push(generators.message_generators[idx]);
+        }
+
+        let domain = calculate_domain::<CS>(pk, generators.q1, generators.q2, &generators.message_generators, Some(header));
+
+        let C1 = (proof.A_bar + (-proof.D)) * proof.c + proof.A_prime * proof.e_cap + generators.q1 * proof.r2_cap;
+		
+		let mut T = generators.g1_base_point + generators.q2 * domain;		
+		for i in 0..R { 
+			T = T + H_i[i] * revealed_messages[i].value;
+        }		
+
+		let mut C2 = T * proof.c + proof.D * -proof.r3_cap + generators.q1 * proof.s_cap;
+		for j in 0..U {
+            C2 = C2 + H_j[j] * proof.m_cap[j];
+        }
+
+		let cv = Self::calculate_challenge(proof.A_prime, proof.A_bar, proof.D, C1, C2, revealed_message_indexes, revealed_messages, domain, Some(ph));
+        
+        if proof.c != cv {
+			return false;
+        }
+
+		if proof.A_prime == G1Projective::IDENTITY{
+			return false;
+        }
+
+
+        let P2 = G2Projective::GENERATOR;
+        let identity_GT = Gt::IDENTITY;
+
+        let Ps = (&proof.A_prime.to_affine(), &G2Prepared::from(pk.0.to_affine()));
+		let Qs = (&proof.A_bar.to_affine(), &G2Prepared::from(-P2.to_affine()));
+
+        let pairing = multi_miller_loop(&[Ps, Qs]).final_exponentiation();
+
+        pairing == identity_GT
+
     }
 
         // A_prime: G1Projective, //48
