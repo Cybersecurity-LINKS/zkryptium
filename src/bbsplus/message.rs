@@ -8,7 +8,7 @@ use rug::{Integer, integer::Order};
 use bls12_381_plus::Scalar;
 use serde::{Serialize, Deserialize};
 
-use crate::{schemes::algorithms::Scheme, utils::util::{hash_to_scalar, hash_to_scalar_old}, cl03::ciphersuites::CLCiphersuite};
+use crate::{schemes::algorithms::{Scheme, Ciphersuite}, utils::util::{hash_to_scalar, hash_to_scalar_old}, cl03::ciphersuites::CLCiphersuite};
 
 use super::ciphersuites::BbsCiphersuite;
 
@@ -70,10 +70,11 @@ impl CL03Message {
     {
         let binding = <C::HashAlg as Digest>::digest(data);
         let msg_digest = binding.as_slice();
-        let msg_integer = Integer::from_digits(msg_digest, Order::Lsf);
+        let msg_integer = Integer::from_digits(msg_digest, Order::MsfBe); //TODO: check Order
         Self{value: msg_integer}
 
     }
+
 }
 
 impl Message for BBSplusMessage {

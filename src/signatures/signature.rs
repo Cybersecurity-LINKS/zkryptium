@@ -2,8 +2,9 @@ use core::result::Result;
 use std::{marker::PhantomData, clone};
 
 use bls12_381_plus::{G1Projective, Scalar, G1Affine, G2Projective, Gt, multi_miller_loop, G2Prepared};
+use digest::typenum::private::InternalMarker;
 use ff::Field;
-use rug::{Integer, ops::Pow};
+use rug::{Integer, ops::Pow, integer::Order};
 use serde::{Deserialize, Serialize, Serializer};
 
 use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{CL03Message, BBSplusMessage, Message}, generators::Generators}, cl03::ciphersuites::CLCiphersuite, utils::{random::{random_prime, random_bits}, util::{calculate_domain, hash_to_scalar, ScalarExt, serialize, hash_to_scalar_old}}, keys::{cl03_key::{CL03PublicKey, CL03SecretKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}};
@@ -205,7 +206,8 @@ impl <CS: CLCiphersuite> Signature<CL03<CS>> {
     pub fn sign(pk: &CL03PublicKey, sk: &CL03SecretKey, message: &CL03Message) -> Self {
         let mut e = random_prime(CS::le);
         let phi_n = (&sk.p - Integer::from(1)) * (&sk.q - Integer::from(1));
-        while ((&e > &Integer::from(2.pow(CS::le-1))) && (&e < &Integer::from(2.pow(CS::le))) && (Integer::from(e.gcd_ref(&phi_n)) == 1)) == false {
+
+        while ((&e > &Integer::from(2).pow(CS::le-1)) && (&e < &Integer::from(2).pow(CS::le)) && (Integer::from(e.gcd_ref(&phi_n)) == 1)) == false {
             e = random_prime(CS::le.try_into().unwrap());
         }
 
@@ -226,7 +228,7 @@ impl <CS: CLCiphersuite> Signature<CL03<CS>> {
 
         let rhs = (Integer::from(pk.a_bases[0].0.pow_mod_ref(&message.value, &pk.N).unwrap()) * Integer::from(pk.b.pow_mod_ref(&sign.s, &pk.N).unwrap()) * &pk.c) % &pk.N;
 
-        if sign.e <= Integer::from(2.pow(CS::le-1)) || sign.e >= Integer::from(2.pow(CS::le)) {
+        if sign.e <= Integer::from(2).pow(CS::le-1) || sign.e >= Integer::from(2).pow(CS::le) {
             return false
         }
 
@@ -237,11 +239,29 @@ impl <CS: CLCiphersuite> Signature<CL03<CS>> {
         false
     }
 
-    pub(crate) fn cl03Signature(&self) -> &CL03Signature{
+    pub fn cl03Signature(&self) -> &CL03Signature{
         match self {
             Self::CL03(inner) => inner,
             _ => panic!("Cannot happen!")
         }
+    }
+
+    pub fn to_bytes(&self) -> Vec<u8>{
+        let signature = self.cl03Signature();
+        let mut bytes: Vec<u8> = Vec::new();
+        bytes.extend_from_slice(&signature.e.to_digits(Order::MsfBe));
+        bytes.extend_from_slice(&signature.s.to_digits(Order::MsfBe));
+        bytes.extend_from_slice(&signature.v.to_digits(Order::MsfBe));
+
+        bytes
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Self {
+        let e = Integer::from_digits(&bytes[0usize .. CS::le as usize], Order::MsfBe);
+        let s = Integer::from_digits(&bytes[CS::le as usize .. CS::ls as usize], Order::MsfBe);
+        let v = Integer::from_digits(&bytes[CS::ls as usize ..], Order::MsfBe);
+
+        Self::CL03(CL03Signature { e, s, v })
     }
 }
 

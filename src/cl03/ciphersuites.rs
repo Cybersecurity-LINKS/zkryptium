@@ -10,7 +10,6 @@ pub trait CLCiphersuite: Eq + 'static + Ciphersuite{
     const lin: u32;          // NOTE: additional security parameter; both lm and lin set to 256 bits to improve security (i.e. SHA256 will be used here, instead of SHA1)        
     const le: u32;         // NOTE: length of e (i.e. exponent used in the signature, v ** e)
     const ls: u32;  // NOTE: length of s (i.e. random number used in the signature, b ** s)                 
- 
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]

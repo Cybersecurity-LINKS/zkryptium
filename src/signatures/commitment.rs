@@ -87,7 +87,7 @@ impl <CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
         }
     }
 
-    pub(crate) fn bbsPlusCommitment(&self) -> &BBSplusCommitment {
+    pub fn bbsPlusCommitment(&self) -> &BBSplusCommitment {
         match self {
             Self::BBSplus(inner) => &inner,
             _ => panic!("Cannot happen!"),
@@ -147,7 +147,7 @@ impl <CS: CLCiphersuite> Commitment<CL03<CS>> {
     //     }
     // }
 
-    pub(crate) fn cl03Commitment(&mut self) -> &mut CL03Commitment {
+    pub fn cl03Commitment(&mut self) -> &mut CL03Commitment {
         match self {
             Self::CL03(ref mut inner) => inner,
             _ => panic!("Cannot happen!"),

@@ -75,18 +75,6 @@ where
             }
         }
     }
-
-    // while hashed_scalar == Scalar::from(0) {
-
-    //     msg_prime = [msg_octects, &[t; 1][..], &[0u8, 0u8, 0u8, 1u8][..]].concat();
-    //     // msg_prime = [msg_octects, &[counter; 1][..]].concat(); //from UPDATED STANDARD
-    //     C::Expander::expand_message(&[msg_prime.as_slice()], &[dst], C::EXPAND_LEN).unwrap().fill_bytes(&mut uniform_bytes);
-    //     hashed_scalar = Scalar::from_okm(uniform_bytes.as_slice().try_into().unwrap());
-
-    //     t = t + 1;
-
-    // }
-
     scalars
 }
 

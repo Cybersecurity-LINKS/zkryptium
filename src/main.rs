@@ -4,7 +4,7 @@ use bls12_381_plus::{G1Affine, G2Affine, pairing, G1Projective, Scalar};
 use byteorder::BigEndian;
 use glass_pumpkin::prime::new;
 use hex::ToHex;
-use links_crypto::{utils::random, keys::{cl03_key::{CL03PublicKey}, pair::{KeyPair}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, bbsplus::{generators::{make_generators, global_generators, signer_specific_generators, print_generators}, ciphersuites::{Bls12381Shake256, BbsCiphersuite, Bls12381Sha256}, message::{Message, BBSplusMessage}}, schemes::algorithms::{CL03, BBSplus, Scheme, CL03Sha256, BBSplusShake256, BBSplusSha256}, signatures::{commitment::{Commitment, BBSplusCommitment, self}, blind::{self, BlindSignature, BBSplusBlindSignature}, signature::{BBSplusSignature, Signature}, proof::PoKSignature}};
+use links_crypto::{utils::random, keys::{cl03_key::{CL03PublicKey}, pair::{KeyPair}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, bbsplus::{generators::{make_generators, global_generators, signer_specific_generators, print_generators}, ciphersuites::{Bls12381Shake256, BbsCiphersuite, Bls12381Sha256}, message::{Message, BBSplusMessage, CL03Message}}, schemes::algorithms::{CL03, BBSplus, Scheme, CL03Sha256, BBSplusShake256, BBSplusSha256}, signatures::{commitment::{Commitment, BBSplusCommitment, self}, blind::{self, BlindSignature, BBSplusBlindSignature}, signature::{BBSplusSignature, Signature}, proof::PoKSignature}, cl03::ciphersuites::CLSha256};
 
 use links_crypto::keys::key::PrivateKey;
 
@@ -88,6 +88,28 @@ fn test_bbsplus_sign() {
 }
 
 
+fn test_cl03_sign() {
+    const msg: &str = "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02";
+    const wrong_msg: &str = "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f03";
+
+    let cl03_keypair = KeyPair::<CL03Sha256>::generate(None);
+
+    let message = CL03Message::map_message_to_integer_as_hash::<CLSha256>(&hex::decode(msg).unwrap());
+    
+    let wrong_message = CL03Message::map_message_to_integer_as_hash::<CLSha256>(&hex::decode(wrong_msg).unwrap());
+
+    
+    let signature = Signature::<CL03Sha256>::sign(cl03_keypair.public_key(), cl03_keypair.private_key(), &message);
+
+    println!("signature: {}", hex::encode(signature.to_bytes()));
+
+    let valid = signature.verify(cl03_keypair.public_key(), &message);
+
+    println!("valid: {}", valid);
+
+
+}
+
 fn main() {
 
     // const IKM: &str = "746869732d49532d6a7573742d616e2d546573742d494b4d2d746f2d67656e65726174652d246528724074232d6b6579";
@@ -141,7 +163,7 @@ fn main() {
     // // let sign = BlindSignature::<BBSplusShake256>::blind_sign(pk, sk, commitment);
     // // prova3(sign);
 
-    test_bbsplus_sign();
-
+    // test_bbsplus_sign();
+    test_cl03_sign();
 
 }

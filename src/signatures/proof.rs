@@ -2,13 +2,14 @@ use std::marker::PhantomData;
 
 use bls12_381_plus::{G1Projective, Scalar, G2Projective, G2Prepared, Gt, multi_miller_loop};
 use elliptic_curve::{hash2curve::ExpandMsg, group::Curve};
+use serde::{Serialize, Deserialize};
 
 use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::BBSplusMessage, generators::{self, Generators}}, cl03::ciphersuites::CLCiphersuite, keys::bbsplus_key::BBSplusPublicKey, utils::util::{get_remaining_indexes, get_messages, calculate_domain, calculate_random_scalars, ScalarExt, hash_to_scalar_old}};
 
 use super::signature::BBSplusSignature;
 
 
-
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusPoKSignature{
     A_prime: G1Projective,
     A_bar: G1Projective,
@@ -21,6 +22,7 @@ pub struct BBSplusPoKSignature{
     m_cap: Vec<Scalar>
 }
 
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct CL03PoKSignature{
 
 }
