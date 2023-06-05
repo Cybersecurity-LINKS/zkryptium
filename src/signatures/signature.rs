@@ -249,8 +249,12 @@ impl <CS: CLCiphersuite> Signature<CL03<CS>> {
     pub fn to_bytes(&self) -> Vec<u8>{
         let signature = self.cl03Signature();
         let mut bytes: Vec<u8> = Vec::new();
-        bytes.extend_from_slice(&signature.e.to_digits(Order::MsfBe));
-        bytes.extend_from_slice(&signature.s.to_digits(Order::MsfBe));
+        let mut e_digits = vec!(0u8; CS::le as usize);
+        let mut s_digits = vec!(0u8; CS::ls as usize);
+        signature.e.write_digits(&mut e_digits, Order::MsfBe);
+        signature.s.write_digits(&mut s_digits, Order::MsfBe);
+        bytes.extend_from_slice(&e_digits);
+        bytes.extend_from_slice(&s_digits);
         bytes.extend_from_slice(&signature.v.to_digits(Order::MsfBe));
 
         bytes
@@ -258,8 +262,8 @@ impl <CS: CLCiphersuite> Signature<CL03<CS>> {
 
     pub fn from_bytes(bytes: &[u8]) -> Self {
         let e = Integer::from_digits(&bytes[0usize .. CS::le as usize], Order::MsfBe);
-        let s = Integer::from_digits(&bytes[CS::le as usize .. CS::ls as usize], Order::MsfBe);
-        let v = Integer::from_digits(&bytes[CS::ls as usize ..], Order::MsfBe);
+        let s = Integer::from_digits(&bytes[CS::le as usize .. (CS::le as usize + CS::ls as usize)], Order::MsfBe);
+        let v = Integer::from_digits(&bytes[(CS::le as usize + CS::ls as usize) ..], Order::MsfBe);
 
         Self::CL03(CL03Signature { e, s, v })
     }
