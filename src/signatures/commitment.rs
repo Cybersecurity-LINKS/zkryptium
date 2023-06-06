@@ -5,7 +5,7 @@ use elliptic_curve::{group::GroupEncoding, hash2curve::ExpandMsg, PublicKey};
 use rug::{Integer, integer::Order};
 use serde::{Deserialize, Serialize};
 
-use crate::{bbsplus::{message::{Message, self, BBSplusMessage, CL03Message}, ciphersuites::BbsCiphersuite, generators::{self, Generators, make_generators, global_generators}}, schemes::algorithms::{Scheme, BBSplus, CL03, Ciphersuite}, cl03::ciphersuites::CLCiphersuite, utils::{util::{calculate_random_scalars, subgroup_check_g1}, random::random_bits}, keys::{cl03_key::CL03PublicKey}};
+use crate::{bbsplus::{message::{Message, self, BBSplusMessage, CL03Message}, ciphersuites::BbsCiphersuite, generators::{self, Generators, make_generators, global_generators}}, schemes::algorithms::{Scheme, BBSplus, CL03, Ciphersuite}, cl03::ciphersuites::CLCiphersuite, utils::{util::{calculate_random_scalars, subgroup_check_g1}, random::random_bits}, keys::{cl03_key::{CL03PublicKey, CL03CommitmentPublicKey}}};
 
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -13,6 +13,7 @@ pub struct CL03Commitment {
     pub value: Integer,
     pub randomness: Integer
 }
+
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusCommitment {
@@ -104,13 +105,26 @@ impl <CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
 
 
 impl <CS: CLCiphersuite> Commitment<CL03<CS>> {
-    pub fn commit(messages: &[CL03Message], pk: &CL03PublicKey, unrevealed_message_indexes: &[usize]) -> Self {
+    pub fn commit_v(v: &Integer, commitment_pk: &CL03CommitmentPublicKey) -> Self {
+        let w = random_bits(CS::ln);
+
+        let Cv = (v * Integer::from(commitment_pk.g_bases[0].0.pow_mod_ref(&w, &commitment_pk.N).unwrap())) % &commitment_pk.N;
+
+        Self::CL03(CL03Commitment { value: Cv, randomness: w })
+    }
+
+    pub fn commit_with_pk(messages: &[CL03Message], pk: &CL03PublicKey, unrevealed_message_indexes: Option<&[usize]>) -> Self {
+        let unrevealed_message_indexes: Vec<usize> = match unrevealed_message_indexes {
+            Some(indexes) => indexes.to_vec(),
+            None => (0..messages.len()).collect(),
+        };
+
         let r = random_bits(CS::ln);
         let mut Cx = Integer::from(1);
 
         for i in unrevealed_message_indexes {
-            let ai = pk.a_bases.get(*i).and_then(|a| {let _ = a.1 == true; return Some(&a.0);}).expect("Invalid unrevealed message index!");
-            let mi = &messages[*i];
+            let ai = pk.a_bases.get(i).and_then(|a| {let _ = a.1 == true; return Some(&a.0);}).expect("Invalid unrevealed message index!");
+            let mi = &messages[i];
             Cx = Cx * Integer::from(ai.pow_mod_ref(&mi.get_value(), &pk.N).unwrap());
         }
 
@@ -119,19 +133,63 @@ impl <CS: CLCiphersuite> Commitment<CL03<CS>> {
         Self::CL03(CL03Commitment { value: Cx, randomness: r })
     }
 
-    pub fn extend_commitment(&mut self, messages: &[CL03Message], pk: &CL03PublicKey, revealed_message_indexes: &[usize]) {
+    pub fn commit_with_commitment_pk(messages: &[CL03Message], commitment_pk: &CL03CommitmentPublicKey, unrevealed_message_indexes: Option<&[usize]>) -> Self {
+        let unrevealed_message_indexes: Vec<usize> = match unrevealed_message_indexes {
+            Some(indexes) => indexes.to_vec(),
+            None => (0..messages.len()).collect(),
+        };
+        
+        let r = random_bits(CS::ln);
+        let mut Cx = Integer::from(1);
+
+        for i in unrevealed_message_indexes {
+            let ai = commitment_pk.g_bases.get(i).and_then(|a| {let _ = a.1 == true; return Some(&a.0);}).expect("Invalid unrevealed message index!");
+            let mi = &messages[i];
+            Cx = Cx * Integer::from(ai.pow_mod_ref(&mi.get_value(), &commitment_pk.N).unwrap());
+        }
+
+        Cx = (Cx * Integer::from(commitment_pk.h.pow_mod_ref(&r, &commitment_pk.N).unwrap())) % &commitment_pk.N;
+
+        Self::CL03(CL03Commitment { value: Cx, randomness: r })
+    }
+
+    pub fn extend_commitment_with_pk(&mut self, messages: &[CL03Message], pk: &CL03PublicKey, revealed_message_indexes: Option<&[usize]>) {
         // let mut extended_Cx = self.value().clone();
+        let revealed_message_indexes: Vec<usize> = match revealed_message_indexes {
+            Some(indexes) => indexes.to_vec(),
+            None => (0..messages.len()).collect(),
+        };
         let extended_Cx = self.cl03Commitment();
         let mut extended_Cx_value = extended_Cx.value.clone();
         for i in revealed_message_indexes {
-            let ai = pk.a_bases.get(*i).and_then(|a| {let _ = a.1 == true; return Some(&a.0);}).expect("Invalid revealed message index!");
-            let mi = &messages[*i];
+            let ai = pk.a_bases.get(i).and_then(|a| {let _ = a.1 == true; return Some(&a.0);}).expect("Invalid revealed message index!");
+            let mi = &messages[i];
             extended_Cx_value = (extended_Cx_value * Integer::from(ai.pow_mod_ref(&mi.get_value(), &pk.N).unwrap())) % &pk.N;
         }
 
         extended_Cx.value = extended_Cx_value;
         // self.set_value(extended_Cx);
     }
+
+    
+    pub fn extend_commitment_with_commitment_pk(&mut self, messages: &[CL03Message], commitment_pk: &CL03CommitmentPublicKey, revealed_message_indexes: Option<&[usize]>) {
+        // let mut extended_Cx = self.value().clone();
+        let revealed_message_indexes: Vec<usize> = match revealed_message_indexes {
+            Some(indexes) => indexes.to_vec(),
+            None => (0..messages.len()).collect(),
+        };
+        let extended_Cx = self.cl03Commitment();
+        let mut extended_Cx_value = extended_Cx.value.clone();
+        for i in revealed_message_indexes {
+            let ai = commitment_pk.g_bases.get(i).and_then(|a| {let _ = a.1 == true; return Some(&a.0);}).expect("Invalid revealed message index!");
+            let mi = &messages[i];
+            extended_Cx_value = (extended_Cx_value * Integer::from(ai.pow_mod_ref(&mi.get_value(), &commitment_pk.N).unwrap())) % &commitment_pk.N;
+        }
+
+        extended_Cx.value = extended_Cx_value;
+        // self.set_value(extended_Cx);
+    }
+
 
     pub fn value(&self) -> &Integer {
         match self {

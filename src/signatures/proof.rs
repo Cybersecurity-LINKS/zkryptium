@@ -2,12 +2,13 @@ use std::marker::PhantomData;
 
 use bls12_381_plus::{G1Projective, Scalar, G2Projective, G2Prepared, Gt, multi_miller_loop};
 use elliptic_curve::{hash2curve::ExpandMsg, group::Curve};
+use num_integer::div_mod_floor;
 use rug::Integer;
 use serde::{Serialize, Deserialize};
 
-use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::BBSplusMessage, generators::{self, Generators}}, cl03::ciphersuites::CLCiphersuite, keys::{bbsplus_key::BBSplusPublicKey, cl03_key::{CL03CommitmentPublicKey, CL03PublicKey}}, utils::util::{get_remaining_indexes, get_messages, calculate_domain, calculate_random_scalars, ScalarExt, hash_to_scalar_old}};
+use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{BBSplusMessage, CL03Message}, generators::{self, Generators}}, cl03::ciphersuites::CLCiphersuite, keys::{bbsplus_key::BBSplusPublicKey, cl03_key::{CL03CommitmentPublicKey, CL03PublicKey}}, utils::{util::{get_remaining_indexes, get_messages, calculate_domain, calculate_random_scalars, ScalarExt, hash_to_scalar_old}, random::random_bits}};
 
-use super::signature::BBSplusSignature;
+use super::{signature::{BBSplusSignature, CL03Signature}, commitment::Commitment};
 
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -43,8 +44,51 @@ pub struct CL03PoKSignature{
 
 impl CL03PoKSignature {
 
-    pub fn nisp5_MultiAttr_generate_proof(commitmentKey: &CL03CommitmentPublicKey, signer_pk: &CL03PublicKey) {
+    pub fn nisp5_MultiAttr_generate_proof<CS: CLCiphersuite>(signature: &CL03Signature, commitment_pk: &CL03CommitmentPublicKey, signer_pk: &CL03PublicKey, messages: &[CL03Message], unrevealed_message_indexes: &[usize]) {
+        // let unrevealed_message_indexes: Vec<usize> = match unrevealed_message_indexes {
+        //     Some(indexes) => indexes.to_vec(),
+        //     None => (0..messages.len()).collect(),
+        // };
+        let n_attr = messages.len();
+
+        if signer_pk.a_bases.len() != n_attr {
+            panic!("Not enough a_bases for the number of attributes");
+        }
         
+        let C1= Commitment::<CL03<CS>>::commit_with_commitment_pk(messages, commitment_pk, None);
+        let (Cx, rx) = (C1.value(), C1.randomness());
+
+        let C2 =  Commitment::<CL03<CS>>::commit_v(&signature.v, commitment_pk);
+        let (Cv, w) = (C2.value(), C2.randomness());
+
+        let C3 = Commitment::<CL03<CS>>::commit_with_commitment_pk(&[CL03Message::new(w.clone())], commitment_pk, None);
+        let (Cw, rw) = (C3.value(), C3.randomness());
+
+        let C4 = Commitment::<CL03<CS>>::commit_with_commitment_pk(&[CL03Message::new(signature.e.clone())], commitment_pk, None);
+        let (Ce, re) = (C4.value(), C4.randomness());
+
+        let (r_1, r_2, r_3, r_4, r_6, r_7, r_8, r_9) = (random_bits(CS::ln), random_bits(CS::ln), random_bits(CS::ln), random_bits(CS::ln), random_bits(CS::ln), random_bits(CS::ln), random_bits(CS::ln), random_bits(CS::ln));
+        
+        let mut r_5: Vec<Integer> = Vec::new();
+        messages.iter().enumerate().for_each(|(i, m)| {
+            if unrevealed_message_indexes.contains(&i) {
+                r_5.push(random_bits(CS::ln))
+            } else {
+                r_5.push(m.value.clone());
+            }
+        });
+
+        let N = &signer_pk.N;
+
+        let mut t_Cx = Integer::from(1);
+        for i in 0..n_attr {
+            t_Cx = t_Cx * Integer::from(signer_pk.a_bases[i].0.pow_mod_ref(&r_5[i], N).unwrap())
+        }
+
+        t_Cx = t_Cx % N;
+
+        // let t_1 = Integer::from(Cv.pow_mod_ref(&r_4, N).unwrap()) * Integer::from(1).div
+
     }
 }
 
