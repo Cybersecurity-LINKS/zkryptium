@@ -102,17 +102,22 @@ fn test_cl03_sign() {
     let signature = Signature::<CL03Sha256>::sign(cl03_keypair.public_key(), cl03_keypair.private_key(), &message);
 
     let bytes = signature.to_bytes();
-    println!("\n signature: {}", hex::encode(&bytes));
+    // println!("\n signature: {}", hex::encode(&bytes));
 
     let signature_copy = Signature::<CL03Sha256>::from_bytes(&bytes);
 
-    println!("\n signature {}", hex::encode(&signature_copy.to_bytes()));
+    // println!("\n signature {}", hex::encode(&signature_copy.to_bytes()));
 
-    println!("compare: {}", signature == signature_copy);
+    // println!("compare: {}", signature == signature_copy);
 
     let valid = signature.verify(cl03_keypair.public_key(), &message);
 
     println!("valid: {}", valid);
+
+    let valid2 = signature.verify_multiattr(cl03_keypair.public_key(), &[message]);
+
+    println!("valid multiattr: {}", valid2);
+
 
 
 }

@@ -36,6 +36,7 @@ group = "0.10"
 elliptic-curve = "0.13.4"
 
 byteorder = "1.4.3"
+cargo-license = "0.5.1"
 
 
 [lib]

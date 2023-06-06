@@ -6,7 +6,7 @@ use num_prime::{nt_funcs::is_prime, PrimalityTestConfig};
 use num_primes::Verification;
 use rug::{Integer, integer::IsPrime};
 use serde::{Serialize, Deserialize};
-use crate::{keys::pair::KeyPair, utils::random::{random_prime, random_qr}, schemes::algorithms::{Scheme, CL03, BBSplus}};
+use crate::{keys::pair::KeyPair, utils::random::{random_prime, random_qr, random_number}, schemes::algorithms::{Scheme, CL03, BBSplus}, cl03::ciphersuites::CLCiphersuite};
 
 use super::bbsplus_key::{BBSplusPublicKey, BBSplusSecretKey};
 
@@ -39,6 +39,73 @@ impl CL03SecretKey{
     }
 }
 
+
+pub struct CL03CommitmentPublicKey {
+    pub(crate) N: Integer,
+    pub(crate) h: Integer,
+    pub(crate) g_bases: Vec<(Integer, bool)>
+}
+
+impl CL03CommitmentPublicKey {
+    pub fn generate<CS: CLCiphersuite>(N: Option<Integer>, n_attributes: Option<u32>) -> Self{
+        let n = CS::SECPARAM; //SECPARAM
+        let n_attributes = n_attributes.unwrap_or(1);
+        let N = N.unwrap_or_else(|| {
+            let mut pprime = random_prime(n);
+            let mut p = Integer::from(2) * pprime.clone() + Integer::from(1);
+            loop{
+                // println!("{} INT", p);
+                // let digits = p.to_digits::<u8>(Order::MsfBe);
+                // let bignum = BigUint::from_bytes_be(&digits);
+                // println!("{} BIGNUM", bignum);
+                if p.is_probably_prime(50) !=IsPrime::No {
+                    break;
+                }
+                pprime = random_prime(n);
+                p = Integer::from(2) * pprime + Integer::from(1);
+            }
+
+            let mut qprime = random_prime(n);
+            let mut q = Integer::from(2) * qprime.clone() + Integer::from(1);
+            loop{
+                // println!("{} INT", p);
+                // let digits = p.to_digits::<u8>(Order::MsfBe);
+                // let bignum = BigUint::from_bytes_be(&digits);
+                // println!("{} BIGNUM", bignum);
+                if p != q && q.is_probably_prime(100) !=IsPrime::No {
+                    break;
+                }
+                qprime = random_prime(n);
+                q = Integer::from(2) * qprime + Integer::from(1);
+            }
+
+            let N = p.clone() * q.clone();
+            N
+        });
+
+        let h = random_qr(&N);
+
+        let mut g_bases: Vec<(Integer, bool)> = Vec::new();
+
+        for i in 0..n_attributes {
+            let mut f = random_number(N.clone());
+            let mut g_i = Integer::from(h.pow_mod_ref(&f, &N).unwrap());
+
+            loop {
+                if ( (g_i > Integer::from(1)) && (Integer::from(g_i.gcd_ref(&N)) == Integer::from(1))) == false {
+                    f = random_number(N.clone());
+                    g_i = Integer::from(h.pow_mod_ref(&f, &N).unwrap());
+                }
+                else {
+                    break;
+                }
+            }
+            g_bases.push((g_i, true));
+        }
+
+        CL03CommitmentPublicKey{N: N, h: h, g_bases: g_bases}
+    }
+}
 
 // #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 // pub struct CL03KeyPair {

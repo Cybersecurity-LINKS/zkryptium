@@ -220,6 +220,7 @@ impl <CS: CLCiphersuite> Signature<CL03<CS>> {
         Self::CL03(sig)
     }
 
+    //TODO: tenere solo verify_multiattr visto che funzione anche con un solo messaggio?
     pub fn verify(&self, pk: &CL03PublicKey, message: &CL03Message) -> bool {
 
         let sign = self.cl03Signature();
@@ -234,6 +235,28 @@ impl <CS: CLCiphersuite> Signature<CL03<CS>> {
 
         if lhs == rhs {
             return true
+        }
+
+        false
+    }
+
+    pub fn verify_multiattr(&self, pk: &CL03PublicKey, messages: &[CL03Message]) -> bool{
+        let sign = self.cl03Signature();
+
+        let lhs = Integer::from(sign.v.pow_mod_ref(&sign.e,&pk.N).unwrap());
+
+        let mut rhs = Integer::from(1);
+
+        messages.iter().enumerate().for_each(|(i,m)| rhs = &rhs * Integer::from(pk.a_bases[i].0.pow_mod_ref(&m.value, &pk.N).unwrap()) );
+
+        rhs = (&rhs * Integer::from(pk.b.pow_mod_ref(&sign.s, &pk.N).unwrap()) * &pk.c) % &pk.N;
+
+        if sign.e <= Integer::from(2).pow(CS::le -1) {
+            return false;
+        }
+
+        if lhs == rhs {
+            return true;
         }
 
         false

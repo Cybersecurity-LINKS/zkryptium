@@ -2,9 +2,10 @@ use std::marker::PhantomData;
 
 use bls12_381_plus::{G1Projective, Scalar, G2Projective, G2Prepared, Gt, multi_miller_loop};
 use elliptic_curve::{hash2curve::ExpandMsg, group::Curve};
+use rug::Integer;
 use serde::{Serialize, Deserialize};
 
-use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::BBSplusMessage, generators::{self, Generators}}, cl03::ciphersuites::CLCiphersuite, keys::bbsplus_key::BBSplusPublicKey, utils::util::{get_remaining_indexes, get_messages, calculate_domain, calculate_random_scalars, ScalarExt, hash_to_scalar_old}};
+use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::BBSplusMessage, generators::{self, Generators}}, cl03::ciphersuites::CLCiphersuite, keys::{bbsplus_key::BBSplusPublicKey, cl03_key::{CL03CommitmentPublicKey, CL03PublicKey}}, utils::util::{get_remaining_indexes, get_messages, calculate_domain, calculate_random_scalars, ScalarExt, hash_to_scalar_old}};
 
 use super::signature::BBSplusSignature;
 
@@ -24,7 +25,27 @@ pub struct BBSplusPoKSignature{
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct CL03PoKSignature{
+    challenge: Integer,
+    s_1: Integer,
+    s_2: Integer,
+    s_3: Integer,
+    s_4: Integer,
+    s_5: Vec<Integer>,
+    s_6: Integer,
+    s_7: Integer,
+    s_8: Integer,
+    s_9: Integer,
+    Cx: Integer,
+    Cv: Integer,
+    Cw: Integer,
+    Ce: Integer,
+}
 
+impl CL03PoKSignature {
+
+    pub fn nisp5_MultiAttr_generate_proof(commitmentKey: &CL03CommitmentPublicKey, signer_pk: &CL03PublicKey) {
+        
+    }
 }
 
 
