@@ -124,6 +124,58 @@ impl CL03PoKSignature {
         CL03PoKSignature{ challenge, s_1, s_2, s_3, s_4, s_5, s_6, s_7, s_8, s_9, Cx: Cx.clone(), Cv: Cv.clone(), Cw: Cw.clone(), Ce: Ce.clone() }
 
     }
+
+    pub fn nisp5_MultiAttr_verify_proof<CS: CLCiphersuite>(&self, commitment_pk: &CL03CommitmentPublicKey, signer_pk: &CL03PublicKey, messages: &[CL03Message], unrevealed_message_indexes: &[usize]) -> bool
+    where
+        CS::HashAlg: Digest
+    {
+
+        let n_attr = messages.len();
+        if signer_pk.a_bases.len() != n_attr  && n_attr != commitment_pk.g_bases.len(){
+            panic!("Not enough a_bases OR g_bases for the number of attributes");
+        }
+
+        let mut t_Cx = Integer::from(1);
+        let N = &signer_pk.N;
+        let mut idx: usize = 0;
+        messages.iter().enumerate().for_each(|(i, m)| {
+            if unrevealed_message_indexes.contains(&i) {
+                t_Cx = &t_Cx * Integer::from(signer_pk.a_bases[i].0.pow_mod_ref(&self.s_5[idx], N).unwrap());
+                idx = idx + 1;
+            } else {
+                let val = &m.value + m.value.clone() * &self.challenge;
+                t_Cx = &t_Cx * Integer::from(signer_pk.a_bases[i].0.pow_mod_ref(&val, N).unwrap());
+            }
+        });
+        t_Cx = t_Cx % N;
+
+        let input1 = (Integer::from(self.Cv.pow_mod_ref(&self.s_4, N).unwrap()) * divm(&Integer::from(1), &t_Cx, N) * Integer::from(divm(&Integer::from(1), &signer_pk.b, N).pow_mod_ref(&self.s_6, N).unwrap()) * Integer::from(divm(&Integer::from(1), &commitment_pk.g_bases[0].0, N).pow_mod_ref(&self.s_8, N).unwrap()) * Integer::from(signer_pk.c.pow_mod_ref(&(Integer::from(-1) * &self.challenge), N).unwrap())) % N;
+        let input2 = (Integer::from(commitment_pk.g_bases[0].0.pow_mod_ref(&self.s_7, N).unwrap()) * Integer::from(commitment_pk.h.pow_mod_ref(&self.s_1, N).unwrap()) * Integer::from(self.Cw.pow_mod_ref(&(Integer::from(-1) * &self.challenge), N).unwrap()) ) % N;
+        let input3 = (Integer::from(self.Cw.pow_mod_ref(&self.s_4, N).unwrap()) * Integer::from(divm(&Integer::from(1), &commitment_pk.g_bases[0].0, N).pow_mod_ref(&self.s_8, N).unwrap()) * Integer::from(divm(&Integer::from(1), &commitment_pk.h, N).pow_mod_ref(&self.s_2, N).unwrap())) % N;
+
+        let mut input4 = Integer::from(1);
+        let mut idx: usize = 0;
+
+        messages.iter().enumerate().for_each(|(i, m)| {
+            if unrevealed_message_indexes.contains(&i) {
+                input4 = &input4 * Integer::from(commitment_pk.g_bases[i].0.pow_mod_ref(&self.s_5[idx], N).unwrap());
+                idx = idx + 1;
+            } else {
+                let val = &m.value + m.value.clone() * &self.challenge;
+                t_Cx = &t_Cx * Integer::from(commitment_pk.g_bases[i].0.pow_mod_ref(&val, N).unwrap());
+            }
+        });
+
+        input4 = (input4 * Integer::from(commitment_pk.h.pow_mod_ref(&self.s_3, N).unwrap()) * Integer::from(self.Cx.pow_mod_ref(&(Integer::from(-1) * &self.challenge), N).unwrap())) % N;
+
+        let input5 = (Integer::from(commitment_pk.g_bases[0].0.pow_mod_ref(&self.s_4, N).unwrap()) * Integer::from(commitment_pk.h.pow_mod_ref(&self.s_9, N).unwrap()) * Integer::from(self.Ce.pow_mod_ref(&(Integer::from(-1) * &self.challenge), N).unwrap()) ) % N;
+        
+        let str =  input1.to_string() + &input2.to_string()+ &input3.to_string()+ &input4.to_string()+ &input5.to_string();
+        let hash = <CS::HashAlg as Digest>::digest(str);
+        let challenge = Integer::from_digits(hash.as_slice(), Order::MsfBe);
+
+        challenge == self.challenge
+    }
 }
 
 

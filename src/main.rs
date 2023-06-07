@@ -4,7 +4,7 @@ use bls12_381_plus::{G1Affine, G2Affine, pairing, G1Projective, Scalar};
 use byteorder::BigEndian;
 use glass_pumpkin::prime::new;
 use hex::ToHex;
-use links_crypto::{utils::random, keys::{cl03_key::{CL03PublicKey}, pair::{KeyPair}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, bbsplus::{generators::{make_generators, global_generators, signer_specific_generators, print_generators}, ciphersuites::{Bls12381Shake256, BbsCiphersuite, Bls12381Sha256}, message::{Message, BBSplusMessage, CL03Message}}, schemes::algorithms::{CL03, BBSplus, Scheme, CL03Sha256, BBSplusShake256, BBSplusSha256}, signatures::{commitment::{Commitment, BBSplusCommitment, self}, blind::{self, BlindSignature, BBSplusBlindSignature}, signature::{BBSplusSignature, Signature}, proof::PoKSignature}, cl03::ciphersuites::CLSha256};
+use links_crypto::{utils::random, keys::{cl03_key::{CL03PublicKey, CL03CommitmentPublicKey}, pair::{KeyPair}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, bbsplus::{generators::{make_generators, global_generators, signer_specific_generators, print_generators}, ciphersuites::{Bls12381Shake256, BbsCiphersuite, Bls12381Sha256}, message::{Message, BBSplusMessage, CL03Message}}, schemes::algorithms::{CL03, BBSplus, Scheme, CL03Sha256, BBSplusShake256, BBSplusSha256}, signatures::{commitment::{Commitment, BBSplusCommitment, self}, blind::{self, BlindSignature, BBSplusBlindSignature}, signature::{BBSplusSignature, Signature}, proof::{PoKSignature, CL03PoKSignature}}, cl03::ciphersuites::CLSha256};
 
 use links_crypto::keys::key::PrivateKey;
 use rug::Integer;
@@ -25,34 +25,6 @@ fn prova2<CS: BbsCiphersuite>(commitment: Commitment<BBSplus<CS>>)
     let randomness = commitment.randomness();
     println!("commitment: {:?}", value);
     println!("randomness: {:?}", randomness);
-
-}
-
-//b*x = a mod m
-fn divm(a: Integer, b: Integer, m: Integer) -> Integer{
-    let mut num = a.clone();
-    let mut den = b.clone();
-    let mut module = m.clone();
-    let mut r: Integer;
-    let mut result = b.invert_ref(&m);
-    let mut ok = result.is_none();
-    if ok {
-        let mut gcd = Integer::from(a.gcd_ref(&b));
-        gcd.gcd_mut(&m);
-        num = Integer::from(a.div_exact_ref(&gcd));
-        den = Integer::from(b.div_exact_ref(&gcd));
-        module = Integer::from(m.div_exact_ref(&gcd));
-        result = den.invert_ref(&module);
-        ok = result.is_none();
-    }
-
-    if !ok {
-        r = Integer::from(result.unwrap());
-        let z = (r * num) % module;
-        z
-    } else {
-        panic!("No solution");
-    }
 
 }
 
@@ -119,11 +91,15 @@ fn test_bbsplus_sign() {
 
 fn test_cl03_sign() {
     const msg: &str = "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02";
+    const msg2: &str = "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f03";
     const wrong_msg: &str = "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f03";
 
-    let cl03_keypair = KeyPair::<CL03Sha256>::generate(None);
+    let cl03_keypair = KeyPair::<CL03Sha256>::generate(Some(2));
+    let commitment_pk = CL03CommitmentPublicKey::generate::<CLSha256>(Some(cl03_keypair.public_key().N.clone()), Some(2));
 
     let message = CL03Message::map_message_to_integer_as_hash::<CLSha256>(&hex::decode(msg).unwrap());
+    let message2 = CL03Message::map_message_to_integer_as_hash::<CLSha256>(&hex::decode(msg2).unwrap());
+    let messages = [message.clone(), message2.clone()];
     
     let wrong_message = CL03Message::map_message_to_integer_as_hash::<CLSha256>(&hex::decode(wrong_msg).unwrap());
 
@@ -147,7 +123,21 @@ fn test_cl03_sign() {
 
     println!("valid multiattr: {}", valid2);
 
+    let unrevealed_message_indexes = [0usize, 1usize];
+    let commitment = Commitment::<CL03Sha256>::commit_with_pk(&messages, cl03_keypair.public_key(), Some(&unrevealed_message_indexes));
+    println!("JSOIJD");
+    let blind_signature = BlindSignature::<CL03Sha256>::blind_sign(cl03_keypair.public_key(), cl03_keypair.private_key(), &commitment);
+    println!("JSOIJD");
+    let unblided_signature = Signature::<CL03Sha256>::CL03(blind_signature.unblind_sing(&commitment));
+    println!("JSOIJD");
+    let verify = unblided_signature.verify_multiattr(cl03_keypair.public_key(), &messages);
 
+    println!("valid signature multimessage: {}", verify);
+
+    let signature_pok = CL03PoKSignature::nisp5_MultiAttr_generate_proof::<CLSha256>(unblided_signature.cl03Signature(), &commitment_pk, cl03_keypair.public_key(), &messages, &unrevealed_message_indexes);
+
+    let valid_proof = signature_pok.nisp5_MultiAttr_verify_proof::<CLSha256>(&commitment_pk, cl03_keypair.public_key(), &messages, &unrevealed_message_indexes);
+    println!("valid proof: {}", valid_proof);
 
 }
 
@@ -205,13 +195,6 @@ fn main() {
     // // prova3(sign);
 
     // test_bbsplus_sign();
-    // test_cl03_sign();
-
-
-    println!("{}", divm(Integer::from(6), Integer::from(12), Integer::from(14)));
-
-    println!("{}", divm(Integer::from(4), Integer::from(8), Integer::from(20)));
-    
-    println!("{}", divm(Integer::from(0), Integer::from(1), Integer::from(2)));
+    test_cl03_sign();
 
 }

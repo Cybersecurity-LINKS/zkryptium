@@ -263,7 +263,7 @@ where
     random_scalars
 }
 
-//b*x = a mod m -> find x
+//b*x = a mod m -> return x
 pub fn divm(a: &Integer, b: &Integer, m: &Integer) -> Integer{
     let mut num = a.clone();
     let mut den = b.clone();

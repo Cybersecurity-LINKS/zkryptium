@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::CL03Message}, cl03::ciphersuites::CLCiphersuite, keys::cl03_key::{CL03PublicKey, CL03SecretKey}, utils::random::{random_prime, random_bits}};
 
-use super::commitment::{CL03Commitment, self, Commitment};
+use super::{commitment::{CL03Commitment, self, Commitment}, signature::CL03Signature};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusBlindSignature {
@@ -108,11 +108,11 @@ impl <CS:CLCiphersuite> BlindSignature<CL03<CS>> {
 
     //TODO: ("remove the indexes");
 
-    pub fn blind_sign(pk: &CL03PublicKey, sk: &CL03SecretKey, commitment: CL03Commitment) -> Self{
+    pub fn blind_sign(pk: &CL03PublicKey, sk: &CL03SecretKey, commitment: &Commitment<CL03<CS>>) -> Self{
 
         let mut e = random_prime(CS::le);
         let phi_n = (&sk.p - Integer::from(1)) * (&sk.q - Integer::from(1));
-        while ((&e > &Integer::from(2.pow(CS::le-1))) && (&e < &Integer::from(2.pow(CS::le))) && (Integer::from(e.gcd_ref(&phi_n)) == 1)) == false {
+        while ((&e > &Integer::from(Integer::from(2).pow(CS::le-1))) && (&e < &Integer::from(Integer::from(2).pow(CS::le))) && (Integer::from(e.gcd_ref(&phi_n)) == 1)) == false {
             e = random_prime(CS::le.try_into().unwrap());
         }
 
@@ -120,12 +120,17 @@ impl <CS:CLCiphersuite> BlindSignature<CL03<CS>> {
         let e2n = Integer::from(e.invert_ref(&phi_n).unwrap());
 
         // v = powmod(((Cx) * powmod(pk['b'], rprime, pk['N']) * pk['c']), e2n, pk['N'])
-        let v = ((commitment.value * Integer::from(pk.b.pow_mod_ref(&rprime, &pk.N).unwrap())) * &pk.c).pow_mod(&e2n, &pk.N).unwrap();
+        let v = ((commitment.value() * Integer::from(pk.b.pow_mod_ref(&rprime, &pk.N).unwrap())) * &pk.c).pow_mod(&e2n, &pk.N).unwrap();
         let sig = CL03BlindSignature{e, rprime, v};
         // sig = { 'e':e, 'rprime':rprime, 'v':v }
 
         Self::CL03(sig)
 
+    }
+
+    pub fn unblind_sing(&self, commitment: &Commitment<CL03<CS>>) -> CL03Signature {
+        let s = commitment.randomness().clone() + self.rprime();
+        CL03Signature { e: self.e().clone(), s: s, v: self.v().clone()}
     }
 }
 
