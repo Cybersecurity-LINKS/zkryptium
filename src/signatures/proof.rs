@@ -1,12 +1,13 @@
 use std::marker::PhantomData;
 
 use bls12_381_plus::{G1Projective, Scalar, G2Projective, G2Prepared, Gt, multi_miller_loop};
+use digest::Digest;
 use elliptic_curve::{hash2curve::ExpandMsg, group::Curve};
 use num_integer::div_mod_floor;
-use rug::Integer;
+use rug::{Integer, integer::Order};
 use serde::{Serialize, Deserialize};
 
-use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{BBSplusMessage, CL03Message}, generators::{self, Generators}}, cl03::ciphersuites::CLCiphersuite, keys::{bbsplus_key::BBSplusPublicKey, cl03_key::{CL03CommitmentPublicKey, CL03PublicKey}}, utils::{util::{get_remaining_indexes, get_messages, calculate_domain, calculate_random_scalars, ScalarExt, hash_to_scalar_old}, random::random_bits}};
+use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{BBSplusMessage, CL03Message}, generators::{self, Generators}}, cl03::ciphersuites::CLCiphersuite, keys::{bbsplus_key::BBSplusPublicKey, cl03_key::{CL03CommitmentPublicKey, CL03PublicKey}}, utils::{util::{get_remaining_indexes, get_messages, calculate_domain, calculate_random_scalars, ScalarExt, hash_to_scalar_old, divm}, random::random_bits}};
 
 use super::{signature::{BBSplusSignature, CL03Signature}, commitment::Commitment};
 
@@ -44,15 +45,18 @@ pub struct CL03PoKSignature{
 
 impl CL03PoKSignature {
 
-    pub fn nisp5_MultiAttr_generate_proof<CS: CLCiphersuite>(signature: &CL03Signature, commitment_pk: &CL03CommitmentPublicKey, signer_pk: &CL03PublicKey, messages: &[CL03Message], unrevealed_message_indexes: &[usize]) {
+    pub fn nisp5_MultiAttr_generate_proof<CS: CLCiphersuite>(signature: &CL03Signature, commitment_pk: &CL03CommitmentPublicKey, signer_pk: &CL03PublicKey, messages: &[CL03Message], unrevealed_message_indexes: &[usize]) -> CL03PoKSignature
+    where
+        CS::HashAlg: Digest
+    {
         // let unrevealed_message_indexes: Vec<usize> = match unrevealed_message_indexes {
         //     Some(indexes) => indexes.to_vec(),
         //     None => (0..messages.len()).collect(),
         // };
         let n_attr = messages.len();
 
-        if signer_pk.a_bases.len() != n_attr {
-            panic!("Not enough a_bases for the number of attributes");
+        if signer_pk.a_bases.len() != n_attr  && n_attr != commitment_pk.g_bases.len(){
+            panic!("Not enough a_bases OR g_bases for the number of attributes");
         }
         
         let C1= Commitment::<CL03<CS>>::commit_with_commitment_pk(messages, commitment_pk, None);
@@ -87,7 +91,37 @@ impl CL03PoKSignature {
 
         t_Cx = t_Cx % N;
 
-        // let t_1 = Integer::from(Cv.pow_mod_ref(&r_4, N).unwrap()) * Integer::from(1).div
+        let t_1 = (Integer::from(Cv.pow_mod_ref(&r_4, N).unwrap()) * divm(&Integer::from(1), &t_Cx, N) * Integer::from(divm(&Integer::from(1), &signer_pk.b, N).pow_mod_ref(&r_6, N).unwrap()) * Integer::from(divm(&Integer::from(1), &commitment_pk.g_bases[0].0, N).pow_mod_ref(&r_8, N).unwrap())) % N;
+        let t_2 = (Integer::from(commitment_pk.g_bases[0].0.pow_mod_ref(&r_7, N).unwrap()) * Integer::from(commitment_pk.h.pow_mod_ref(&r_1, N).unwrap())) % N;
+        let t_3 = (Integer::from(Cw.pow_mod_ref(&r_4, N).unwrap()) * Integer::from(divm(&Integer::from(1), &commitment_pk.g_bases[0].0, N).pow_mod_ref(&r_8, N).unwrap()) * Integer::from(divm(&Integer::from(1), &commitment_pk.h, N).pow_mod_ref(&r_2, N).unwrap())) % N;
+
+        let mut t_4 = Integer::from(1);
+        for i in 0..n_attr {
+            t_4 = t_4 * Integer::from(commitment_pk.g_bases[i].0.pow_mod_ref(&r_5[i], N).unwrap());
+        }
+        t_4 = (t_4 * Integer::from(commitment_pk.h.pow_mod_ref(&r_3, N).unwrap())) % N;
+
+        let t_5 = (Integer::from(commitment_pk.g_bases[0].0.pow_mod_ref(&r_4, N).unwrap()) * Integer::from(commitment_pk.h.pow_mod_ref(&r_9, N).unwrap())) % N;
+        let str =  t_1.to_string() + &t_2.to_string()+ &t_3.to_string()+ &t_4.to_string()+ &t_5.to_string();
+        let hash = <CS::HashAlg as Digest>::digest(str);
+        let challenge = Integer::from_digits(hash.as_slice(), Order::MsfBe);
+
+        let s_1 = r_1 + rw * &challenge;
+        let s_2 = r_2 + rw * signature.e.clone() * &challenge;
+        let s_3 = r_3 + rx * &challenge;
+        let s_4 = r_4 + signature.e.clone() * &challenge;
+        let mut s_5: Vec<Integer> = Vec::new();
+        for i in unrevealed_message_indexes {
+            let si = &r_5[*i] + messages[*i].value.clone() * &challenge;
+            s_5.push(si);
+        }
+
+        let s_6 = r_6 + signature.s.clone() * &challenge;
+        let s_7 = r_7 + w * &challenge;   
+        let s_8 = r_8 + w * signature.e.clone() * &challenge;
+        let s_9 = r_9 + re * &challenge;
+
+        CL03PoKSignature{ challenge, s_1, s_2, s_3, s_4, s_5, s_6, s_7, s_8, s_9, Cx: Cx.clone(), Cv: Cv.clone(), Cw: Cw.clone(), Ce: Ce.clone() }
 
     }
 }

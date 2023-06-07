@@ -7,6 +7,7 @@ use digest::typenum::Pow;
 use elliptic_curve::{hash2curve::{ExpandMsg, Expander}, group::Curve};
 use ff::Field;
 use rand::RngCore;
+use rug::Integer;
 use serde::Serialize;
 use crate::{bbsplus::{ciphersuites::BbsCiphersuite, message::BBSplusMessage}, keys::bbsplus_key::BBSplusPublicKey};
 
@@ -260,4 +261,32 @@ where
     }
 
     random_scalars
+}
+
+//b*x = a mod m -> find x
+pub fn divm(a: &Integer, b: &Integer, m: &Integer) -> Integer{
+    let mut num = a.clone();
+    let mut den = b.clone();
+    let mut module = m.clone();
+    let mut r: Integer;
+    let mut result = b.invert_ref(&m);
+    let mut ok = result.is_none();
+    if ok {
+        let mut gcd = Integer::from(a.gcd_ref(&b));
+        gcd.gcd_mut(&m);
+        num = Integer::from(a.div_exact_ref(&gcd));
+        den = Integer::from(b.div_exact_ref(&gcd));
+        module = Integer::from(m.div_exact_ref(&gcd));
+        result = den.invert_ref(&module);
+        ok = result.is_none();
+    }
+
+    if !ok {
+        r = Integer::from(result.unwrap());
+        let z = (r * num) % module;
+        z
+    } else {
+        panic!("No solution");
+    }
+
 }

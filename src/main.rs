@@ -7,6 +7,7 @@ use hex::ToHex;
 use links_crypto::{utils::random, keys::{cl03_key::{CL03PublicKey}, pair::{KeyPair}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, bbsplus::{generators::{make_generators, global_generators, signer_specific_generators, print_generators}, ciphersuites::{Bls12381Shake256, BbsCiphersuite, Bls12381Sha256}, message::{Message, BBSplusMessage, CL03Message}}, schemes::algorithms::{CL03, BBSplus, Scheme, CL03Sha256, BBSplusShake256, BBSplusSha256}, signatures::{commitment::{Commitment, BBSplusCommitment, self}, blind::{self, BlindSignature, BBSplusBlindSignature}, signature::{BBSplusSignature, Signature}, proof::PoKSignature}, cl03::ciphersuites::CLSha256};
 
 use links_crypto::keys::key::PrivateKey;
+use rug::Integer;
 
 fn prova<S: Scheme>(keypair: &KeyPair<S>)
 where
@@ -24,6 +25,34 @@ fn prova2<CS: BbsCiphersuite>(commitment: Commitment<BBSplus<CS>>)
     let randomness = commitment.randomness();
     println!("commitment: {:?}", value);
     println!("randomness: {:?}", randomness);
+
+}
+
+//b*x = a mod m
+fn divm(a: Integer, b: Integer, m: Integer) -> Integer{
+    let mut num = a.clone();
+    let mut den = b.clone();
+    let mut module = m.clone();
+    let mut r: Integer;
+    let mut result = b.invert_ref(&m);
+    let mut ok = result.is_none();
+    if ok {
+        let mut gcd = Integer::from(a.gcd_ref(&b));
+        gcd.gcd_mut(&m);
+        num = Integer::from(a.div_exact_ref(&gcd));
+        den = Integer::from(b.div_exact_ref(&gcd));
+        module = Integer::from(m.div_exact_ref(&gcd));
+        result = den.invert_ref(&module);
+        ok = result.is_none();
+    }
+
+    if !ok {
+        r = Integer::from(result.unwrap());
+        let z = (r * num) % module;
+        z
+    } else {
+        panic!("No solution");
+    }
 
 }
 
@@ -176,6 +205,13 @@ fn main() {
     // // prova3(sign);
 
     // test_bbsplus_sign();
-    test_cl03_sign();
+    // test_cl03_sign();
+
+
+    println!("{}", divm(Integer::from(6), Integer::from(12), Integer::from(14)));
+
+    println!("{}", divm(Integer::from(4), Integer::from(8), Integer::from(20)));
+    
+    println!("{}", divm(Integer::from(0), Integer::from(1), Integer::from(2)));
 
 }
