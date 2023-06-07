@@ -128,7 +128,7 @@ impl <CS:CLCiphersuite> BlindSignature<CL03<CS>> {
 
     }
 
-    pub fn unblind_sing(&self, commitment: &Commitment<CL03<CS>>) -> CL03Signature {
+    pub fn unblind_sign(&self, commitment: &Commitment<CL03<CS>>) -> CL03Signature {
         let s = commitment.randomness().clone() + self.rprime();
         CL03Signature { e: self.e().clone(), s: s, v: self.v().clone()}
     }

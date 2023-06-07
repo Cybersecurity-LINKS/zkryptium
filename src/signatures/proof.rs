@@ -55,7 +55,7 @@ impl CL03PoKSignature {
         // };
         let n_attr = messages.len();
 
-        if signer_pk.a_bases.len() != n_attr  && n_attr != commitment_pk.g_bases.len(){
+        if signer_pk.a_bases.len() < n_attr  && n_attr < commitment_pk.g_bases.len(){
             panic!("Not enough a_bases OR g_bases for the number of attributes");
         }
         
@@ -131,7 +131,7 @@ impl CL03PoKSignature {
     {
 
         let n_attr = messages.len();
-        if signer_pk.a_bases.len() != n_attr  && n_attr != commitment_pk.g_bases.len(){
+        if signer_pk.a_bases.len() < n_attr  && n_attr < commitment_pk.g_bases.len(){
             panic!("Not enough a_bases OR g_bases for the number of attributes");
         }
 
@@ -422,5 +422,26 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
 }
 
 impl <CS: CLCiphersuite> PoKSignature<CL03<CS>> {
+    
+    pub fn proof_gen(signature: &CL03Signature, commitment_pk: &CL03CommitmentPublicKey, signer_pk: &CL03PublicKey, messages: &[CL03Message], unrevealed_message_indexes: &[usize]) -> Self
+    where
+        CS::HashAlg: Digest
+    {
+        Self::CL03(CL03PoKSignature::nisp5_MultiAttr_generate_proof::<CS>(signature, commitment_pk, signer_pk, messages, unrevealed_message_indexes))
+    }
 
+    pub fn proof_verify(&self, commitment_pk: &CL03CommitmentPublicKey, signer_pk: &CL03PublicKey, messages: &[CL03Message], unrevealed_message_indexes: &[usize]) ->bool
+    where
+        CS::HashAlg: Digest
+    {
+        CL03PoKSignature::nisp5_MultiAttr_verify_proof::<CS>(self.to_cl03_proof(), commitment_pk, signer_pk, messages, unrevealed_message_indexes)
+    }
+
+
+    pub fn to_cl03_proof(&self) ->  &CL03PoKSignature {
+        match self {
+            Self::CL03(inner) => inner,
+            _ => panic!("Cannot happen!")
+        }
+    }
 }
