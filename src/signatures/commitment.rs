@@ -105,7 +105,7 @@ impl <CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
 
 
 impl <CS: CLCiphersuite> Commitment<CL03<CS>> {
-    pub fn commit_v(v: &Integer, commitment_pk: &CL03CommitmentPublicKey) -> Self {
+    pub(crate) fn commit_v(v: &Integer, commitment_pk: &CL03CommitmentPublicKey) -> Self {
         let w = random_bits(CS::ln);
 
         let Cv = (v * Integer::from(commitment_pk.g_bases[0].0.pow_mod_ref(&w, &commitment_pk.N).unwrap())) % &commitment_pk.N;

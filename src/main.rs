@@ -9,32 +9,6 @@ use links_crypto::{utils::random, keys::{cl03_key::{CL03PublicKey, CL03Commitmen
 use links_crypto::keys::key::PrivateKey;
 use rug::Integer;
 
-fn prova<S: Scheme>(keypair: &KeyPair<S>)
-where
-    S: Scheme<PrivKey = BBSplusSecretKey, PubKey = BBSplusPublicKey>
-{
-    let sk = keypair.private_key();
-
-    println!("SK: {}", sk.encode());
-}
-
-fn prova2<CS: BbsCiphersuite>(commitment: Commitment<BBSplus<CS>>)
-{
-    
-    let value = commitment.value();
-    let randomness = commitment.randomness();
-    println!("commitment: {:?}", value);
-    println!("randomness: {:?}", randomness);
-
-}
-
-fn prova3<CS: BbsCiphersuite>(signature: BlindSignature<BBSplus<CS>>)
-{
-    let a = signature.a();
-
-
-    println!("{:?}", a);
-}
 
 fn test_bbsplus_sign() {
 
@@ -125,11 +99,8 @@ fn test_cl03_sign() {
 
     let unrevealed_message_indexes = [0usize, 1usize];
     let commitment = Commitment::<CL03Sha256>::commit_with_pk(&messages, cl03_keypair.public_key(), Some(&unrevealed_message_indexes));
-    println!("JSOIJD");
     let blind_signature = BlindSignature::<CL03Sha256>::blind_sign(cl03_keypair.public_key(), cl03_keypair.private_key(), &commitment);
-    println!("JSOIJD");
     let unblided_signature = Signature::<CL03Sha256>::CL03(blind_signature.unblind_sing(&commitment));
-    println!("JSOIJD");
     let verify = unblided_signature.verify_multiattr(cl03_keypair.public_key(), &messages);
 
     println!("valid signature multimessage: {}", verify);
@@ -142,58 +113,6 @@ fn test_cl03_sign() {
 }
 
 fn main() {
-
-    // const IKM: &str = "746869732d49532d6a7573742d616e2d546573742d494b4d2d746f2d67656e65726174652d246528724074232d6b6579";
-    // const KEY_INFO: &str = "746869732d49532d736f6d652d6b65792d6d657461646174612d746f2d62652d757365642d696e2d746573742d6b65792d67656e";
-
-
-    
-    // let cl03_keypair = KeyPair::<CL03Sha256>::generate(None);
-    // let bbsplus_keypair = KeyPair::<BBSplusShake256>::generate(
-    //     &hex::decode(&IKM).unwrap(),
-    //     Some(&hex::decode(&KEY_INFO).unwrap())
-    // );
-
-    // println!("BBS+ KeyPair = {:?}", bbsplus_keypair);
-    // println!("SK: {}", bbsplus_keypair.private_key().encode());
-    // println!("PK: {}", bbsplus_keypair.public_key().encode());
-
-
-
-    // println!("CL03 KeyPair = {:?}", cl03_keypair);
-
-
-    // // Suite specific create generators function
-    // let get_generators_fn = make_generators::<<BBSplusShake256 as Scheme>::Ciphersuite>;
-
-    // let generators = global_generators(get_generators_fn, 5);
-    // let generators2 = signer_specific_generators(get_generators_fn, 5);
-
-    // print_generators(&generators);
-
-    // prova(&bbsplus_keypair);
-
-    // bbsplus_keypair.write_keypair_to_file(Some("keypair.txt".to_string()));
-
-
-    // let g1 = G1Affine::generator();
-    // let g2 = G2Affine::generator();
-
-    // let write_data_start_time = Instant::now();
-    // let p = pairing(&g1,&g2);
-    // println!("pairing = {} {:.2?}",p, write_data_start_time.elapsed());
-
-
-    // let mut rng = rand::thread_rng();
-    // let messages = BBSplusMessage::random(&mut rng);
-    
-    // let commitment = Commitment::<BBSplusShake256>::commit(&[messages], Some(&generators), &[0usize]); 
-
-    // // prova2(commitment);
-
-    // // let sign = BlindSignature::<BBSplusShake256>::blind_sign(pk, sk, commitment);
-    // // prova3(sign);
-
     // test_bbsplus_sign();
     test_cl03_sign();
 
