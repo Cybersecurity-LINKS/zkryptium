@@ -7,9 +7,9 @@ use num_integer::div_mod_floor;
 use rug::{Integer, integer::Order};
 use serde::{Serialize, Deserialize};
 
-use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{BBSplusMessage, CL03Message}, generators::{self, Generators}}, cl03::ciphersuites::CLCiphersuite, keys::{bbsplus_key::BBSplusPublicKey, cl03_key::{CL03CommitmentPublicKey, CL03PublicKey}}, utils::{util::{get_remaining_indexes, get_messages, calculate_domain, calculate_random_scalars, ScalarExt, hash_to_scalar_old, divm}, random::random_bits}};
+use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{BBSplusMessage, CL03Message}, generators::{self, Generators}}, cl03::ciphersuites::{CLCiphersuite}, keys::{bbsplus_key::BBSplusPublicKey, cl03_key::{CL03CommitmentPublicKey, CL03PublicKey}}, utils::{util::{get_remaining_indexes, get_messages, calculate_domain, calculate_random_scalars, ScalarExt, hash_to_scalar_old, divm}, random::random_bits}};
 
-use super::{signature::{BBSplusSignature, CL03Signature}, commitment::Commitment};
+use super::{signature::{BBSplusSignature, CL03Signature}, commitment::{Commitment, CL03Commitment}};
 
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -178,7 +178,7 @@ impl CL03PoKSignature {
     }
 }
 
-
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum PoKSignature<S: Scheme>{
     BBSplus(BBSplusPoKSignature),
     CL03(CL03PoKSignature),
@@ -422,7 +422,7 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
 }
 
 impl <CS: CLCiphersuite> PoKSignature<CL03<CS>> {
-    
+
     pub fn proof_gen(signature: &CL03Signature, commitment_pk: &CL03CommitmentPublicKey, signer_pk: &CL03PublicKey, messages: &[CL03Message], unrevealed_message_indexes: &[usize]) -> Self
     where
         CS::HashAlg: Digest
@@ -445,3 +445,52 @@ impl <CS: CLCiphersuite> PoKSignature<CL03<CS>> {
         }
     }
 }
+
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct Boudot2000RangeProof {
+
+}
+
+impl Boudot2000RangeProof {
+
+    /* Security parameter - Half of the length of the Hash function output
+    NOTE: i.e., 2*t bits is the length of the Hash function output. 
+    The soundness characteristic of the range proof is given by 2**(t−1).                    
+    t = 80: Original value in [Boudot2000], appropriate for SHA-1 - sha160 (i.e. 2*t = 160 bits),
+    replaced by t = 128, appropriate for SHA256 (i.e. 2*t = 256). */
+    const t: u32 = 128;
+    // Security parameter - Zero knowledge property is guaranteed given that 1∕l is negligible
+    const l: u32 = 40;
+    // Security parameter for the commitment - 2**s  must be negligible
+    const s: u32 = 40;
+    // Security parameter for the commitment - 2**s1 must be negligible
+    const s1: u32 = 40;
+    // Security parameter for the commitment - 2**s2 must be negligible
+    const s2: u32 = 552;
+
+    pub(crate) fn proof_of_square_decomposition_range() {
+
+    }
+
+
+    pub fn prove(value: &Integer, commitment: &CL03Commitment, base1: &Integer, base2: &Integer, module: &Integer, rmin: &Integer, rmax: &Integer) {
+        if rmax <= rmin{
+            panic!("rmin > rmax");
+        }
+        let T = Integer::from(2) * (Integer::from(Self::t) + Integer::from(Self::l) + Integer::from(1)) + Integer::from(Integer::from(rmax - rmin).significant_bits());
+        let E = &commitment.value;
+
+        // let proof_of_sdr = 
+
+
+    }
+}
+
+
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub enum RangeProof{
+    Boudot2000,
+}
+
+
+
