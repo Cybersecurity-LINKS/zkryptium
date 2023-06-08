@@ -514,12 +514,6 @@ impl Boudot2000RangeProof {
     where
         H: Digest
     {
-        // omega = randint(1, 2 ** (l + t) * b - 1)
-        // mu_1 =  randint(1, 2 ** (l + t + s1) * n - 1)
-        // mu_2 =  randint(1, 2 ** (l + t + s2) * n - 1)
-    
-        // w_1 = (powmod(g_1, omega, n) * powmod(h_1, mu_1, n)) % n 
-        // w_2 = (powmod(g_2, omega, n) * powmod(h_2, mu_2, n)) % n 
 
         let omega = rand_int(Integer::from(1), Integer::from(2).pow(l + t) * b - Integer::from(1));
         let mu_1 = rand_int(Integer::from(1), Integer::from(2).pow(l + t + s1) * n - Integer::from(1));
@@ -530,11 +524,6 @@ impl Boudot2000RangeProof {
         let str =  w_1.to_string() + &w_2.to_string();
         let hash = <H as Digest>::digest(str);
         let challenge = Integer::from_digits(hash.as_slice(), Order::MsfBe);
-
-
-        // d   = omega + challenge * x
-        // d_1 = mu_1  + challenge * r_1
-        // d_2 = mu_2  + challenge * r_2
 
         let d = omega + &challenge * x;
         let d_1 = mu_1 + &challenge * r_1;
@@ -549,10 +538,6 @@ impl Boudot2000RangeProof {
     where
         H: Digest
     {
-        // r_2 = randint(-(2 ** s) * n + 1, (2 ** s) * n - 1)
-        // F = (powmod(g, x, n) * powmod(h, r_2, n)) % n
-        // r_3 = r_1 - r_2 * x
-        // NOTE: E = F ** x * h ** r_3
 
         let r_2 = rand_int(-Integer::from(2).pow(s) * n + Integer::from(1), Integer::from(2).pow(s) * n - Integer::from(1));
         let F = (Integer::from(g.pow_mod_ref(x, n).unwrap()) * Integer::from(h.pow_mod_ref(&r_2, n).unwrap())) % n;
@@ -567,28 +552,6 @@ impl Boudot2000RangeProof {
     where
         H: Digest
     {
-        // boolean = True
-        // while boolean:
-        //     w  = (randint(0, (2 ** T * 2 ** (t + l)) * b - 1))
-        //     nu = (randint(-(2 ** T * 2 ** (t + l + s)) * n + 1, \
-        //                 (2 ** T * 2 ** (t + l + s)) * n - 1))
-            
-        //     omega = (powmod(g, w, n) * powmod(h, nu, n)) % n
-                
-        //     strInput = str(omega)
-        //     hash = SHA256.new()
-        //     hash.update(strInput.encode('utf-8'))
-        //     C = int.from_bytes(hash.digest(), byteorder=byteorder) 
-
-        //     c = C % (2 ** t)
-            
-        //     D_1 = w  + (x * c)        
-        //     D_2 = nu + (r * c)
-        //     # NOTE: corrected typo in D_2 definition in Algorithm 5 in [Morais2019],
-        //     #       x instead of r
-
-        //     if (c * b) <= D_1 <= (2 ** T * (2 ** (t + l)) * b - 1):
-        //         boolean = False # Exit from loop
 
         let mut boolean = true;
         let mut C = Integer::from(0);
@@ -614,7 +577,7 @@ impl Boudot2000RangeProof {
             }
 
         }
-        // (C, D_1, D_2)
+
         // proof_li = {'C': int(C), 'D_1': int(D_1), 'D_2': int(D_2)}
         proof_li{C, D_1, D_2}
     }
@@ -642,14 +605,6 @@ impl Boudot2000RangeProof {
         let x_b_1 = Integer::from(x_b.sqrt_ref());
         let x_b_2 = x_b - x_b_1.clone().pow(2);
 
-        // boolean = True
-        // while boolean:
-        //     r_a_1 = randint(-(2 ** s) * 2 ** T * n + 1, (2 ** s) * 2 ** T * n - 1)
-        //     r_a_2 = r - r_a_1
-        //     if (-(2 ** s) * 2 ** T * n + 1 <= r_a_2 <= (2 ** s) * 2 ** T * n - 1) and \
-        //        (r == r_a_1 + r_a_2):
-        //         boolean = False
-
         let mut boolean = true;
         let mut r_a_1 = Integer::from(1);
         let mut r_a_2 = Integer::from(1);
@@ -661,14 +616,6 @@ impl Boudot2000RangeProof {
             }
         }
 
-
-    //     boolean = True
-    // while boolean:
-    //     r_b_1 = randint(-(2 ** s) * 2 ** T * n + 1, (2 ** s) * 2 ** T * n - 1)
-    //     r_b_2 = (-1) * r - r_b_1
-    //     if (-(2 ** s) * 2 ** T * n + 1 <= r_b_2 <= (2 ** s) * 2 ** T * n - 1) and \
-    //        ((-1) * r ==  (r_b_1 + r_b_2)):
-    //         boolean = False
 
         let mut r_b_1 = Integer::from(1);
         let mut r_b_2 = Integer::from(1);
@@ -682,12 +629,6 @@ impl Boudot2000RangeProof {
             }
         }
 
-
-        // E_a_1 = (powmod(g, (x_a_1 ** 2), n) * powmod(h, r_a_1, n)) % n
-        // E_a_2 = (powmod(g, x_a_2, n) * powmod(h, r_a_2, n)) % n
-    
-        // E_b_1 = (powmod(g, (x_b_1 ** 2), n) * powmod(h, r_b_1, n)) % n
-        // E_b_2 = (powmod(g, x_b_2, n) * powmod(h, r_b_2, n)) % n
 
         let E_a_1 = (Integer::from(g.pow_mod_ref(&x_a_1.clone().pow(2), n).unwrap()) * Integer::from(h.pow_mod_ref(&r_a_1, n).unwrap())) % n;
         let E_a_2 = (Integer::from(g.pow_mod_ref(&x_a_2, n).unwrap()) * Integer::from(h.pow_mod_ref(&r_a_2, n).unwrap())) % n;
@@ -721,8 +662,95 @@ impl Boudot2000RangeProof {
         let E_prime = Integer::from(E.pow_mod_ref(&(Integer::from(2).pow(T)), n).unwrap());
 
         let proof_of_tolerance = Self::proof_of_tolerance_specific::<H>(x_prime, r_prime, g, h, n, a, b, t, l, s, s1, s2, T);
-        // Self{ proof_of_tolerance: proof_of_t, E_prime, E: E.clone() }
+    
         Self{proof_of_tolerance, E_prime, E: E.clone()}
+    }
+
+    fn verify_same_secret<H>(E: &Integer, F: &Integer, g_1: &Integer, h_1: &Integer, g_2: &Integer, h_2: &Integer, n: &Integer, proof_ss: &proof_ss) -> bool
+    where
+        H: Digest
+    {
+
+        let proof_ss{challenge, d, d_1, d_2} = proof_ss;
+        
+        let inv_E = Integer::from(E.pow_mod_ref(&(-Integer::from(1) * challenge), n).unwrap());
+        let inv_F = Integer::from(F.pow_mod_ref(&(-Integer::from(1) * challenge), n).unwrap());
+
+        let lhs = (Integer::from(g_1.pow_mod_ref(d, n).unwrap()) * Integer::from(h_1.pow_mod_ref(d_1, n).unwrap()) * &inv_E) % n;
+        let rhs = (Integer::from(g_2.pow_mod_ref(d, n).unwrap()) * Integer::from(h_2.pow_mod_ref(d_2, n).unwrap()) * &inv_F) % n;
+
+        let str =  lhs.to_string() + &rhs.to_string();
+        let hash = <H as Digest>::digest(str);
+        let output = Integer::from_digits(hash.as_slice(), Order::MsfBe);
+
+        challenge == &output
+
+    }
+
+    fn verify_of_square<H>(proof_of_s: &proof_of_s, g: &Integer, h: &Integer, n: &Integer) -> bool
+    where
+        H: Digest
+    {
+        Self::verify_same_secret::<H>(&proof_of_s.F, &proof_of_s.E, g, h, &proof_of_s.F, h, n, &proof_of_s.proof_ss)
+    }
+
+    fn verify_large_interval_specific<H>(proof_li: &proof_li, E: &Integer, g: &Integer, h: &Integer, n: &Integer, t: u32, l: u32, b: u32, T: u32) -> bool
+    where
+        H: Digest
+    {
+
+        let proof_li {C, D_1, D_2} = proof_li;
+        let c = C % (Integer::from(2).pow(t));
+        let inv_E = Integer::from(E.pow_mod_ref(&(-Integer::from(1) * &c), n).unwrap());
+        let commit = (Integer::from(g.pow_mod_ref(D_1, n).unwrap()) * Integer::from(h.pow_mod_ref(D_2, n).unwrap()) * &inv_E) % n;
+
+        let str =  commit.to_string();
+        let hash = <H as Digest>::digest(str);
+        let output = Integer::from_digits(hash.as_slice(), Order::MsfBe);
+
+        if &(c * Integer::from(b)) <= D_1 && D_1 <= &(Integer::from(2).pow(T) * (Integer::from(2).pow(t+l) * b - Integer::from(1))) && C == &output {
+            return true
+        }
+
+        false
+    }
+
+    fn verify_of_tolerance_specific<H>(proof_wt: &proof_wt, g: &Integer, h: &Integer, E: &Integer, n: &Integer, a: u32, b: u32, t: u32, l: u32, T: u32) -> bool
+    where
+        H: Digest
+    {
+
+        let aa = Integer::from(2).pow(T) * Integer::from(a) - Integer::from(2).pow(l + t + rug::ops::DivRounding::div_floor(T, 2) + 1) * Integer::from(Integer::from(b - a).sqrt_ref());
+        let bb = Integer::from(2).pow(T) * Integer::from(b) + Integer::from(2).pow(l + t + rug::ops::DivRounding::div_floor(T, 2) + 1) * Integer::from(Integer::from(b - a).sqrt_ref());
+        let E_a = divm(E, &Integer::from(g.pow_mod_ref(&aa, n).unwrap()), n);
+        let E_b = divm(&Integer::from(g.pow_mod_ref(&bb, n).unwrap()), E, n);
+        // NOTE: E_a and E_b must be recomputed during the verification, 
+        //        see Section 3.1.1 in [Boudot2000] ("Both Alice and Bob compute...")
+
+        let proof_wt {E_a_1, E_a_2, E_b_1, E_b_2, proof_of_square_a, proof_of_square_b, proof_large_i_a, proof_large_i_b} = proof_wt;
+
+        let div_a = divm(&E_a, E_a_1, n);
+        let div_b = divm(&E_b, E_b_1, n);
+
+        if E_a_2 == &div_a && E_b_2 == &div_b {
+            let b_s = Self::verify_of_square::<H>(proof_of_square_a, g, h, n) && Self::verify_of_square::<H>(proof_of_square_b, g, h, n);
+            let b_li = Self::verify_large_interval_specific::<H>(proof_large_i_a, E_a_2, g, h, n, t, l, b, T) && Self::verify_large_interval_specific::<H>(proof_large_i_b, E_b_2, g, h, n, t, l, b, T);
+            return b_s && b_li
+        }
+
+        false
+
+    }
+
+    fn verify_of_square_decomposition_range<H>(&self, g: &Integer, h: &Integer, n: &Integer, a: u32, b: u32, t: u32, l: u32, T: u32) -> bool
+    where
+        H: Digest
+    {
+        if self.E_prime == Integer::from(self.E.pow_mod_ref(&Integer::from(2).pow(T), n).unwrap()) {
+            let res_verify_ts = Self::verify_of_tolerance_specific::<H>(&self.proof_of_tolerance, g, h, &self.E_prime, n, a, b, t, l, T);
+            return res_verify_ts
+        }
+        return false
     }
 
 
@@ -737,6 +765,20 @@ impl Boudot2000RangeProof {
         let T = 2 * (Self::t + Self::l + 1) + u32::try_from((rmax - rmin).bits()).unwrap();
         let proof_of_sdr = Self::proof_of_square_decomposition_range::<H>(value, &commitment.randomness, base1, base2, &commitment.value, module, rmin, rmax, Self::t, Self::l, Self::s, Self::s1, Self::s2, T);
         proof_of_sdr
+    }
+
+    pub fn verify<H>(&self, base1: &Integer, base2: &Integer, module: &Integer, rmin: u32, rmax: u32) -> bool
+    where
+        H: Digest
+    {
+        if rmax <= rmin{
+            panic!("rmin > rmax");
+        }
+
+        let T = 2 * (Self::t + Self::l + 1) + u32::try_from((rmax - rmin).bits()).unwrap();
+
+        let valid = Self::verify_of_square_decomposition_range::<H>(self, base1, base2, module, rmin, rmax, Self::t, Self::l, T);
+        valid
     }
 }
 
