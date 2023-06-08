@@ -115,9 +115,4 @@ fn test_cl03_sign() {
 fn main() {
     // test_bbsplus_sign();
     // test_cl03_sign();
-    let b = Integer::from(1);
-    let a = Integer::from(10);
-    let range = (&b - &a).complete() + 1;
-
-    println!("{}", range);
 }

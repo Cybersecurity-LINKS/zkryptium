@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, collections::HashMap};
 
 use bls12_381_plus::{G1Projective, Scalar, G2Projective, G2Prepared, Gt, multi_miller_loop};
 use digest::Digest;
@@ -446,12 +446,50 @@ impl <CS: CLCiphersuite> PoKSignature<CL03<CS>> {
     }
 }
 
+
+//RANGE PROOF
+
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+struct proof_ss {
+    challenge: Integer,
+    d: Integer,
+    d_1: Integer,
+    d_2: Integer
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+struct proof_of_s {
+    E: Integer,
+    F: Integer,
+    proof_ss: proof_ss
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+struct proof_li {
+    C: Integer,
+    D_1: Integer,
+    D_2: Integer
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+struct proof_wt {
+    E_a_1: Integer,
+    E_a_2: Integer,
+    E_b_1: Integer,
+    E_b_2: Integer,
+    proof_of_square_a: proof_of_s,
+    proof_of_square_b: proof_of_s,
+    proof_large_i_a: proof_li,
+    proof_large_i_b: proof_li
+}
+
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Boudot2000RangeProof {
-    proof_of_tolerance: Integer,
+    proof_of_tolerance: proof_wt,
     E_prime: Integer,
     E: Integer,
 }
+
 
 impl Boudot2000RangeProof {
 
@@ -472,11 +510,45 @@ impl Boudot2000RangeProof {
 
 
 
-    fn proof_same_secret(x: &Integer, r_1: &Integer, r_2: &Integer, g_1: &Integer, h_1: &Integer, g_2: &Integer, h_2: &Integer, l: u32, t: u32, b: u32, s1: u32, s2: u32, n: &Integer) {
+    fn proof_same_secret<H>(x: &Integer, r_1: &Integer, r_2: &Integer, g_1: &Integer, h_1: &Integer, g_2: &Integer, h_2: &Integer, l: u32, t: u32, b: u32, s1: u32, s2: u32, n: &Integer) -> proof_ss
+    where
+        H: Digest
+    {
+        // omega = randint(1, 2 ** (l + t) * b - 1)
+        // mu_1 =  randint(1, 2 ** (l + t + s1) * n - 1)
+        // mu_2 =  randint(1, 2 ** (l + t + s2) * n - 1)
+    
+        // w_1 = (powmod(g_1, omega, n) * powmod(h_1, mu_1, n)) % n 
+        // w_2 = (powmod(g_2, omega, n) * powmod(h_2, mu_2, n)) % n 
 
+        let omega = rand_int(Integer::from(1), Integer::from(2).pow(l + t) * b - Integer::from(1));
+        let mu_1 = rand_int(Integer::from(1), Integer::from(2).pow(l + t + s1) * n - Integer::from(1));
+        let mu_2 = rand_int(Integer::from(1), Integer::from(2).pow(l + t + s2) * n - Integer::from(1));
+        let w_1 = (Integer::from(g_1.pow_mod_ref(&omega, n).unwrap()) * Integer::from(h_1.pow_mod_ref(&mu_1, n).unwrap()) ) % n;
+        let w_2 = (Integer::from(g_2.pow_mod_ref(&omega, n).unwrap()) * Integer::from(h_2.pow_mod_ref(&mu_2, n).unwrap()) ) % n;
+
+        let str =  w_1.to_string() + &w_2.to_string();
+        let hash = <H as Digest>::digest(str);
+        let challenge = Integer::from_digits(hash.as_slice(), Order::MsfBe);
+
+
+        // d   = omega + challenge * x
+        // d_1 = mu_1  + challenge * r_1
+        // d_2 = mu_2  + challenge * r_2
+
+        let d = omega + &challenge * x;
+        let d_1 = mu_1 + &challenge * r_1;
+        let d_2 = mu_2 + &challenge * r_2;
+
+
+        proof_ss{challenge, d, d_1, d_2}
+        // proof_ss = {'challenge': int(challenge), 'd': int(d), 'd_1': int(d_1), 'd_2': int(d_2)}
     }
 
-    fn proof_of_square(x: &Integer, r_1: &Integer, g: &Integer, h: &Integer, E: &Integer, l: u32, t: u32, b: u32, s: u32, s1: u32, s2: u32, n: &Integer) {
+    fn proof_of_square<H>(x: &Integer, r_1: &Integer, g: &Integer, h: &Integer, E: &Integer, l: u32, t: u32, b: u32, s: u32, s1: u32, s2: u32, n: &Integer) -> proof_of_s
+    where
+        H: Digest
+    {
         // r_2 = randint(-(2 ** s) * n + 1, (2 ** s) * n - 1)
         // F = (powmod(g, x, n) * powmod(h, r_2, n)) % n
         // r_3 = r_1 - r_2 * x
@@ -486,11 +558,71 @@ impl Boudot2000RangeProof {
         let F = (Integer::from(g.pow_mod_ref(x, n).unwrap()) * Integer::from(h.pow_mod_ref(&r_2, n).unwrap())) % n;
         let r_3 = r_1 - (&r_2 * x).complete();
 
-        let proof_ss = Self::proof_same_secret(x, &r_2, &r_3, g, h, &F, h, l, t, b, s1, s2, n);
+        let proof_ss = Self::proof_same_secret::<H>(x, &r_2, &r_3, g, h, &F, h, l, t, b, s1, s2, n);
         // proof_of_s = {'E': int(E), 'F': int(F), 'proof_ss': proof_ss}
+        proof_of_s{E: E.clone(), F, proof_ss}
     }
 
-    fn proof_of_tolerance_specific(x: Integer, r: Integer, g: &Integer, h: &Integer, n: &Integer, a: u32, b: u32, t: u32, l: u32, s: u32, s1: u32, s2: u32, T: u32) {
+    fn proof_large_interval_specific<H>(x: &Integer, r: &Integer, g: &Integer, h: &Integer, t: u32, l: u32, b: u32, s: u32, n: &Integer, T: u32) -> proof_li
+    where
+        H: Digest
+    {
+        // boolean = True
+        // while boolean:
+        //     w  = (randint(0, (2 ** T * 2 ** (t + l)) * b - 1))
+        //     nu = (randint(-(2 ** T * 2 ** (t + l + s)) * n + 1, \
+        //                 (2 ** T * 2 ** (t + l + s)) * n - 1))
+            
+        //     omega = (powmod(g, w, n) * powmod(h, nu, n)) % n
+                
+        //     strInput = str(omega)
+        //     hash = SHA256.new()
+        //     hash.update(strInput.encode('utf-8'))
+        //     C = int.from_bytes(hash.digest(), byteorder=byteorder) 
+
+        //     c = C % (2 ** t)
+            
+        //     D_1 = w  + (x * c)        
+        //     D_2 = nu + (r * c)
+        //     # NOTE: corrected typo in D_2 definition in Algorithm 5 in [Morais2019],
+        //     #       x instead of r
+
+        //     if (c * b) <= D_1 <= (2 ** T * (2 ** (t + l)) * b - 1):
+        //         boolean = False # Exit from loop
+
+        let mut boolean = true;
+        let mut C = Integer::from(0);
+        let mut D_1 = Integer::from(0);
+        let mut D_2= Integer::from(0);
+
+        while boolean {
+            let w = rand_int(Integer::from(0), (Integer::from(2).pow(T) * Integer::from(2).pow(t + l)) * b - Integer::from(1));
+            let nu = rand_int(-(Integer::from(2).pow(T) * Integer::from(2).pow(t + l + s)) * n + Integer::from(1), (Integer::from(2).pow(T) * Integer::from(2).pow(t + l + s)) * n - Integer::from(1));
+            let omega = (Integer::from(g.pow_mod_ref(&w, n).unwrap()) * Integer::from(h.pow_mod_ref(&nu, n).unwrap())) % n;
+
+            let str =  omega.to_string();
+            let hash = <H as Digest>::digest(str);
+            C = Integer::from_digits(hash.as_slice(), Order::MsfBe);
+
+            let c = &C % (Integer::from(2).pow(t));
+
+            D_1 = w + (x * &c);
+            D_2 = nu + (r * &c);
+
+            if c * b <= D_1 && D_1 <= (Integer::from(2).pow(T) * Integer::from(2).pow(t + l)) * b - Integer::from(1) {
+                boolean = false;
+            }
+
+        }
+        // (C, D_1, D_2)
+        // proof_li = {'C': int(C), 'D_1': int(D_1), 'D_2': int(D_2)}
+        proof_li{C, D_1, D_2}
+    }
+
+    fn proof_of_tolerance_specific<H>(x: Integer, r: Integer, g: &Integer, h: &Integer, n: &Integer, a: u32, b: u32, t: u32, l: u32, s: u32, s1: u32, s2: u32, T: u32) -> proof_wt
+    where
+        H: Digest
+    {
         /* # NOTE: the first step of this algorithm (see Section 3.1.1 in [Boudot2000])
         #       requires a proof of knowledge of x and r related to the Commitment E = g**x * h**r % n
         #       (i.e., NON-Interactive Sigma protocol of Two secrets - nisp2sec).           
@@ -563,45 +695,48 @@ impl Boudot2000RangeProof {
         let E_b_1 = (Integer::from(g.pow_mod_ref(&x_b_1.clone().pow(2), n).unwrap()) * Integer::from(h.pow_mod_ref(&r_b_1, n).unwrap())) % n;
         let E_b_2 = (Integer::from(g.pow_mod_ref(&x_b_2, n).unwrap()) * Integer::from(h.pow_mod_ref(&r_b_2, n).unwrap())) % n;
            
-        let proof_of_square_a = Self::proof_of_square(&x_a_1, &r_a_1, g, h, &E_a_1, l, t, b, s, s1, s2, n);
-        let proof_of_square_b = Self::proof_of_square(&x_b_1, &r_b_1, g, h, &E_b_1, l, t, b, s, s1, s2, n);
-        // proof_large_i_a = proof_large_interval_specific(x_a_2, r_a_2, g, h, t, l, b, s, n, T)
-        // proof_large_i_b = proof_large_interval_specific(x_b_2, r_b_2, g, h, t, l, b, s, n, T)
+        let proof_of_square_a = Self::proof_of_square::<H>(&x_a_1, &r_a_1, g, h, &E_a_1, l, t, b, s, s1, s2, n);
+        let proof_of_square_b = Self::proof_of_square::<H>(&x_b_1, &r_b_1, g, h, &E_b_1, l, t, b, s, s1, s2, n);
+        let proof_large_i_a = Self::proof_large_interval_specific::<H>(&x_a_2, &r_a_2, g, h, t, l, b, s, n, T);
+        let proof_large_i_b = Self::proof_large_interval_specific::<H>(&x_b_2, &r_b_2, g, h, t, l, b, s, n, T);
     
         // proof_wt = {
         //     'E_a_1': int(E_a_1), 'E_a_2': int(E_a_2), 'E_b_1': int(E_b_1), 'E_b_2': int(E_b_2),
         //     'proof_of_square_a': proof_of_square_a, 'proof_of_square_b': proof_of_square_b,
         //     'proof_large_i_a': proof_large_i_a, 'proof_large_i_b': proof_large_i_b
         // }
+
+        proof_wt{E_a_1, E_a_2, E_b_1, E_b_2, proof_of_square_a, proof_of_square_b, proof_large_i_a, proof_large_i_b}
     
     }
 
 
-    fn proof_of_square_decomposition_range(x: &Integer, r: &Integer, g: &Integer, h: &Integer, E: &Integer, n: &Integer, a: u32, b: u32, t: u32, l: u32, s: u32, s1: u32, s2: u32, T: u32)  {
+    fn proof_of_square_decomposition_range<H>(x: &Integer, r: &Integer, g: &Integer, h: &Integer, E: &Integer, n: &Integer, a: u32, b: u32, t: u32, l: u32, s: u32, s1: u32, s2: u32, T: u32) -> Self
+    where
+        H: Digest
+    {
         let x_prime = Integer::from(2).pow(T) * x;
         let r_prime = Integer::from(2).pow(T) * r;
 
         let E_prime = Integer::from(E.pow_mod_ref(&(Integer::from(2).pow(T)), n).unwrap());
 
-        // let proof_of_t: Integer = Self::proof_of_tolerance_specific(x_prime, r_prime, g, h, n, a, b, t, l, s, s1, s2, T);
+        let proof_of_tolerance = Self::proof_of_tolerance_specific::<H>(x_prime, r_prime, g, h, n, a, b, t, l, s, s1, s2, T);
         // Self{ proof_of_tolerance: proof_of_t, E_prime, E: E.clone() }
-    
+        Self{proof_of_tolerance, E_prime, E: E.clone()}
     }
 
 
-    pub fn prove(value: &Integer, commitment: &CL03Commitment, base1: &Integer, base2: &Integer, module: &Integer, rmin: u32, rmax: u32) {
+    pub fn prove<H>(value: &Integer, commitment: &CL03Commitment, base1: &Integer, base2: &Integer, module: &Integer, rmin: u32, rmax: u32) -> Self
+    where
+        H: Digest
+    {
         if rmax <= rmin{
             panic!("rmin > rmax");
         }
+
         let T = 2 * (Self::t + Self::l + 1) + u32::try_from((rmax - rmin).bits()).unwrap();
-        
-        let proof_of_sdr = Self::proof_of_square_decomposition_range(value, &commitment.randomness, base1, base2, &commitment.value, module, rmin, rmax, Self::t, Self::l, Self::s, Self::s1, Self::s2, T);
-
-
-
-        // let proof_of_sdr = 
-
-
+        let proof_of_sdr = Self::proof_of_square_decomposition_range::<H>(value, &commitment.randomness, base1, base2, &commitment.value, module, rmin, rmax, Self::t, Self::l, Self::s, Self::s1, Self::s2, T);
+        proof_of_sdr
     }
 }
 
