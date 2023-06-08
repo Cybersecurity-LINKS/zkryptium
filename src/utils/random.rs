@@ -45,7 +45,7 @@ pub fn rand_int(a: Integer, b: Integer) -> Integer {
     let seed = Integer::from(rng.gen::<u32>());
     let mut rand = RandState::new_mersenne_twister();
 
-    let range = (&b - &a).complete() + Integer::from(1); //TODO: check if complete works
+    let range = (&b - &a).complete() + Integer::from(1);
     // NOTE: return a random integer in the range [a, b], including both end points.
     return a + range.random_below(&mut rand)
 }
