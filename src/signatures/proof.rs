@@ -450,7 +450,7 @@ impl <CS: CLCiphersuite> PoKSignature<CL03<CS>> {
 //RANGE PROOF
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-struct proof_ss {
+struct ProofSs {
     challenge: Integer,
     d: Integer,
     d_1: Integer,
@@ -458,34 +458,34 @@ struct proof_ss {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-struct proof_of_s {
+struct ProofOfS {
     E: Integer,
     F: Integer,
-    proof_ss: proof_ss
+    proof_ss: ProofSs
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-struct proof_li {
+struct ProofLi {
     C: Integer,
     D_1: Integer,
     D_2: Integer
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-struct proof_wt {
+struct ProofWt {
     E_a_1: Integer,
     E_a_2: Integer,
     E_b_1: Integer,
     E_b_2: Integer,
-    proof_of_square_a: proof_of_s,
-    proof_of_square_b: proof_of_s,
-    proof_large_i_a: proof_li,
-    proof_large_i_b: proof_li
+    proof_of_square_a: ProofOfS,
+    proof_of_square_b: ProofOfS,
+    proof_large_i_a: ProofLi,
+    proof_large_i_b: ProofLi
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Boudot2000RangeProof {
-    proof_of_tolerance: proof_wt,
+    proof_of_tolerance: ProofWt,
     E_prime: Integer,
     E: Integer,
 }
@@ -510,7 +510,7 @@ impl Boudot2000RangeProof {
 
 
 
-    fn proof_same_secret<H>(x: &Integer, r_1: &Integer, r_2: &Integer, g_1: &Integer, h_1: &Integer, g_2: &Integer, h_2: &Integer, l: u32, t: u32, b: u32, s1: u32, s2: u32, n: &Integer) -> proof_ss
+    fn proof_same_secret<H>(x: &Integer, r_1: &Integer, r_2: &Integer, g_1: &Integer, h_1: &Integer, g_2: &Integer, h_2: &Integer, l: u32, t: u32, b: u32, s1: u32, s2: u32, n: &Integer) -> ProofSs
     where
         H: Digest
     {
@@ -530,11 +530,11 @@ impl Boudot2000RangeProof {
         let d_2 = mu_2 + &challenge * r_2;
 
 
-        proof_ss{challenge, d, d_1, d_2}
+        ProofSs{challenge, d, d_1, d_2}
         // proof_ss = {'challenge': int(challenge), 'd': int(d), 'd_1': int(d_1), 'd_2': int(d_2)}
     }
 
-    fn proof_of_square<H>(x: &Integer, r_1: &Integer, g: &Integer, h: &Integer, E: &Integer, l: u32, t: u32, b: u32, s: u32, s1: u32, s2: u32, n: &Integer) -> proof_of_s
+    fn proof_of_square<H>(x: &Integer, r_1: &Integer, g: &Integer, h: &Integer, E: &Integer, l: u32, t: u32, b: u32, s: u32, s1: u32, s2: u32, n: &Integer) -> ProofOfS
     where
         H: Digest
     {
@@ -545,10 +545,10 @@ impl Boudot2000RangeProof {
 
         let proof_ss = Self::proof_same_secret::<H>(x, &r_2, &r_3, g, h, &F, h, l, t, b, s1, s2, n);
         // proof_of_s = {'E': int(E), 'F': int(F), 'proof_ss': proof_ss}
-        proof_of_s{E: E.clone(), F, proof_ss}
+        ProofOfS{E: E.clone(), F, proof_ss}
     }
 
-    fn proof_large_interval_specific<H>(x: &Integer, r: &Integer, g: &Integer, h: &Integer, t: u32, l: u32, b: u32, s: u32, n: &Integer, T: u32) -> proof_li
+    fn proof_large_interval_specific<H>(x: &Integer, r: &Integer, g: &Integer, h: &Integer, t: u32, l: u32, b: u32, s: u32, n: &Integer, T: u32) -> ProofLi
     where
         H: Digest
     {
@@ -579,10 +579,10 @@ impl Boudot2000RangeProof {
         }
 
         // proof_li = {'C': int(C), 'D_1': int(D_1), 'D_2': int(D_2)}
-        proof_li{C, D_1, D_2}
+        ProofLi{C, D_1, D_2}
     }
 
-    fn proof_of_tolerance_specific<H>(x: Integer, r: Integer, g: &Integer, h: &Integer, n: &Integer, a: u32, b: u32, t: u32, l: u32, s: u32, s1: u32, s2: u32, T: u32) -> proof_wt
+    fn proof_of_tolerance_specific<H>(x: Integer, r: Integer, g: &Integer, h: &Integer, n: &Integer, a: u32, b: u32, t: u32, l: u32, s: u32, s1: u32, s2: u32, T: u32) -> ProofWt
     where
         H: Digest
     {
@@ -647,7 +647,7 @@ impl Boudot2000RangeProof {
         //     'proof_large_i_a': proof_large_i_a, 'proof_large_i_b': proof_large_i_b
         // }
 
-        proof_wt{E_a_1, E_a_2, E_b_1, E_b_2, proof_of_square_a, proof_of_square_b, proof_large_i_a, proof_large_i_b}
+        ProofWt{E_a_1, E_a_2, E_b_1, E_b_2, proof_of_square_a, proof_of_square_b, proof_large_i_a, proof_large_i_b}
     
     }
 
@@ -666,12 +666,12 @@ impl Boudot2000RangeProof {
         Self{proof_of_tolerance, E_prime, E: E.clone()}
     }
 
-    fn verify_same_secret<H>(E: &Integer, F: &Integer, g_1: &Integer, h_1: &Integer, g_2: &Integer, h_2: &Integer, n: &Integer, proof_ss: &proof_ss) -> bool
+    fn verify_same_secret<H>(E: &Integer, F: &Integer, g_1: &Integer, h_1: &Integer, g_2: &Integer, h_2: &Integer, n: &Integer, proof_ss: &ProofSs) -> bool
     where
         H: Digest
     {
 
-        let proof_ss{challenge, d, d_1, d_2} = proof_ss;
+        let ProofSs{challenge, d, d_1, d_2} = proof_ss;
         
         let inv_E = Integer::from(E.pow_mod_ref(&(-Integer::from(1) * challenge), n).unwrap());
         let inv_F = Integer::from(F.pow_mod_ref(&(-Integer::from(1) * challenge), n).unwrap());
@@ -687,19 +687,19 @@ impl Boudot2000RangeProof {
 
     }
 
-    fn verify_of_square<H>(proof_of_s: &proof_of_s, g: &Integer, h: &Integer, n: &Integer) -> bool
+    fn verify_of_square<H>(proof_of_s: &ProofOfS, g: &Integer, h: &Integer, n: &Integer) -> bool
     where
         H: Digest
     {
         Self::verify_same_secret::<H>(&proof_of_s.F, &proof_of_s.E, g, h, &proof_of_s.F, h, n, &proof_of_s.proof_ss)
     }
 
-    fn verify_large_interval_specific<H>(proof_li: &proof_li, E: &Integer, g: &Integer, h: &Integer, n: &Integer, t: u32, l: u32, b: u32, T: u32) -> bool
+    fn verify_large_interval_specific<H>(proof_li: &ProofLi, E: &Integer, g: &Integer, h: &Integer, n: &Integer, t: u32, l: u32, b: u32, T: u32) -> bool
     where
         H: Digest
     {
 
-        let proof_li {C, D_1, D_2} = proof_li;
+        let ProofLi {C, D_1, D_2} = proof_li;
         let c = C % (Integer::from(2).pow(t));
         let inv_E = Integer::from(E.pow_mod_ref(&(-Integer::from(1) * &c), n).unwrap());
         let commit = (Integer::from(g.pow_mod_ref(D_1, n).unwrap()) * Integer::from(h.pow_mod_ref(D_2, n).unwrap()) * &inv_E) % n;
@@ -715,7 +715,7 @@ impl Boudot2000RangeProof {
         false
     }
 
-    fn verify_of_tolerance_specific<H>(proof_wt: &proof_wt, g: &Integer, h: &Integer, E: &Integer, n: &Integer, a: u32, b: u32, t: u32, l: u32, T: u32) -> bool
+    fn verify_of_tolerance_specific<H>(proof_wt: &ProofWt, g: &Integer, h: &Integer, E: &Integer, n: &Integer, a: u32, b: u32, t: u32, l: u32, T: u32) -> bool
     where
         H: Digest
     {
@@ -727,7 +727,7 @@ impl Boudot2000RangeProof {
         // NOTE: E_a and E_b must be recomputed during the verification, 
         //        see Section 3.1.1 in [Boudot2000] ("Both Alice and Bob compute...")
 
-        let proof_wt {E_a_1, E_a_2, E_b_1, E_b_2, proof_of_square_a, proof_of_square_b, proof_large_i_a, proof_large_i_b} = proof_wt;
+        let ProofWt {E_a_1, E_a_2, E_b_1, E_b_2, proof_of_square_a, proof_of_square_b, proof_large_i_a, proof_large_i_b} = proof_wt;
 
         let div_a = divm(&E_a, E_a_1, n);
         let div_b = divm(&E_b, E_b_1, n);
