@@ -7,7 +7,7 @@ use hex::ToHex;
 use links_crypto::{utils::random, keys::{cl03_key::{CL03PublicKey, CL03CommitmentPublicKey}, pair::{KeyPair}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, bbsplus::{generators::{make_generators, global_generators, signer_specific_generators, print_generators}, ciphersuites::{Bls12381Shake256, BbsCiphersuite, Bls12381Sha256}, message::{Message, BBSplusMessage, CL03Message}}, schemes::algorithms::{CL03, BBSplus, Scheme, CL03Sha256, BBSplusShake256, BBSplusSha256}, signatures::{commitment::{Commitment, BBSplusCommitment, self}, blind::{self, BlindSignature, BBSplusBlindSignature}, signature::{BBSplusSignature, Signature}, proof::{PoKSignature, CL03PoKSignature}}, cl03::ciphersuites::CLSha256};
 
 use links_crypto::keys::key::PrivateKey;
-use rug::Integer;
+use rug::{Integer, Complete};
 
 
 fn test_bbsplus_sign() {
@@ -114,6 +114,10 @@ fn test_cl03_sign() {
 
 fn main() {
     // test_bbsplus_sign();
-    test_cl03_sign();
+    // test_cl03_sign();
+    let b = Integer::from(1);
+    let a = Integer::from(10);
+    let range = (&b - &a).complete() + 1;
 
+    println!("{}", range);
 }
