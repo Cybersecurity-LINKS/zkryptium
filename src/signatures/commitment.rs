@@ -159,7 +159,7 @@ impl <CS: CLCiphersuite> Commitment<CL03<CS>> {
             Some(indexes) => indexes.to_vec(),
             None => (0..messages.len()).collect(),
         };
-        let extended_Cx = self.cl03Commitment();
+        let extended_Cx = self.cl03Commitment_mut();
         let mut extended_Cx_value = extended_Cx.value.clone();
         for i in revealed_message_indexes {
             let ai = pk.a_bases.get(i).and_then(|a| {let _ = a.1 == true; return Some(&a.0);}).expect("Invalid revealed message index!");
@@ -178,7 +178,7 @@ impl <CS: CLCiphersuite> Commitment<CL03<CS>> {
             Some(indexes) => indexes.to_vec(),
             None => (0..messages.len()).collect(),
         };
-        let extended_Cx = self.cl03Commitment();
+        let extended_Cx = self.cl03Commitment_mut();
         let mut extended_Cx_value = extended_Cx.value.clone();
         for i in revealed_message_indexes {
             let ai = commitment_pk.g_bases.get(i).and_then(|a| {let _ = a.1 == true; return Some(&a.0);}).expect("Invalid revealed message index!");
@@ -205,9 +205,16 @@ impl <CS: CLCiphersuite> Commitment<CL03<CS>> {
     //     }
     // }
 
-    pub fn cl03Commitment(&mut self) -> &mut CL03Commitment {
+    pub fn cl03Commitment_mut(&mut self) -> &mut CL03Commitment {
         match self {
             Self::CL03(ref mut inner) => inner,
+            _ => panic!("Cannot happen!"),
+        }
+    }
+
+    pub fn cl03Commitment(&self) -> &CL03Commitment {
+        match self {
+            Self::CL03(inner) => inner,
             _ => panic!("Cannot happen!"),
         }
     }

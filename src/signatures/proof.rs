@@ -37,10 +37,10 @@ pub struct CL03PoKSignature{
     s_7: Integer,
     s_8: Integer,
     s_9: Integer,
-    Cx: Integer,
-    Cv: Integer,
-    Cw: Integer,
-    Ce: Integer,
+    Cx: CL03Commitment,
+    Cv: CL03Commitment,
+    Cw: CL03Commitment,
+    Ce: CL03Commitment,
 }
 
 impl CL03PoKSignature {
@@ -59,17 +59,17 @@ impl CL03PoKSignature {
             panic!("Not enough a_bases OR g_bases for the number of attributes");
         }
         
-        let C1= Commitment::<CL03<CS>>::commit_with_commitment_pk(messages, commitment_pk, None);
-        let (Cx, rx) = (C1.value(), C1.randomness());
+        let C_Cx= Commitment::<CL03<CS>>::commit_with_commitment_pk(messages, commitment_pk, None);
+        let (Cx, rx) = (C_Cx.value(), C_Cx.randomness());
 
-        let C2 =  Commitment::<CL03<CS>>::commit_v(&signature.v, commitment_pk);
-        let (Cv, w) = (C2.value(), C2.randomness());
+        let C_Cv =  Commitment::<CL03<CS>>::commit_v(&signature.v, commitment_pk);
+        let (Cv, w) = (C_Cv.value(), C_Cv.randomness());
 
-        let C3 = Commitment::<CL03<CS>>::commit_with_commitment_pk(&[CL03Message::new(w.clone())], commitment_pk, None);
-        let (Cw, rw) = (C3.value(), C3.randomness());
+        let C_Cw = Commitment::<CL03<CS>>::commit_with_commitment_pk(&[CL03Message::new(w.clone())], commitment_pk, None);
+        let (Cw, rw) = (C_Cw.value(), C_Cw.randomness());
 
-        let C4 = Commitment::<CL03<CS>>::commit_with_commitment_pk(&[CL03Message::new(signature.e.clone())], commitment_pk, None);
-        let (Ce, re) = (C4.value(), C4.randomness());
+        let C_Ce = Commitment::<CL03<CS>>::commit_with_commitment_pk(&[CL03Message::new(signature.e.clone())], commitment_pk, None);
+        let (Ce, re) = (C_Ce.value(), C_Ce.randomness());
 
         let (r_1, r_2, r_3, r_4, r_6, r_7, r_8, r_9) = (random_bits(CS::ln), random_bits(CS::ln), random_bits(CS::ln), random_bits(CS::ln), random_bits(CS::ln), random_bits(CS::ln), random_bits(CS::ln), random_bits(CS::ln));
         
@@ -121,7 +121,7 @@ impl CL03PoKSignature {
         let s_8 = r_8 + w * signature.e.clone() * &challenge;
         let s_9 = r_9 + re * &challenge;
 
-        CL03PoKSignature{ challenge, s_1, s_2, s_3, s_4, s_5, s_6, s_7, s_8, s_9, Cx: Cx.clone(), Cv: Cv.clone(), Cw: Cw.clone(), Ce: Ce.clone() }
+        CL03PoKSignature{ challenge, s_1, s_2, s_3, s_4, s_5, s_6, s_7, s_8, s_9, Cx: C_Cx.cl03Commitment().clone(), Cv: C_Cv.cl03Commitment().clone(), Cw: C_Cw.cl03Commitment().clone(), Ce: C_Ce.cl03Commitment().clone() }
 
     }
 
@@ -149,9 +149,9 @@ impl CL03PoKSignature {
         });
         t_Cx = t_Cx % N;
 
-        let input1 = (Integer::from(self.Cv.pow_mod_ref(&self.s_4, N).unwrap()) * divm(&Integer::from(1), &t_Cx, N) * Integer::from(divm(&Integer::from(1), &signer_pk.b, N).pow_mod_ref(&self.s_6, N).unwrap()) * Integer::from(divm(&Integer::from(1), &commitment_pk.g_bases[0].0, N).pow_mod_ref(&self.s_8, N).unwrap()) * Integer::from(signer_pk.c.pow_mod_ref(&(Integer::from(-1) * &self.challenge), N).unwrap())) % N;
-        let input2 = (Integer::from(commitment_pk.g_bases[0].0.pow_mod_ref(&self.s_7, N).unwrap()) * Integer::from(commitment_pk.h.pow_mod_ref(&self.s_1, N).unwrap()) * Integer::from(self.Cw.pow_mod_ref(&(Integer::from(-1) * &self.challenge), N).unwrap()) ) % N;
-        let input3 = (Integer::from(self.Cw.pow_mod_ref(&self.s_4, N).unwrap()) * Integer::from(divm(&Integer::from(1), &commitment_pk.g_bases[0].0, N).pow_mod_ref(&self.s_8, N).unwrap()) * Integer::from(divm(&Integer::from(1), &commitment_pk.h, N).pow_mod_ref(&self.s_2, N).unwrap())) % N;
+        let input1 = (Integer::from(self.Cv.value.pow_mod_ref(&self.s_4, N).unwrap()) * divm(&Integer::from(1), &t_Cx, N) * Integer::from(divm(&Integer::from(1), &signer_pk.b, N).pow_mod_ref(&self.s_6, N).unwrap()) * Integer::from(divm(&Integer::from(1), &commitment_pk.g_bases[0].0, N).pow_mod_ref(&self.s_8, N).unwrap()) * Integer::from(signer_pk.c.pow_mod_ref(&(Integer::from(-1) * &self.challenge), N).unwrap())) % N;
+        let input2 = (Integer::from(commitment_pk.g_bases[0].0.pow_mod_ref(&self.s_7, N).unwrap()) * Integer::from(commitment_pk.h.pow_mod_ref(&self.s_1, N).unwrap()) * Integer::from(self.Cw.value.pow_mod_ref(&(Integer::from(-1) * &self.challenge), N).unwrap()) ) % N;
+        let input3 = (Integer::from(self.Cw.value.pow_mod_ref(&self.s_4, N).unwrap()) * Integer::from(divm(&Integer::from(1), &commitment_pk.g_bases[0].0, N).pow_mod_ref(&self.s_8, N).unwrap()) * Integer::from(divm(&Integer::from(1), &commitment_pk.h, N).pow_mod_ref(&self.s_2, N).unwrap())) % N;
 
         let mut input4 = Integer::from(1);
         let mut idx: usize = 0;
@@ -166,9 +166,9 @@ impl CL03PoKSignature {
             }
         });
 
-        input4 = (input4 * Integer::from(commitment_pk.h.pow_mod_ref(&self.s_3, N).unwrap()) * Integer::from(self.Cx.pow_mod_ref(&(Integer::from(-1) * &self.challenge), N).unwrap())) % N;
+        input4 = (input4 * Integer::from(commitment_pk.h.pow_mod_ref(&self.s_3, N).unwrap()) * Integer::from(self.Cx.value.pow_mod_ref(&(Integer::from(-1) * &self.challenge), N).unwrap())) % N;
 
-        let input5 = (Integer::from(commitment_pk.g_bases[0].0.pow_mod_ref(&self.s_4, N).unwrap()) * Integer::from(commitment_pk.h.pow_mod_ref(&self.s_9, N).unwrap()) * Integer::from(self.Ce.pow_mod_ref(&(Integer::from(-1) * &self.challenge), N).unwrap()) ) % N;
+        let input5 = (Integer::from(commitment_pk.g_bases[0].0.pow_mod_ref(&self.s_4, N).unwrap()) * Integer::from(commitment_pk.h.pow_mod_ref(&self.s_9, N).unwrap()) * Integer::from(self.Ce.value.pow_mod_ref(&(Integer::from(-1) * &self.challenge), N).unwrap()) ) % N;
         
         let str =  input1.to_string() + &input2.to_string()+ &input3.to_string()+ &input4.to_string()+ &input5.to_string();
         let hash = <CS::HashAlg as Digest>::digest(str);
