@@ -32,6 +32,7 @@ pub enum BlindSignature<S: Scheme> {
 }
 
 impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
+    //TODO: blindSign and blindVerify
 
     pub fn a(&self) -> G1Projective {
         match self {

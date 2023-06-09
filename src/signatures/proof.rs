@@ -10,7 +10,7 @@ use serde::{Serialize, Deserialize};
 
 use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{BBSplusMessage, CL03Message}, generators::{self, Generators}}, cl03::ciphersuites::{CLCiphersuite}, keys::{bbsplus_key::BBSplusPublicKey, cl03_key::{CL03CommitmentPublicKey, CL03PublicKey}}, utils::{util::{get_remaining_indexes, get_messages, calculate_domain, calculate_random_scalars, ScalarExt, hash_to_scalar_old, divm}, random::{random_bits, rand_int}}};
 
-use super::{signature::{BBSplusSignature, CL03Signature}, commitment::{Commitment, CL03Commitment, self}};
+use super::{signature::{BBSplusSignature, CL03Signature}, commitment::{Commitment, CL03Commitment, self, BBSplusCommitment}};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusPoKSignature{
@@ -1011,7 +1011,73 @@ impl NISPSecrets {
 
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub struct BBSplusZKPoK {}
+pub struct BBSplusZKPoK {
+    c: Scalar, 
+    s_cap: Scalar,
+    r_cap: Vec<Scalar>
+}
+
+impl BBSplusZKPoK {
+
+    fn blindMessagesProofGen<CS>(unrevealed_messages: &[BBSplusMessage], commitment: &BBSplusCommitment, generators: &Generators, unrevealed_message_indexes: &[usize], nonce: &[u8]) -> Self
+    where
+        CS: BbsCiphersuite,
+        CS::Expander: for<'a> ExpandMsg<'a>,
+    {
+        if generators.message_generators.len() < *unrevealed_message_indexes.iter().max().unwrap_or(&0)  && unrevealed_messages.len() != unrevealed_message_indexes.len(){
+            panic!("len(generators) < max(unrevealed_message_indexes) || len(unrevealed_messages) != len(unrevealed_message_indexes)");
+        }
+
+        // Get unrevealed messages length
+        let U = unrevealed_message_indexes.len();
+
+        //  (i1,...,iU) = CGIdxs = unrevealed_indexes
+			
+		//  s~ = HASH(PRF(8 * ceil(log2(r)))) mod
+        let s_tilde = calculate_random_scalars::<CS>(1, None)[0];
+		//  r~ = [U]
+		//  for i in 1 to U: r~[i] = HASH(PRF(8 * ceil(log2(r)))) mod r
+        let r_tilde = calculate_random_scalars::<CS>(U, None);	
+		//  U~ = h0 * s~ + h[i1] * r~[1] + ... + h[iU] \* r~[U]
+        let mut U_tilde = generators.q1 * s_tilde;	
+
+
+        let mut index = 0usize;
+        for i in unrevealed_message_indexes {
+            U_tilde += generators.message_generators.get(*i).expect("unreaveled_message_indexes not valid (overflow)") * r_tilde.get(index).expect("index buffer overflow");
+            index += 1;
+        }
+
+        // c = HASH(commitment || U~ || nonce)
+
+        let mut value: Vec<u8> = Vec::new();
+        value.extend_from_slice(&commitment.value.to_affine().to_compressed());
+        value.extend_from_slice(&U_tilde.to_affine().to_compressed());
+        value.extend_from_slice(nonce);
+        
+        let c = hash_to_scalar_old::<CS>(&value, 1, None)[0];
+		// TODO update hash_to_scalar as in latest draft	
+
+		// s^ = s~ + c * s'
+        let s_cap = s_tilde + c * commitment.randomness;
+		
+		// for i in 1 to U: r^[i] = r~[i] + c * msg[i]
+
+        let mut r_cap: Vec<Scalar> = Vec::new();
+        for index in 0..U {
+            r_cap.push(r_tilde.get(index).expect("index buffer overflow") + c * unrevealed_messages.get(index).expect("index buffer overflow").value);
+        }		
+		// nizk = (c, s^, r^)
+        Self{c, s_cap, r_cap}
+		// nizk = [c, s_cap] + r_cap
+
+    }
+
+    fn blindMessagesProofVerify() {
+
+    }
+
+}
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct CL03ZKPoK {}
@@ -1029,8 +1095,27 @@ pub enum ZKPoK<S: Scheme> {
 }
 
 
-impl <CS: BbsCiphersuite> ZKPoK<BBSplus<CS>> {
+impl <CS: BbsCiphersuite> ZKPoK<BBSplus<CS>>  
+{
+    pub fn generate_proof(unrevealed_messages: &[BBSplusMessage], commitment: &BBSplusCommitment, generators: &Generators, unrevealed_message_indexes: &[usize], nonce: &[u8]) -> Self
+    where
+        CS::Expander: for<'a> ExpandMsg<'a>,
+    {
+        Self::BBSplus(BBSplusZKPoK::blindMessagesProofGen::<CS>(unrevealed_messages, commitment, generators, unrevealed_message_indexes, nonce))
+    }
 
+    pub fn verify_proof() -> bool 
+    {
+        todo!()
+    }
+
+    pub fn to_bytes(&self) {
+        todo!()
+    }
+
+    pub fn from_bytes() {
+        todo!()
+    }
 }
 
 
