@@ -112,7 +112,7 @@ impl CL03PoKSignature {
         let s_4 = r_4 + signature.e.clone() * &challenge;
         let mut s_5: Vec<Integer> = Vec::new();
         for i in unrevealed_message_indexes {
-            let si = &r_5[*i] + messages[*i].value.clone() * &challenge;
+            let si = r_5.get(*i).expect("unrevealed_message_indexes not valid (overflow)") + messages.get(*i).expect("unrevealed_message_indexes not valid (overflow)").value.clone() * &challenge;
             s_5.push(si);
         }
 
@@ -245,7 +245,7 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         let mut H_j: Vec<G1Projective> = Vec::new();
 
         for idx in unrevealed_message_indexes {
-            H_j.push(generators.message_generators[idx]);
+            H_j.push(*generators.message_generators.get(idx).expect("unrevealed_message_indexes not valid (overflow)"));
         }
 
         let domain = calculate_domain::<CS>(pk, generators.q1, generators.q2, &generators.message_generators, Some(header));
@@ -264,7 +264,7 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         let mut B = generators.g1_base_point + generators.q1 * signature.s + generators.q2 * domain;
 
         for i in 0..L {
-            B = B + generators.message_generators[i] * messages[i].value;
+            B = B + generators.message_generators.get(i).expect("index overflow") * messages.get(i).expect("index overflow").value;
         }
 
         let r3 = r1.invert().unwrap();
@@ -282,7 +282,7 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         let mut C2 = D * (-r3_tilde) + generators.q1 * s_tilde;
 
         for idx in 0..U{
-            C2 = C2 + H_j[idx] * m_tilde[idx];
+            C2 = C2 + H_j.get(idx).expect("index overflow") * m_tilde.get(idx).expect("index overflow");
         }
 
         let c = Self::calculate_challenge(A_prime, A_bar, D, C1, C2, revealed_message_indexes, &revealed_messages, domain, Some(ph));
@@ -298,7 +298,7 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         let mut m_cap: Vec<Scalar> = Vec::new();
 
         for idx in 0..U {
-            let value = c * unrevealed_messages[idx].value + m_tilde[idx];
+            let value = c * unrevealed_messages.get(idx).expect("index overflow").value + m_tilde.get(idx).expect("index overflow");
             m_cap.push(value);
         }
 
@@ -799,7 +799,7 @@ pub enum RangeProof{
 }
 
 
-
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 struct NISP2Commitments {
     challenge: Integer,
     d: Vec<Integer>,
@@ -911,6 +911,7 @@ impl NISP2Commitments {
 }
 
 
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 struct NISPSecrets {
     t: Integer,
     s1: Vec<Integer>,
@@ -976,7 +977,7 @@ impl NISPSecrets {
         CS: CLCiphersuite,
         CS::HashAlg: Digest
     {
-        let mut unrevealed_message_indexes = unrevealed_message_indexes.unwrap_or(&[0]);
+        let unrevealed_message_indexes = unrevealed_message_indexes.unwrap_or(&[0]);
         
 
         let h1 = &signer_pk.b;
@@ -986,16 +987,6 @@ impl NISPSecrets {
         if unrevealed_message_indexes.len() != s1.len() {
             panic!("unrevealed_message_indexes not valid");
         }
-
-        // lhs = 1    
-        // strInput = ''
-        // idx = 0
-        // for i in unrevealed_idxs:  
-        //     g1 = issuer_pk[('a' + str(i))]        
-        //     lhs = lhs * (powmod(g1, s1[idx], n1)) 
-        //     strInput = strInput + str(int(g1)) 
-        //     idx = idx + 1
-        // lhs = ((lhs * powmod(h1, s2, n1))) % n1
 
         let mut lhs = Integer::from(1);
         let mut str_input = String::from("");
@@ -1011,7 +1002,6 @@ impl NISPSecrets {
         let hash = <CS::HashAlg as Digest>::digest(str_input);
         let challenge = Integer::from_digits(hash.as_slice(), Order::MsfBe);
 
-        // let rhs = (t * powmod(commitment_Cx, challenge, n1)) % n1
         let rhs = (t * Integer::from(commitment.value.pow_mod_ref(&challenge, n1).unwrap())) % n1;
         
         lhs == rhs
@@ -1020,8 +1010,10 @@ impl NISPSecrets {
 }
 
 
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusZKPoK {}
 
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct CL03ZKPoK {}
 
 impl CL03ZKPoK {
@@ -1029,6 +1021,7 @@ impl CL03ZKPoK {
     
 }
 
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum ZKPoK<S: Scheme> {
     BBSplus(BBSplusZKPoK),
     CL03(CL03ZKPoK),
