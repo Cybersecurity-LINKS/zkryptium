@@ -509,7 +509,7 @@ impl Boudot2000RangeProof {
     const s2: u32 = 552;
 
 
-
+    /* Algorithm 1 Proof of Same Secret */ 
     fn proof_same_secret<H>(x: &Integer, r_1: &Integer, r_2: &Integer, g_1: &Integer, h_1: &Integer, g_2: &Integer, h_2: &Integer, l: u32, t: u32, b: u32, s1: u32, s2: u32, n: &Integer) -> ProofSs
     where
         H: Digest
@@ -534,6 +534,29 @@ impl Boudot2000RangeProof {
         // proof_ss = {'challenge': int(challenge), 'd': int(d), 'd_1': int(d_1), 'd_2': int(d_2)}
     }
 
+    /* Algorithm 2 Verify Proof of Same Secret*/
+    fn verify_same_secret<H>(E: &Integer, F: &Integer, g_1: &Integer, h_1: &Integer, g_2: &Integer, h_2: &Integer, n: &Integer, proof_ss: &ProofSs) -> bool
+    where
+        H: Digest
+    {
+
+        let ProofSs{challenge, d, d_1, d_2} = proof_ss;
+        
+        let inv_E = Integer::from(E.pow_mod_ref(&(-Integer::from(1) * challenge), n).unwrap());
+        let inv_F = Integer::from(F.pow_mod_ref(&(-Integer::from(1) * challenge), n).unwrap());
+
+        let lhs = (Integer::from(g_1.pow_mod_ref(d, n).unwrap()) * Integer::from(h_1.pow_mod_ref(d_1, n).unwrap()) * &inv_E) % n;
+        let rhs = (Integer::from(g_2.pow_mod_ref(d, n).unwrap()) * Integer::from(h_2.pow_mod_ref(d_2, n).unwrap()) * &inv_F) % n;
+
+        let str =  lhs.to_string() + &rhs.to_string();
+        let hash = <H as Digest>::digest(str);
+        let output = Integer::from_digits(hash.as_slice(), Order::MsfBe);
+
+        challenge == &output
+
+    }
+
+    /* Algorithm 3 Proof of Square */
     fn proof_of_square<H>(x: &Integer, r_1: &Integer, g: &Integer, h: &Integer, E: &Integer, l: u32, t: u32, b: u32, s: u32, s1: u32, s2: u32, n: &Integer) -> ProofOfS
     where
         H: Digest
@@ -548,6 +571,15 @@ impl Boudot2000RangeProof {
         ProofOfS{E: E.clone(), F, proof_ss}
     }
 
+    /* Algorithm 4 Verify Proof of Square */
+    fn verify_of_square<H>(proof_of_s: &ProofOfS, g: &Integer, h: &Integer, n: &Integer) -> bool
+    where
+        H: Digest
+    {
+        Self::verify_same_secret::<H>(&proof_of_s.F, &proof_of_s.E, g, h, &proof_of_s.F, h, n, &proof_of_s.proof_ss)
+    }
+
+    /* Algorithm 5 Proof of Larger Interval Specific factor 2 ** T */
     fn proof_large_interval_specific<H>(x: &Integer, r: &Integer, g: &Integer, h: &Integer, t: u32, l: u32, b: u32, s: u32, n: &Integer, T: u32) -> ProofLi
     where
         H: Digest
@@ -582,6 +614,29 @@ impl Boudot2000RangeProof {
         ProofLi{C, D_1, D_2}
     }
 
+    /* Algorithm 6 Verify Proof of Larger Interval Specific factor 2 ** T */
+    fn verify_large_interval_specific<H>(proof_li: &ProofLi, E: &Integer, g: &Integer, h: &Integer, n: &Integer, t: u32, l: u32, b: u32, T: u32) -> bool
+    where
+        H: Digest
+    {
+
+        let ProofLi {C, D_1, D_2} = proof_li;
+        let c = C % (Integer::from(2).pow(t));
+        let inv_E = Integer::from(E.pow_mod_ref(&(-Integer::from(1) * &c), n).unwrap());
+        let commit = (Integer::from(g.pow_mod_ref(D_1, n).unwrap()) * Integer::from(h.pow_mod_ref(D_2, n).unwrap()) * &inv_E) % n;
+
+        let str =  commit.to_string();
+        let hash = <H as Digest>::digest(str);
+        let output = Integer::from_digits(hash.as_slice(), Order::MsfBe);
+
+        if &(c * Integer::from(b)) <= D_1 && D_1 <= &(Integer::from(2).pow(T) * (Integer::from(2).pow(t+l) * b - Integer::from(1))) && C == &output {
+            return true
+        }
+
+        false
+    }
+
+    /* Algorithm 7 Proof with Tolerance Specific factor 2 ** T */
     fn proof_of_tolerance_specific<H>(x: Integer, r: Integer, g: &Integer, h: &Integer, n: &Integer, a: u32, b: u32, t: u32, l: u32, s: u32, s1: u32, s2: u32, T: u32) -> ProofWt
     where
         H: Digest
@@ -651,70 +706,7 @@ impl Boudot2000RangeProof {
     
     }
 
-
-    fn proof_of_square_decomposition_range<H>(x: &Integer, r: &Integer, g: &Integer, h: &Integer, E: &Integer, n: &Integer, a: u32, b: u32, t: u32, l: u32, s: u32, s1: u32, s2: u32, T: u32) -> Self
-    where
-        H: Digest
-    {
-        let x_prime = Integer::from(2).pow(T) * x;
-        let r_prime = Integer::from(2).pow(T) * r;
-
-        let E_prime = Integer::from(E.pow_mod_ref(&(Integer::from(2).pow(T)), n).unwrap());
-
-        let proof_of_tolerance = Self::proof_of_tolerance_specific::<H>(x_prime, r_prime, g, h, n, a, b, t, l, s, s1, s2, T);
-    
-        Self{proof_of_tolerance, E_prime, E: E.clone()}
-    }
-
-    fn verify_same_secret<H>(E: &Integer, F: &Integer, g_1: &Integer, h_1: &Integer, g_2: &Integer, h_2: &Integer, n: &Integer, proof_ss: &ProofSs) -> bool
-    where
-        H: Digest
-    {
-
-        let ProofSs{challenge, d, d_1, d_2} = proof_ss;
-        
-        let inv_E = Integer::from(E.pow_mod_ref(&(-Integer::from(1) * challenge), n).unwrap());
-        let inv_F = Integer::from(F.pow_mod_ref(&(-Integer::from(1) * challenge), n).unwrap());
-
-        let lhs = (Integer::from(g_1.pow_mod_ref(d, n).unwrap()) * Integer::from(h_1.pow_mod_ref(d_1, n).unwrap()) * &inv_E) % n;
-        let rhs = (Integer::from(g_2.pow_mod_ref(d, n).unwrap()) * Integer::from(h_2.pow_mod_ref(d_2, n).unwrap()) * &inv_F) % n;
-
-        let str =  lhs.to_string() + &rhs.to_string();
-        let hash = <H as Digest>::digest(str);
-        let output = Integer::from_digits(hash.as_slice(), Order::MsfBe);
-
-        challenge == &output
-
-    }
-
-    fn verify_of_square<H>(proof_of_s: &ProofOfS, g: &Integer, h: &Integer, n: &Integer) -> bool
-    where
-        H: Digest
-    {
-        Self::verify_same_secret::<H>(&proof_of_s.F, &proof_of_s.E, g, h, &proof_of_s.F, h, n, &proof_of_s.proof_ss)
-    }
-
-    fn verify_large_interval_specific<H>(proof_li: &ProofLi, E: &Integer, g: &Integer, h: &Integer, n: &Integer, t: u32, l: u32, b: u32, T: u32) -> bool
-    where
-        H: Digest
-    {
-
-        let ProofLi {C, D_1, D_2} = proof_li;
-        let c = C % (Integer::from(2).pow(t));
-        let inv_E = Integer::from(E.pow_mod_ref(&(-Integer::from(1) * &c), n).unwrap());
-        let commit = (Integer::from(g.pow_mod_ref(D_1, n).unwrap()) * Integer::from(h.pow_mod_ref(D_2, n).unwrap()) * &inv_E) % n;
-
-        let str =  commit.to_string();
-        let hash = <H as Digest>::digest(str);
-        let output = Integer::from_digits(hash.as_slice(), Order::MsfBe);
-
-        if &(c * Integer::from(b)) <= D_1 && D_1 <= &(Integer::from(2).pow(T) * (Integer::from(2).pow(t+l) * b - Integer::from(1))) && C == &output {
-            return true
-        }
-
-        false
-    }
-
+    /* Algorithm 8 Verify Proof with Tolerance Specific factor 2 ** T */
     fn verify_of_tolerance_specific<H>(proof_wt: &ProofWt, g: &Integer, h: &Integer, E: &Integer, n: &Integer, a: u32, b: u32, t: u32, l: u32, T: u32) -> bool
     where
         H: Digest
@@ -742,6 +734,24 @@ impl Boudot2000RangeProof {
 
     }
 
+
+    /* Algorithm 9 Square Decomposition Range Proof (i.e. Proof without tolerance) from [Boudot2000] on section 3.1.2 */
+    fn proof_of_square_decomposition_range<H>(x: &Integer, r: &Integer, g: &Integer, h: &Integer, E: &Integer, n: &Integer, a: u32, b: u32, t: u32, l: u32, s: u32, s1: u32, s2: u32, T: u32) -> Self
+    where
+        H: Digest
+    {
+        let x_prime = Integer::from(2).pow(T) * x;
+        let r_prime = Integer::from(2).pow(T) * r;
+
+        let E_prime = Integer::from(E.pow_mod_ref(&(Integer::from(2).pow(T)), n).unwrap());
+
+        let proof_of_tolerance = Self::proof_of_tolerance_specific::<H>(x_prime, r_prime, g, h, n, a, b, t, l, s, s1, s2, T);
+    
+        Self{proof_of_tolerance, E_prime, E: E.clone()}
+    }
+
+    
+    /* Algorithm 10 Verify Square Decomposition Range Proof (i.e. Proof without tolerance) from [Boudot2000] on section 3.1.2 */
     fn verify_of_square_decomposition_range<H>(&self, g: &Integer, h: &Integer, n: &Integer, a: u32, b: u32, t: u32, l: u32, T: u32) -> bool
     where
         H: Digest
@@ -790,3 +800,136 @@ pub enum RangeProof{
 
 
 
+pub(crate) struct C1C2Proof {
+    challenge: Integer,
+    d: Vec<Integer>,
+    d_1: Integer,
+    d_2: Integer
+}
+
+impl C1C2Proof {
+    /* Generation of the proof related to two commitments (C1 and C2) (generate proof that C1 is a commitment to the same secrets as C2) */
+    pub(crate) fn nisp2_generate_proof_MultiSecrets<CS>(messages: &[CL03Message], c1: &CL03Commitment, c2: &CL03Commitment, signer_pk: &CL03PublicKey, commitment_pk: &CL03CommitmentPublicKey, unrevealed_message_indexes: &[usize]) -> Self
+    where
+        CS: CLCiphersuite,
+        CS::HashAlg: Digest
+    {
+        let n_attr = messages.len();
+
+        if signer_pk.a_bases.len() < n_attr  && n_attr < commitment_pk.g_bases.len(){
+            panic!("Not enough a_bases OR g_bases for the number of attributes");
+        }
+
+        let h1 = &signer_pk.b;
+        let n1 = &signer_pk.N;
+        let h2 = &commitment_pk.h;
+        let n2 = &commitment_pk.N;
+
+        // Initialize multiple random values, equivalent to secrets m_i and stored in a list
+        let mut omega: Vec<Integer> = Vec::new();
+        for i in unrevealed_message_indexes{ 
+            omega.push(random_bits(CS::lm));
+        }
+
+        let mu_1 = random_bits(CS::ln);
+        let mu_2 = random_bits(CS::ln);
+
+        let mut w_1 = Integer::from(1);
+        let mut w_2 = Integer::from(1);
+        let mut idx = 0usize;
+
+
+        for i in unrevealed_message_indexes {
+            w_1 = w_1 * (Integer::from(signer_pk.a_bases[*i].0.pow_mod_ref(&omega[idx], n1).unwrap()));
+            w_2 = w_2 * (Integer::from(commitment_pk.g_bases[*i].0.pow_mod_ref(&omega[idx], n2).unwrap()));
+            idx = idx + 1;
+        }
+        w_1 = (w_1 * Integer::from(h1.pow_mod_ref(&mu_1, n1).unwrap())) % n1;
+        w_2 = (w_2 * Integer::from(h2.pow_mod_ref(&mu_2, n2).unwrap())) % n2;
+
+
+        let str =  w_1.to_string() + &w_2.to_string();
+        let hash = <CS::HashAlg as Digest>::digest(str);
+        let challenge = Integer::from_digits(hash.as_slice(), Order::MsfBe);
+
+
+        let mut d: Vec<Integer> = Vec::new();
+        let mut idx = 0usize;
+
+        for i in unrevealed_message_indexes {
+            d.push((&omega[idx] + &challenge * &messages[*i].value).complete());
+            idx = idx + 1;
+        }
+
+        let d_1 = mu_1 + &challenge * &c1.randomness;
+        let d_2 = mu_2 + &challenge * &c2.randomness;
+
+        Self{challenge, d, d_1 ,d_2}
+
+    }
+
+    /* Verification of the proof for two commitments (C1 and C2) */
+    pub(crate) fn nisp2_verify_proof_MultiSecrets<CS>(&self, c1: &CL03Commitment, c2: &CL03Commitment, signer_pk: &CL03PublicKey, commitment_pk: &CL03CommitmentPublicKey, unrevealed_message_indexes: &[usize]) -> bool
+    where
+        CS: CLCiphersuite,
+        CS::HashAlg: Digest
+    {
+        let h1 = &signer_pk.b;
+        let n1 = &signer_pk.N;
+        let h2 = &commitment_pk.h;
+        let n2 = &commitment_pk.N;
+
+
+        let Self{challenge, d, d_1, d_2} = self;
+
+        let inv_C1 = Integer::from(c1.value.pow_mod_ref(&(-Integer::from(1) * challenge), n1).unwrap());
+        let inv_C2 = Integer::from(c2.value.pow_mod_ref(&(-Integer::from(1) * challenge), n2).unwrap());
+
+
+        let mut lhs = Integer::from(1);
+        let mut rhs = Integer::from(1);
+        let mut idx = 0usize;
+
+        for i in unrevealed_message_indexes {
+            lhs = lhs * Integer::from(signer_pk.a_bases[*i].0.pow_mod_ref(&d[idx], n1).unwrap());
+            rhs = rhs * Integer::from(commitment_pk.g_bases[*i].0.pow_mod_ref(&d[idx], n2).unwrap());
+            idx += 1;
+        }
+        // lhs = ((lhs * powmod(h1, d_1, n1)) * inv_C1) % n1  
+        // rhs = ((rhs * powmod(h2, d_2, n2)) * inv_C2) % n2 
+        lhs = ((lhs * Integer::from(h1.pow_mod_ref(d_1, n1).unwrap())) * inv_C1) % n1;
+        rhs = ((rhs * Integer::from(h2.pow_mod_ref(d_2, n2).unwrap())) * inv_C2) % n2;
+
+        let str =  lhs.to_string() + &rhs.to_string();
+        let hash = <CS::HashAlg as Digest>::digest(str);
+        let output = Integer::from_digits(hash.as_slice(), Order::MsfBe);
+
+        challenge == &output
+
+    }
+}
+
+pub struct BBSplusZKPoK {}
+
+pub struct CL03ZKPoK {}
+
+impl CL03ZKPoK {
+
+    
+}
+
+pub enum ZKPoK<S: Scheme> {
+    BBSplus(BBSplusZKPoK),
+    CL03(CL03ZKPoK),
+    _Unreachable(PhantomData<S>)
+}
+
+
+impl <CS: BbsCiphersuite> ZKPoK<BBSplus<CS>> {
+
+}
+
+
+impl <CS: CLCiphersuite> ZKPoK<CL03<CS>> {
+
+}
