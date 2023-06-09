@@ -10,7 +10,7 @@ use serde::{Serialize, Deserialize};
 
 use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{BBSplusMessage, CL03Message}, generators::{self, Generators}}, cl03::ciphersuites::{CLCiphersuite}, keys::{bbsplus_key::BBSplusPublicKey, cl03_key::{CL03CommitmentPublicKey, CL03PublicKey}}, utils::{util::{get_remaining_indexes, get_messages, calculate_domain, calculate_random_scalars, ScalarExt, hash_to_scalar_old, divm}, random::{random_bits, rand_int}}};
 
-use super::{signature::{BBSplusSignature, CL03Signature}, commitment::{Commitment, CL03Commitment}};
+use super::{signature::{BBSplusSignature, CL03Signature}, commitment::{Commitment, CL03Commitment, self}};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusPoKSignature{
@@ -800,14 +800,14 @@ pub enum RangeProof{
 
 
 
-pub(crate) struct C1C2Proof {
+struct NISP2Commitments {
     challenge: Integer,
     d: Vec<Integer>,
     d_1: Integer,
     d_2: Integer
 }
 
-impl C1C2Proof {
+impl NISP2Commitments {
     /* Generation of the proof related to two commitments (C1 and C2) (generate proof that C1 is a commitment to the same secrets as C2) */
     pub(crate) fn nisp2_generate_proof_MultiSecrets<CS>(messages: &[CL03Message], c1: &CL03Commitment, c2: &CL03Commitment, signer_pk: &CL03PublicKey, commitment_pk: &CL03CommitmentPublicKey, unrevealed_message_indexes: &[usize]) -> Self
     where
@@ -840,8 +840,8 @@ impl C1C2Proof {
 
 
         for i in unrevealed_message_indexes {
-            w_1 = w_1 * (Integer::from(signer_pk.a_bases[*i].0.pow_mod_ref(&omega[idx], n1).unwrap()));
-            w_2 = w_2 * (Integer::from(commitment_pk.g_bases[*i].0.pow_mod_ref(&omega[idx], n2).unwrap()));
+            w_1 = w_1 * (Integer::from(signer_pk.a_bases.get(*i).expect("unrevealed_message_indexes not valid (overflow)").0.pow_mod_ref(&omega[idx], n1).unwrap()));
+            w_2 = w_2 * (Integer::from(commitment_pk.g_bases.get(*i).expect("unrevealed_message_indexes not valid (overflow)").0.pow_mod_ref(&omega[idx], n2).unwrap()));
             idx = idx + 1;
         }
         w_1 = (w_1 * Integer::from(h1.pow_mod_ref(&mu_1, n1).unwrap())) % n1;
@@ -857,7 +857,7 @@ impl C1C2Proof {
         let mut idx = 0usize;
 
         for i in unrevealed_message_indexes {
-            d.push((&omega[idx] + &challenge * &messages[*i].value).complete());
+            d.push((&omega[idx] + &challenge * &messages.get(*i).expect("unrevealed_message_indexes not valid (overflow)").value).complete());
             idx = idx + 1;
         }
 
@@ -874,6 +874,7 @@ impl C1C2Proof {
         CS: CLCiphersuite,
         CS::HashAlg: Digest
     {
+
         let h1 = &signer_pk.b;
         let n1 = &signer_pk.N;
         let h2 = &commitment_pk.h;
@@ -891,8 +892,8 @@ impl C1C2Proof {
         let mut idx = 0usize;
 
         for i in unrevealed_message_indexes {
-            lhs = lhs * Integer::from(signer_pk.a_bases[*i].0.pow_mod_ref(&d[idx], n1).unwrap());
-            rhs = rhs * Integer::from(commitment_pk.g_bases[*i].0.pow_mod_ref(&d[idx], n2).unwrap());
+            lhs = lhs * Integer::from(signer_pk.a_bases.get(*i).expect("unrevealed_message_indexes not valid (overflow)").0.pow_mod_ref(&d[idx], n1).unwrap());
+            rhs = rhs * Integer::from(commitment_pk.g_bases.get(*i).expect("unrevealed_message_indexes not valid (overflow)").0.pow_mod_ref(&d[idx], n2).unwrap());
             idx += 1;
         }
         // lhs = ((lhs * powmod(h1, d_1, n1)) * inv_C1) % n1  
@@ -908,6 +909,116 @@ impl C1C2Proof {
 
     }
 }
+
+
+struct NISPSecrets {
+    t: Integer,
+    s1: Vec<Integer>,
+    s2: Integer
+}
+
+impl NISPSecrets {
+
+    /* Generation of the proof related to multiple secrets (x and r) */
+    fn nispSecrets_generate_proof<CS>(messages: &[CL03Message], commitment: &CL03Commitment, signer_pk: &CL03PublicKey, unrevealed_message_indexes: Option<&[usize]>) -> Self
+    where
+        CS: CLCiphersuite,
+        CS::HashAlg: Digest
+    {
+        let mut unrevealed_message_indexes = unrevealed_message_indexes.unwrap_or(&[0]);
+        // Initialize multiple random values, equivalent to secrets m_i and stored in a list
+
+        if messages.len() == 1 {
+            unrevealed_message_indexes = &[0];
+        }
+
+        let mut r1: Vec<Integer> = Vec::new();
+        for _ in unrevealed_message_indexes {
+            r1.push(random_bits(CS::lm));
+        }
+
+        let r2 = random_bits(CS::ln);
+
+        let h1 = &signer_pk.b;
+        let n1 = &signer_pk.N;
+
+        let mut t = Integer::from(1);
+        let mut str_input = String::from("");
+        let mut idx = 0usize;
+        for i in unrevealed_message_indexes {
+            t = t * Integer::from(signer_pk.a_bases.get(*i).expect("unrevealed_message_indexes not valid (overflow)").0.pow_mod_ref(&r1[idx], n1).unwrap());
+            str_input = str_input + &signer_pk.a_bases[*i].0.to_string();
+            idx += 1;
+        }
+        t = (t * Integer::from(h1.pow_mod_ref(&r2, n1).unwrap())) % n1; 
+
+        str_input = str_input + &h1.to_string() + &commitment.value.to_string() + &t.to_string();
+        let hash = <CS::HashAlg as Digest>::digest(str_input);
+        let challenge = Integer::from_digits(hash.as_slice(), Order::MsfBe);
+
+        let mut s1: Vec<Integer> = Vec::new();
+        idx = 0usize;
+
+        for i in unrevealed_message_indexes {
+            s1.push((&r1[idx] + &challenge * &messages.get(*i).expect("unrevealed_message_indexes not valid (overflow)").value).complete());
+            idx += 1;
+        }
+        let s2 = r2 + (challenge * &commitment.randomness);
+
+        Self{t, s1, s2}
+        
+        //NOTE: s1 is a list with number_of_secrets values
+   
+    }
+
+    fn nispSecrets_verify_proof<CS>(&self, commitment: &CL03Commitment, signer_pk: &CL03PublicKey, unrevealed_message_indexes: Option<&[usize]>) -> bool
+    where
+        CS: CLCiphersuite,
+        CS::HashAlg: Digest
+    {
+        let mut unrevealed_message_indexes = unrevealed_message_indexes.unwrap_or(&[0]);
+        
+
+        let h1 = &signer_pk.b;
+        let n1 = &signer_pk.N;
+        let Self{t, s1, s2} = self;
+
+        if unrevealed_message_indexes.len() != s1.len() {
+            panic!("unrevealed_message_indexes not valid");
+        }
+
+        // lhs = 1    
+        // strInput = ''
+        // idx = 0
+        // for i in unrevealed_idxs:  
+        //     g1 = issuer_pk[('a' + str(i))]        
+        //     lhs = lhs * (powmod(g1, s1[idx], n1)) 
+        //     strInput = strInput + str(int(g1)) 
+        //     idx = idx + 1
+        // lhs = ((lhs * powmod(h1, s2, n1))) % n1
+
+        let mut lhs = Integer::from(1);
+        let mut str_input = String::from("");
+        let mut idx = 0usize;
+
+        for i in unrevealed_message_indexes {
+            lhs = lhs * Integer::from(signer_pk.a_bases.get(*i).expect("unrevealed_message_indexes not valid (overflow)").0.pow_mod_ref(&s1[idx], n1).unwrap());
+            str_input = str_input + &signer_pk.a_bases[*i].0.to_string();
+            idx += 1;
+        }
+        lhs = (lhs * Integer::from(h1.pow_mod_ref(&s2, n1).unwrap())) % n1;
+        str_input = str_input + &h1.to_string() + &commitment.value.to_string() + &t.to_string();
+        let hash = <CS::HashAlg as Digest>::digest(str_input);
+        let challenge = Integer::from_digits(hash.as_slice(), Order::MsfBe);
+
+        // let rhs = (t * powmod(commitment_Cx, challenge, n1)) % n1
+        let rhs = (t * Integer::from(commitment.value.pow_mod_ref(&challenge, n1).unwrap())) % n1;
+        
+        lhs == rhs
+
+    }
+}
+
 
 pub struct BBSplusZKPoK {}
 

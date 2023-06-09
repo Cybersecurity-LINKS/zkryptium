@@ -6,10 +6,10 @@ use bls12_381_plus::{Scalar, G1Projective, G2Projective};
 use digest::typenum::Pow;
 use elliptic_curve::{hash2curve::{ExpandMsg, Expander}, group::Curve};
 use ff::Field;
-use rand::RngCore;
+use rand::{RngCore, seq::index};
 use rug::Integer;
 use serde::Serialize;
-use crate::{bbsplus::{ciphersuites::BbsCiphersuite, message::BBSplusMessage}, keys::bbsplus_key::BBSplusPublicKey};
+use crate::{bbsplus::{ciphersuites::BbsCiphersuite, message::{BBSplusMessage, Message}}, keys::bbsplus_key::BBSplusPublicKey};
 
 use super::random::random_bits;
 
@@ -290,3 +290,8 @@ pub fn divm(a: &Integer, b: &Integer, m: &Integer) -> Integer{
     }
 
 }
+
+// pub fn check_indexes_overflow<T>(messages: &[T], indexes: &[usize]) -> bool
+// {
+//     indexes.iter().max().unwrap_or(&0usize) < &messages.len()
+// }
