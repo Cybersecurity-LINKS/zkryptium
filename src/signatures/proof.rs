@@ -1070,11 +1070,38 @@ impl BBSplusZKPoK {
 		// nizk = (c, s^, r^)
         Self{c, s_cap, r_cap}
 		// nizk = [c, s_cap] + r_cap
-
     }
 
-    fn blindMessagesProofVerify() {
+    fn blindMessagesProofVerify<CS>(&self, commitment: &BBSplusCommitment, generators: &Generators, unrevealed_message_indexes: &[usize], nonce: &[u8]) -> bool
+    where
+        CS: BbsCiphersuite,
+        CS::Expander: for<'a> ExpandMsg<'a>,
+    {
 
+        if generators.message_generators.len() < *unrevealed_message_indexes.iter().max().unwrap_or(&0) {
+            panic!("len(generators) < max(unrevealed_message_indexes)");
+        }
+        // Get unrevealed messages length
+        let U = unrevealed_message_indexes.len();
+        // (i1,...,iU) = CGIdxs = unrevealed_indexes
+
+        // U^ = commitment * -c + h0 * s^ + h[i1] \* r^[1] + ... + h[iU] \* r^[U]
+        let mut U_cap = commitment.value * (-self.c) + generators.q1 * self.s_cap;
+        let mut index = 0usize;
+
+        for i in unrevealed_message_indexes {
+            U_cap += generators.message_generators.get(*i).expect("unrevealed_message_indexes not valid") * self.r_cap.get(index).expect("index overflow");
+            index += 1;
+        }
+        // c_v = HASH(U || U^ || nonce)
+        let mut value: Vec<u8> = Vec::new();
+        value.extend_from_slice(&commitment.value.to_affine().to_compressed());
+        value.extend_from_slice(&U_cap.to_affine().to_compressed());
+        value.extend_from_slice(nonce);
+
+        let cv = hash_to_scalar_old::<CS>(&value, 1, None)[0]; //TODO: update hash_to_scalar as in latest draft	
+
+        self.c == cv
     }
 
 }
