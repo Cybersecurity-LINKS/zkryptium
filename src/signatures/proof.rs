@@ -910,18 +910,62 @@ impl NISP2Commitments {
     }
 }
 
+struct NISPSecrets{
+    t: Integer,
+    s1: Integer,
+    s2: Integer
+}
+
+impl NISPSecrets {
+    fn nisp2sec_generate_proof<CS>(messages: &CL03Message, commitment: &CL03Commitment, g1: &Integer, h1: &Integer, n1: Integer) -> Self
+    where
+        CS: CLCiphersuite,
+        CS::HashAlg: Digest
+    {
+        let r1 = random_bits(CS::lm);
+        let r2 = random_bits(CS::ln);
+
+        let t = (Integer::from(g1.pow_mod_ref(&r1, &n1).unwrap()) * Integer::from(h1.pow_mod_ref(&r2, &n1).unwrap())) % &n1;
+        let str_input = g1.to_string() + &h1.to_string() + &commitment.value.to_string() + &t.to_string();
+        let hash = <CS::HashAlg as Digest>::digest(str_input);
+        let challenge = Integer::from_digits(hash.as_slice(), Order::MsfBe);
+
+        let s1 = r1 + (&challenge * &messages.value);
+        let s2 = r2 + (&challenge * &commitment.randomness);
+
+        Self{t, s1, s2}
+
+    }
+
+    fn nisp2sec_verify_proof<CS>(&self, commitment: &CL03Commitment, g1: &Integer, h1: &Integer, n1: Integer) -> bool
+    where
+        CS: CLCiphersuite,
+        CS::HashAlg: Digest
+    {
+        let Self{t, s1, s2} = self;
+        let lhs = (Integer::from(g1.pow_mod_ref(s1, &n1).unwrap()) * Integer::from(h1.pow_mod_ref(s2, &n1).unwrap())) % &n1;
+        let str_input = g1.to_string() + &h1.to_string() + &commitment.value.to_string() + &t.to_string();
+        let hash = <CS::HashAlg as Digest>::digest(str_input);
+        let challenge = Integer::from_digits(hash.as_slice(), Order::MsfBe);
+
+        let rhs = (t * Integer::from(commitment.value.pow_mod_ref(&challenge, &n1).unwrap())) % n1;
+
+        lhs == rhs
+    }
+}
+
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-struct NISPSecrets {
+struct NISPMultiSecrets {
     t: Integer,
     s1: Vec<Integer>,
     s2: Integer
 }
 
-impl NISPSecrets {
+impl NISPMultiSecrets {
 
     /* Generation of the proof related to multiple secrets (x and r) */
-    fn nispSecrets_generate_proof<CS>(messages: &[CL03Message], commitment: &CL03Commitment, signer_pk: &CL03PublicKey, unrevealed_message_indexes: Option<&[usize]>) -> Self
+    fn nispMultiSecrets_generate_proof<CS>(messages: &[CL03Message], commitment: &CL03Commitment, signer_pk: &CL03PublicKey, unrevealed_message_indexes: Option<&[usize]>) -> Self
     where
         CS: CLCiphersuite,
         CS::HashAlg: Digest
@@ -972,13 +1016,12 @@ impl NISPSecrets {
    
     }
 
-    fn nispSecrets_verify_proof<CS>(&self, commitment: &CL03Commitment, signer_pk: &CL03PublicKey, unrevealed_message_indexes: Option<&[usize]>) -> bool
+    fn nispMultiSecrets_verify_proof<CS>(&self, commitment: &CL03Commitment, signer_pk: &CL03PublicKey, unrevealed_message_indexes: Option<&[usize]>) -> bool
     where
         CS: CLCiphersuite,
         CS::HashAlg: Digest
     {
         let unrevealed_message_indexes = unrevealed_message_indexes.unwrap_or(&[0]);
-        
 
         let h1 = &signer_pk.b;
         let n1 = &signer_pk.N;
@@ -1007,6 +1050,8 @@ impl NISPSecrets {
         lhs == rhs
 
     }
+
+    
 }
 
 
