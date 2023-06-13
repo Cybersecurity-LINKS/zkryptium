@@ -322,37 +322,57 @@ impl <CS: CLCiphersuite> PoKSignature<CL03<CS>> {
 
     }
 
-    // pub fn proof_verify(&self, commitment_pk: &CL03CommitmentPublicKey, signer_pk: &CL03PublicKey, messages: &[CL03Message], unrevealed_message_indexes: &[usize]) ->bool
-    // where
-    //     CS::HashAlg: Digest
-    // {
+    pub fn proof_verify(&self, commitment_pk: &CL03CommitmentPublicKey, signer_pk: &CL03PublicKey, messages: &[CL03Message], unrevealed_message_indexes: &[usize], n_signed_messages: usize) ->bool
+    where
+        CS::HashAlg: Digest
+    {
 
-    //     let min_e = Integer::from(2).pow(CS::le - 1) + 1;
-    //     let max_e = Integer::from(2).pow(CS::le) - 1;
-    //     let min_x = Integer::from(0);  
-    //     let max_x = Integer::from(2).pow(CS::lm) - 1;
-    //     let CLSPoK = self.to_cl03_proof();
-    //     let boolean_spok = NISPSignaturePoK::nisp5_MultiAttr_verify_proof::<CS>(&CLSPoK.spok, commitment_pk, signer_pk, messages, unrevealed_message_indexes)
-        
-    //     if boolean_spok && CLSPoK.spok.Ce.value == CLSPoK.range_proof_e.E {
-    //         //Verify RANGE PROOFS e
-    //         let boolean_rproof_e = CLSPoK.range_proof_e.verify(&commitment_pk.g_bases[0].0, &commitment_pk.h, &commitment_pk.N, &min_e, &max_e);
+        let min_e = Integer::from(2).pow(CS::le - 1) + 1;
+        let max_e = Integer::from(2).pow(CS::le) - 1;
+        let min_x = Integer::from(0);  
+        let max_x = Integer::from(2).pow(CS::lm) - 1;
+        let CLSPoK = self.to_cl03_proof();
+        let boolean_spok = NISPSignaturePoK::nisp5_MultiAttr_verify_proof::<CS>(&CLSPoK.spok, commitment_pk, signer_pk, messages, unrevealed_message_indexes, n_signed_messages);
+        if !boolean_spok {
+            println!("Signature PoK Failed!");
+            return false;
+        }
+        if CLSPoK.spok.Ce.value == CLSPoK.range_proof_e.E {
+            //Verify RANGE PROOFS e
+            let boolean_rproof_e = CLSPoK.range_proof_e.verify::<CS::HashAlg>(&commitment_pk.g_bases[0].0, &commitment_pk.h, &commitment_pk.N, &min_e, &max_e);
             
-    //         if boolean_rproof_e {
-    //             //Verify RANGE PROOFS mi
-    //             for i in unrevealed_message_indexes {
-    //                 let mi = messages.get(*i).expect("unreaveled_message_indexes not valid with respect to the messages!");
-    //                 let gi = commitment_pk.g_bases.get(*i).expect("unreaveled_message_indexes not valid with respect to the commitment_pk.g_bases!").0;
-    //                 let ProofMiCmi{proof_mi, cmi} = CLSPoK.proof_commited_msgs;
-    //                 let boolean_proof_mi = proof_mi.nisp2sec_verify_proof(&cmi, &gi, &commitment_pk.h, commitment_pk.N);
-    //                 if boolean_proof_mi {
-    //                     let boolean_rproofs_mi = CLSPoK.range_proof_commited_msgs
-    //                 }
+            if boolean_rproof_e {
+                //Verify RANGE PROOFS mi
+                let mut idx: usize = 0;
+                for i in unrevealed_message_indexes {
+                    
+                    let gi = &commitment_pk.g_bases.get(*i).expect("unreaveled_message_indexes not valid with respect to the commitment_pk.g_bases!").0;
+                    let ProofMiCmi{proof_mi, cmi} = CLSPoK.proof_commited_msgs.get(idx).expect("index overflow");
+                    let boolean_proof_mi = proof_mi.nisp2sec_verify_proof::<CS>(&cmi, gi, &commitment_pk.h, &commitment_pk.N);
+                    if !boolean_proof_mi {
+                        println!("Knowledge verification of mi Failed!");
+                        return false;
+                    }
+                    let boolean_rproofs_mi = CLSPoK.range_proof_commited_msgs.get(idx).expect("index overflow").verify::<CS::HashAlg>(&gi, &commitment_pk.h, &commitment_pk.N, &min_x, &min_x);
+                    if !boolean_rproofs_mi {
+                        println!("Range proof verification on mi Failed!");
+                        return false;
+                    }
 
-    //             }
-    //         }
-    //     }
-    // }
+                }
+            }
+            else {
+                println!("Range proof verification on e Failed!");
+                return false;
+            }
+        }
+        else {
+            println!("Commitment on 'e' used in the SPoK different from the one used in the Range Proof!");
+            return false
+        }
+
+        true
+    }
 
 
     pub fn to_cl03_proof(&self) ->  &CL03PoKSignature {
@@ -1013,13 +1033,13 @@ impl NISPSecrets {
 
     }
 
-    fn nisp2sec_verify_proof<CS>(&self, commitment: &CL03Commitment, g1: &Integer, h1: &Integer, n1: Integer) -> bool
+    fn nisp2sec_verify_proof<CS>(&self, commitment: &CL03Commitment, g1: &Integer, h1: &Integer, n1: &Integer) -> bool
     where
         CS: CLCiphersuite,
         CS::HashAlg: Digest
     {
         let Self{t, s1, s2} = self;
-        let lhs = (Integer::from(g1.pow_mod_ref(s1, &n1).unwrap()) * Integer::from(h1.pow_mod_ref(s2, &n1).unwrap())) % &n1;
+        let lhs = (Integer::from(g1.pow_mod_ref(s1, &n1).unwrap()) * Integer::from(h1.pow_mod_ref(s2, &n1).unwrap())) % n1;
         let str_input = g1.to_string() + &h1.to_string() + &commitment.value.to_string() + &t.to_string();
         let hash = <CS::HashAlg as Digest>::digest(str_input);
         let challenge = Integer::from_digits(hash.as_slice(), Order::MsfBe);
