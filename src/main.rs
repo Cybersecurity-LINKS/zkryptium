@@ -107,7 +107,7 @@ fn test_cl03_sign() {
 
     let signature_pok = NISPSignaturePoK::nisp5_MultiAttr_generate_proof::<CLSha256>(unblided_signature.cl03Signature(), &commitment_pk, cl03_keypair.public_key(), &messages, &unrevealed_message_indexes);
 
-    let valid_proof = signature_pok.nisp5_MultiAttr_verify_proof::<CLSha256>(&commitment_pk, cl03_keypair.public_key(), &messages, &unrevealed_message_indexes);
+    let valid_proof = signature_pok.nisp5_MultiAttr_verify_proof::<CLSha256>(&commitment_pk, cl03_keypair.public_key(), &messages, &unrevealed_message_indexes, 1);
     println!("valid proof: {}", valid_proof);
 
 }
