@@ -1,13 +1,6 @@
-// use std::marker::PhantomData;
-// use core::fmt::Debug;
-// use core::fmt::Display;
-// use core::fmt::Formatter;
-// use core::fmt::Result;
-// use zeroize::Zeroize;
-
 use std::{marker::PhantomData, process::Output};
 
-use bls12_381_plus::{Scalar, G2Projective};
+use bls12_381_plus::{Scalar, G2Projective, G1Projective};
 use elliptic_curve::group::Curve;
 use rug::Integer;
 use serde::{Serialize, Deserialize, de::DeserializeOwned};
@@ -20,8 +13,10 @@ use super::{cl03_key::{CL03PublicKey, CL03SecretKey}, bbsplus_key::{BBSplusPubli
 
 pub trait PublicKey: Serialize + DeserializeOwned + Send + Sync + 'static {
     type Output: ?Sized;
+    // type Params;
     fn to_bytes(&self) -> Self::Output;
     fn encode(&self) -> String;
+    // fn get_params(&self) -> Self::Params;
 }
 pub trait PrivateKey: Serialize + DeserializeOwned + Send + Sync + 'static {
     type Output: ?Sized;
@@ -31,6 +26,7 @@ pub trait PrivateKey: Serialize + DeserializeOwned + Send + Sync + 'static {
 
 impl PublicKey for BBSplusPublicKey{
     type Output = [u8; 96];
+    // type Params = G2Projective;
     fn to_bytes(&self) -> Self::Output {
         self.0.to_affine().to_compressed()
     }
@@ -39,10 +35,14 @@ impl PublicKey for BBSplusPublicKey{
         let pk_bytes = self.to_bytes();
         hex::encode(pk_bytes)
     }
+
+    // fn get_params(&self) -> Self::Params {
+    //     self.0
+    // }
 }
 impl PublicKey for CL03PublicKey{
     type Output = [u8; 512];
-
+    // type Params = (Integer, Integer, Integer, Vec<(Integer, bool)>);
     fn encode(&self) -> String {
         todo!()
     }
@@ -50,6 +50,10 @@ impl PublicKey for CL03PublicKey{
     fn to_bytes(&self) -> Self::Output {
         todo!()
     }
+
+    // fn get_params(&self) -> (Integer, Integer, Integer, Vec<(Integer, bool)>) {
+    //     (self.N.clone(), self.b.clone(), self.c.clone(), self.a_bases.clone())
+    // }
 }
 
 impl PrivateKey for BBSplusSecretKey{

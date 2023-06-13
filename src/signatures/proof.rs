@@ -26,17 +26,17 @@ pub struct BBSplusPoKSignature{
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-struct ProofMiCmi {
-    proof_mi: NISPSecrets,
-    cmi: CL03Commitment 
+struct ProofOfValue {
+    value: NISPSecrets,
+    commitment: CL03Commitment 
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct CL03PoKSignature {
     spok: NISPSignaturePoK,
     range_proof_e: Boudot2000RangeProof,
-    proof_commited_msgs: Vec<ProofMiCmi>,
-    range_proof_commited_msgs: Vec<Boudot2000RangeProof>
+    proofs_commited_mi: Vec<ProofOfValue>,
+    range_proofs_commited_mi: Vec<Boudot2000RangeProof>
 }
 
 
@@ -302,23 +302,23 @@ impl <CS: CLCiphersuite> PoKSignature<CL03<CS>> {
             RangeProof::Boudot2000 => Boudot2000RangeProof::prove::<CS::HashAlg>(&signature.e, &spok.Ce, &commitment_pk.g_bases[0].0, &commitment_pk.h, &commitment_pk.N, &min_e, &max_e),
         };
 
-        let mut proofs_msgs: Vec<ProofMiCmi> = Vec::new();
-        let mut r_proofs_msgs: Vec<Boudot2000RangeProof> = Vec::new();
+        let mut proofs_mi: Vec<ProofOfValue> = Vec::new();
+        let mut r_proofs_mi: Vec<Boudot2000RangeProof> = Vec::new();
         for i in unrevealed_message_indexes {
             let mi = messages.get(*i).expect("unreaveled_message_indexes not valid with respect to the messages!");
             let gi = &commitment_pk.g_bases.get(*i).expect("unreaveled_message_indexes not valid with respect to the commitment_pk.g_bases!").0;
             let cmi = Commitment::<CL03<CS>>::commit_with_commitment_pk(&[mi.clone()], commitment_pk, None).cl03Commitment().to_owned();
             let proof_mi_ri = NISPSecrets::nisp2sec_generate_proof::<CS>(mi, &cmi, &gi, &commitment_pk.h, &commitment_pk.N);
-            proofs_msgs.push(ProofMiCmi { proof_mi: proof_mi_ri, cmi: cmi.clone()});
+            proofs_mi.push(ProofOfValue { value: proof_mi_ri, commitment: cmi.clone()});
             let r_proof_mi = match CS::RANGEPROOF_ALG {
-                RangeProof::Boudot2000 => Boudot2000RangeProof::prove::<CS::HashAlg>(&mi.value, &cmi, &commitment_pk.g_bases[0].0, &commitment_pk.h, &commitment_pk.N, &min_x, &max_x),
+                RangeProof::Boudot2000 => Boudot2000RangeProof::prove::<CS::HashAlg>(&mi.value, &cmi, &gi, &commitment_pk.h, &commitment_pk.N, &min_x, &max_x),
             };
 
-            r_proofs_msgs.push(r_proof_mi);
+            r_proofs_mi.push(r_proof_mi);
         }
 
         
-        Self::CL03(CL03PoKSignature{spok, range_proof_e: r_proof_e, proof_commited_msgs: proofs_msgs, range_proof_commited_msgs: r_proofs_msgs})
+        Self::CL03(CL03PoKSignature{spok, range_proof_e: r_proof_e, proofs_commited_mi: proofs_mi, range_proofs_commited_mi: r_proofs_mi})
 
     }
 
@@ -347,13 +347,13 @@ impl <CS: CLCiphersuite> PoKSignature<CL03<CS>> {
                 for i in unrevealed_message_indexes {
                     
                     let gi = &commitment_pk.g_bases.get(*i).expect("unreaveled_message_indexes not valid with respect to the commitment_pk.g_bases!").0;
-                    let ProofMiCmi{proof_mi, cmi} = CLSPoK.proof_commited_msgs.get(idx).expect("index overflow");
+                    let ProofOfValue{value: proof_mi, commitment: cmi} = CLSPoK.proofs_commited_mi.get(idx).expect("index overflow");
                     let boolean_proof_mi = proof_mi.nisp2sec_verify_proof::<CS>(&cmi, gi, &commitment_pk.h, &commitment_pk.N);
                     if !boolean_proof_mi {
                         println!("Knowledge verification of mi Failed!");
                         return false;
                     }
-                    let boolean_rproofs_mi = CLSPoK.range_proof_commited_msgs.get(idx).expect("index overflow").verify::<CS::HashAlg>(&gi, &commitment_pk.h, &commitment_pk.N, &min_x, &min_x);
+                    let boolean_rproofs_mi = CLSPoK.range_proofs_commited_mi.get(idx).expect("index overflow").verify::<CS::HashAlg>(&gi, &commitment_pk.h, &commitment_pk.N, &min_x, &min_x);
                     if !boolean_rproofs_mi {
                         println!("Range proof verification on mi Failed!");
                         return false;
@@ -1248,11 +1248,17 @@ impl BBSplusZKPoK {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub struct CL03ZKPoK {}
+pub struct CL03ZKPoK {
+    proof_C_Ctrusted: Option<NISP2Commitments>,
+    proof_commited_msgs: NISPMultiSecrets,
+    proofs_commited_mi: Vec<ProofOfValue>,
+    range_proofs_mi: Vec<Boudot2000RangeProof>,
+    proof_r: ProofOfValue,
+    range_proof_r: Boudot2000RangeProof
+}
 
 impl CL03ZKPoK {
 
-    
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -1272,9 +1278,18 @@ impl <CS: BbsCiphersuite> ZKPoK<BBSplus<CS>>
         Self::BBSplus(BBSplusZKPoK::blindMessagesProofGen::<CS>(unrevealed_messages, commitment, generators, unrevealed_message_indexes, nonce))
     }
 
-    pub fn verify_proof() -> bool 
+    pub fn verify_proof(&self, commitment: &BBSplusCommitment, generators: &Generators, unrevealed_message_indexes: &[usize], nonce: &[u8]) -> bool 
+    where
+        CS::Expander: for<'a> ExpandMsg<'a>,
     {
-        todo!()
+        self.to_bbsplus_zkpok().blindMessagesProofVerify::<CS>(commitment, generators, unrevealed_message_indexes, nonce)
+    }
+
+    pub fn to_bbsplus_zkpok(&self) -> &BBSplusZKPoK {
+        match self {
+            Self::BBSplus(inner) => inner,
+            _ => panic!("Cannot happen!")
+        }
     }
 
     pub fn to_bytes(&self) {
@@ -1288,5 +1303,96 @@ impl <CS: BbsCiphersuite> ZKPoK<BBSplus<CS>>
 
 
 impl <CS: CLCiphersuite> ZKPoK<CL03<CS>> {
+    pub fn generate_proof(messages: &[CL03Message], C: &CL03Commitment, C_trusted: Option<&CL03Commitment>, signer_pk: &CL03PublicKey, commitment_pk: &CL03CommitmentPublicKey, unrevealed_message_indexes: &[usize]) -> Self
+    where
+        CS::HashAlg: Digest
+    {
+        let mut proof_C_Ctrusted: Option<NISP2Commitments>;
+        if let Some(C_trusted) = C_trusted {
+            proof_C_Ctrusted = Some(NISP2Commitments::nisp2_generate_proof_MultiSecrets::<CS>(
+                messages,
+                C,
+                &C_trusted,
+                signer_pk,
+                commitment_pk,
+                unrevealed_message_indexes,
+            ));
+        }else {
+            proof_C_Ctrusted = None
+        }
 
+        
+        let proof_msgs = NISPMultiSecrets::nispMultiSecrets_generate_proof::<CS>(messages, C, signer_pk, Some(unrevealed_message_indexes));
+        
+        let min_x = Integer::from(0);  
+        let max_x = Integer::from(2).pow(CS::lm) - 1;
+        //RANGE PROOF on unrevealde messages
+        let mut proofs_mi: Vec<ProofOfValue> = Vec::new();
+        let mut r_proofs_msgs: Vec<Boudot2000RangeProof> = Vec::new();
+        for i in unrevealed_message_indexes {
+            let mi = messages.get(*i).expect("unreaveled_message_indexes not valid with respect to the messages!");
+            let ai = &signer_pk.a_bases.get(*i).expect("unreaveled_message_indexes not valid with respect to the commitment_pk.g_bases!").0;
+            let cmi = Commitment::<CL03<CS>>::commit_with_pk(&[mi.clone()], signer_pk, None).cl03Commitment().to_owned();
+            let proof_mi = NISPSecrets::nisp2sec_generate_proof::<CS>(mi, &cmi, &ai, &signer_pk.b, &signer_pk.N);
+            proofs_mi.push(ProofOfValue { value: proof_mi, commitment: cmi.clone()});
+            match CS::RANGEPROOF_ALG {
+                RangeProof::Boudot2000 => {
+                    let r_proof_mi = Boudot2000RangeProof::prove::<CS::HashAlg>(&mi.value, &cmi, &ai, &signer_pk.b, &signer_pk.N, &min_x, &max_x);
+                    r_proofs_msgs.push(r_proof_mi);
+                },
+            };
+        }
+
+        //RANGE PROOF on randomness of C
+        let min_r = Integer::from(0);  
+        let max_r = Integer::from(2).pow(CS::ln) - 1;
+        let r = CL03Message::new(C.randomness.clone());
+        let cr = Commitment::<CL03<CS>>::commit_with_pk(&[r.clone()], &signer_pk, None);
+        let proof_r = ProofOfValue{value: NISPSecrets::nisp2sec_generate_proof::<CS>(&r, cr.cl03Commitment(), &signer_pk.a_bases[0].0, &signer_pk.b, &signer_pk.N), commitment: cr.cl03Commitment().to_owned()};
+
+        let rproof_r = match CS::RANGEPROOF_ALG {
+            RangeProof::Boudot2000 => Boudot2000RangeProof::prove::<CS::HashAlg>(&r.value, cr.cl03Commitment(), &signer_pk.a_bases[0].0, &signer_pk.b, &signer_pk.N, &min_r, &max_r),
+        };
+
+
+        Self::CL03(CL03ZKPoK{proof_C_Ctrusted, proof_commited_msgs: proof_msgs, proofs_commited_mi: proofs_mi, range_proofs_mi: r_proofs_msgs, proof_r: proof_r, range_proof_r: rproof_r})
+    }
+
+    pub fn verify_proof(&self, messages: &[CL03Message], C: &CL03Commitment, C_trusted: Option<&CL03Commitment>, signer_pk: &CL03PublicKey, commitment_pk: &CL03CommitmentPublicKey, unrevealed_message_indexes: &[usize]) -> bool
+    where
+        CS::HashAlg: Digest
+    {
+        let zkpok = self.to_cl03_zkpok();
+
+        let mut boolean_C_Ctrusted: bool;
+        if let Some(C_trusted) = C_trusted {
+            boolean_C_Ctrusted = zkpok.proof_C_Ctrusted.clone().unwrap().nisp2_verify_proof_MultiSecrets::<CS>(C, C_trusted, signer_pk, commitment_pk, unrevealed_message_indexes);
+        }else {
+            boolean_C_Ctrusted = false
+        }
+
+        if !boolean_C_Ctrusted {
+            println!("The trusted commitment is different from commitment received!");
+            return false;
+        } 
+
+        
+        let boolean_proof_msgs = zkpok.proof_commited_msgs.nispMultiSecrets_verify_proof::<CS>(C, signer_pk, Some(unrevealed_message_indexes));
+        
+        if !boolean_proof_msgs {
+            println!("Verification of the PoK of secrets Failed!");
+            return false;
+        }
+
+jtrjr
+
+        true
+    }
+
+    pub fn to_cl03_zkpok(&self) -> &CL03ZKPoK {
+        match self {
+            Self::CL03(inner) => &inner,
+            _ => panic!("Cannot happen!")
+        }
+    }
 }
