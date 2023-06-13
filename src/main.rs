@@ -4,7 +4,7 @@ use bls12_381_plus::{G1Affine, G2Affine, pairing, G1Projective, Scalar};
 use byteorder::BigEndian;
 use glass_pumpkin::prime::new;
 use hex::ToHex;
-use links_crypto::{utils::random, keys::{cl03_key::{CL03PublicKey, CL03CommitmentPublicKey}, pair::{KeyPair}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, bbsplus::{generators::{make_generators, global_generators, signer_specific_generators, print_generators}, ciphersuites::{Bls12381Shake256, BbsCiphersuite, Bls12381Sha256}, message::{Message, BBSplusMessage, CL03Message}}, schemes::algorithms::{CL03, BBSplus, Scheme, CL03Sha256, BBSplusShake256, BBSplusSha256}, signatures::{commitment::{Commitment, BBSplusCommitment, self}, blind::{self, BlindSignature, BBSplusBlindSignature}, signature::{BBSplusSignature, Signature}, proof::{PoKSignature, CL03PoKSignature}}, cl03::ciphersuites::CLSha256};
+use links_crypto::{utils::random, keys::{cl03_key::{CL03PublicKey, CL03CommitmentPublicKey}, pair::{KeyPair}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, bbsplus::{generators::{make_generators, global_generators, signer_specific_generators, print_generators}, ciphersuites::{Bls12381Shake256, BbsCiphersuite, Bls12381Sha256}, message::{Message, BBSplusMessage, CL03Message}}, schemes::algorithms::{CL03, BBSplus, Scheme, CL03Sha256, BBSplusShake256, BBSplusSha256}, signatures::{commitment::{Commitment, BBSplusCommitment, self}, blind::{self, BlindSignature, BBSplusBlindSignature}, signature::{BBSplusSignature, Signature}, proof::{PoKSignature, CL03PoKSignature, NISPSignaturePoK}}, cl03::ciphersuites::CLSha256};
 
 use links_crypto::keys::key::PrivateKey;
 use rug::{Integer, Complete};
@@ -105,7 +105,7 @@ fn test_cl03_sign() {
 
     println!("valid signature multimessage: {}", verify);
 
-    let signature_pok = CL03PoKSignature::nisp5_MultiAttr_generate_proof::<CLSha256>(unblided_signature.cl03Signature(), &commitment_pk, cl03_keypair.public_key(), &messages, &unrevealed_message_indexes);
+    let signature_pok = NISPSignaturePoK::nisp5_MultiAttr_generate_proof::<CLSha256>(unblided_signature.cl03Signature(), &commitment_pk, cl03_keypair.public_key(), &messages, &unrevealed_message_indexes);
 
     let valid_proof = signature_pok.nisp5_MultiAttr_verify_proof::<CLSha256>(&commitment_pk, cl03_keypair.public_key(), &messages, &unrevealed_message_indexes);
     println!("valid proof: {}", valid_proof);
