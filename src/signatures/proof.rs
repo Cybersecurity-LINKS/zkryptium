@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, collections::HashMap};
+use std::{marker::PhantomData, collections::HashMap, fmt::Alignment};
 
 use bls12_381_plus::{G1Projective, Scalar, G2Projective, G2Prepared, Gt, multi_miller_loop};
 use digest::Digest;
@@ -10,7 +10,7 @@ use serde::{Serialize, Deserialize};
 
 use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{BBSplusMessage, CL03Message}, generators::{self, Generators}}, cl03::ciphersuites::{CLCiphersuite}, keys::{bbsplus_key::BBSplusPublicKey, cl03_key::{CL03CommitmentPublicKey, CL03PublicKey}}, utils::{util::{get_remaining_indexes, get_messages, calculate_domain, calculate_random_scalars, ScalarExt, hash_to_scalar_old, divm}, random::{random_bits, rand_int}}};
 
-use super::{signature::{BBSplusSignature, CL03Signature}, commitment::{Commitment, CL03Commitment, self, BBSplusCommitment}};
+use super::{signature::{BBSplusSignature, CL03Signature, self}, commitment::{Commitment, CL03Commitment, self, BBSplusCommitment}};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusPoKSignature{
@@ -1384,7 +1384,42 @@ impl <CS: CLCiphersuite> ZKPoK<CL03<CS>> {
             return false;
         }
 
-jtrjr
+        let min_x = Integer::from(0);  
+        let max_x = Integer::from(2).pow(CS::lm) - 1;
+        let mut idx = 0usize;
+
+        for i in unrevealed_message_indexes {
+            let ai = &signer_pk.a_bases.get(*i).expect("unreaveled_message_indexes not valid with respect to the messages!").0;
+            let proof_mi = zkpok.proofs_commited_mi.get(idx).expect("index overflow");
+            let boolean_proof_mi = proof_mi.value.nisp2sec_verify_proof::<CS>(&proof_mi.commitment, ai, &signer_pk.b, &signer_pk.N);
+
+            if !boolean_proof_mi {
+                println!("Verification of the Proof of Knowledge of m{}. Failed!", i);
+                return false;
+            }
+            let rproof_mi = zkpok.range_proofs_mi.get(idx).expect("index overflow");
+            let boolean_rproof_mi = rproof_mi.verify::<CS::HashAlg>(&ai, &signer_pk.b, &signer_pk.N,&min_x, &max_x);
+            if !boolean_rproof_mi {
+                println!("Verification of the Range Proof of m{}. Failed", i);
+                return false;
+            }
+
+            idx += 1;
+        }
+
+        let boolean_proof_r = zkpok.proof_r.value.nisp2sec_verify_proof::<CS>(&zkpok.proof_r.commitment, &signer_pk.a_bases[0].0, &signer_pk.b, &signer_pk.N);
+        if !boolean_proof_r {
+            println!("Verification of the Proof of Knowledge of r. Failed!");
+            return false;
+        }
+
+        let min_r = Integer::from(0);  
+        let max_r = Integer::from(2).pow(CS::ln) - 1;
+        let boolean_rproof_r = zkpok.range_proof_r.verify::<CS::HashAlg>(&signer_pk.a_bases[0].0, &signer_pk.b, &signer_pk.N, &min_r, &max_r);
+        if !boolean_rproof_r {
+            println!("Verification of the Range Proof of r. Failed");
+            return false;
+        }
 
         true
     }
