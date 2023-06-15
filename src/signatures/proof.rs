@@ -1303,22 +1303,22 @@ impl <CS: BbsCiphersuite> ZKPoK<BBSplus<CS>>
 
 
 impl <CS: CLCiphersuite> ZKPoK<CL03<CS>> {
-    pub fn generate_proof(messages: &[CL03Message], C: &CL03Commitment, C_trusted: Option<&CL03Commitment>, signer_pk: &CL03PublicKey, commitment_pk: &CL03CommitmentPublicKey, unrevealed_message_indexes: &[usize]) -> Self
+    pub fn generate_proof(messages: &[CL03Message], C: &CL03Commitment, C_trusted: Option<&CL03Commitment>, signer_pk: &CL03PublicKey, commitment_pk: Option<&CL03CommitmentPublicKey>, unrevealed_message_indexes: &[usize]) -> Self
     where
         CS::HashAlg: Digest
     {
-        let mut proof_C_Ctrusted: Option<NISP2Commitments>;
+        let mut proof_C_Ctrusted: Option<NISP2Commitments> = None;
         if let Some(C_trusted) = C_trusted {
-            proof_C_Ctrusted = Some(NISP2Commitments::nisp2_generate_proof_MultiSecrets::<CS>(
-                messages,
-                C,
-                &C_trusted,
-                signer_pk,
-                commitment_pk,
-                unrevealed_message_indexes,
-            ));
-        }else {
-            proof_C_Ctrusted = None
+            if let Some(commitment_pk) = commitment_pk {
+                proof_C_Ctrusted = Some(NISP2Commitments::nisp2_generate_proof_MultiSecrets::<CS>(
+                    messages,
+                    C,
+                    &C_trusted,
+                    signer_pk,
+                    commitment_pk,
+                    unrevealed_message_indexes,
+                ));
+            }
         }
 
         
@@ -1358,17 +1358,17 @@ impl <CS: CLCiphersuite> ZKPoK<CL03<CS>> {
         Self::CL03(CL03ZKPoK{proof_C_Ctrusted, proof_commited_msgs: proof_msgs, proofs_commited_mi: proofs_mi, range_proofs_mi: r_proofs_msgs, proof_r: proof_r, range_proof_r: rproof_r})
     }
 
-    pub fn verify_proof(&self, messages: &[CL03Message], C: &CL03Commitment, C_trusted: Option<&CL03Commitment>, signer_pk: &CL03PublicKey, commitment_pk: &CL03CommitmentPublicKey, unrevealed_message_indexes: &[usize]) -> bool
+    pub fn verify_proof(&self, C: &CL03Commitment, C_trusted: Option<&CL03Commitment>, signer_pk: &CL03PublicKey, commitment_pk: Option<&CL03CommitmentPublicKey>, unrevealed_message_indexes: &[usize]) -> bool
     where
         CS::HashAlg: Digest
     {
         let zkpok = self.to_cl03_zkpok();
 
-        let mut boolean_C_Ctrusted: bool;
+        let mut boolean_C_Ctrusted: bool = true;
         if let Some(C_trusted) = C_trusted {
-            boolean_C_Ctrusted = zkpok.proof_C_Ctrusted.clone().unwrap().nisp2_verify_proof_MultiSecrets::<CS>(C, C_trusted, signer_pk, commitment_pk, unrevealed_message_indexes);
-        }else {
-            boolean_C_Ctrusted = false
+            if let Some(commitment_pk) = commitment_pk {
+                boolean_C_Ctrusted = zkpok.proof_C_Ctrusted.clone().unwrap().nisp2_verify_proof_MultiSecrets::<CS>(C, C_trusted, signer_pk, commitment_pk, unrevealed_message_indexes);
+            }
         }
 
         if !boolean_C_Ctrusted {

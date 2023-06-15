@@ -1,11 +1,12 @@
 use std::{marker::{PhantomData}, borrow::Borrow};
 
 use bls12_381_plus::{G1Projective, Scalar, G1Affine};
+use digest::Digest;
 use elliptic_curve::{group::Curve, subtle::{CtOption, Choice}, hash2curve::ExpandMsg};
 use rug::{Integer, ops::Pow};
 use serde::{Deserialize, Serialize};
 
-use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{CL03Message, BBSplusMessage}, generators::Generators}, cl03::ciphersuites::CLCiphersuite, keys::{cl03_key::{CL03PublicKey, CL03SecretKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, utils::{random::{random_prime, random_bits}, util::{calculate_domain, ScalarExt, hash_to_scalar_old}}};
+use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{CL03Message, BBSplusMessage}, generators::Generators}, cl03::ciphersuites::CLCiphersuite, keys::{cl03_key::{CL03PublicKey, CL03SecretKey, CL03CommitmentPublicKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, utils::{random::{random_prime, random_bits}, util::{calculate_domain, ScalarExt, hash_to_scalar_old}}};
 
 use super::{commitment::{CL03Commitment, self, Commitment, BBSplusCommitment}, signature::{CL03Signature, BBSplusSignature}, proof::{BBSplusZKPoK, ZKPoK}};
 
@@ -32,7 +33,6 @@ pub enum BlindSignature<S: Scheme> {
 }
 
 impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
-    //TODO: blindSign and blindVerify
 
     pub fn blind_sign(revealed_messages: &[BBSplusMessage], commitment: &BBSplusCommitment, zkpok: &ZKPoK<BBSplus<CS>>, sk: &BBSplusSecretKey, pk: &BBSplusPublicKey, generators: &Generators, revealed_message_indexes: &[usize], unrevealed_message_indexes: &[usize], nonce: &[u8], header: Option<&[u8]>) -> Self 
     where
@@ -172,7 +172,14 @@ impl <CS:CLCiphersuite> BlindSignature<CL03<CS>> {
 
     //TODO: ("remove the indexes");
 
-    pub fn blind_sign(pk: &CL03PublicKey, sk: &CL03SecretKey, commitment: &Commitment<CL03<CS>>) -> Self{
+    pub fn blind_sign(pk: &CL03PublicKey, sk: &CL03SecretKey, commitment: &Commitment<CL03<CS>>, zkpok: &ZKPoK<CL03<CS>>, C: &CL03Commitment, C_trusted: Option<&CL03Commitment>, commitment_pk: Option<&CL03CommitmentPublicKey>, unrevealed_message_indexes: &[usize]) -> Self
+    where
+        CS::HashAlg: Digest
+    {
+
+        if !zkpok.verify_proof(C, C_trusted, pk, commitment_pk, unrevealed_message_indexes) {
+            panic!("Knowledge of committed secrets not verified");
+        }
 
         let mut e = random_prime(CS::le);
         let phi_n = (&sk.p - Integer::from(1)) * (&sk.q - Integer::from(1));

@@ -4,7 +4,7 @@ use bls12_381_plus::{G1Affine, G2Affine, pairing, G1Projective, Scalar};
 use byteorder::BigEndian;
 use glass_pumpkin::prime::new;
 use hex::ToHex;
-use links_crypto::{utils::random, keys::{cl03_key::{CL03PublicKey, CL03CommitmentPublicKey}, pair::{KeyPair}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}, key::PublicKey}, bbsplus::{generators::{make_generators, global_generators, signer_specific_generators, print_generators}, ciphersuites::{Bls12381Shake256, BbsCiphersuite, Bls12381Sha256}, message::{Message, BBSplusMessage, CL03Message}}, schemes::algorithms::{CL03, BBSplus, Scheme, CL03Sha256, BBSplusShake256, BBSplusSha256, Ciphersuite}, signatures::{commitment::{Commitment, BBSplusCommitment, self}, blind::{self, BlindSignature, BBSplusBlindSignature}, signature::{BBSplusSignature, Signature, self}, proof::{PoKSignature, CL03PoKSignature, NISPSignaturePoK}}, cl03::ciphersuites::{CLSha256, CLCiphersuite}};
+use links_crypto::{utils::random, keys::{cl03_key::{CL03PublicKey, CL03CommitmentPublicKey}, pair::{KeyPair}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}, key::PublicKey}, bbsplus::{generators::{make_generators, global_generators, signer_specific_generators, print_generators}, ciphersuites::{Bls12381Shake256, BbsCiphersuite, Bls12381Sha256}, message::{Message, BBSplusMessage, CL03Message}}, schemes::algorithms::{CL03, BBSplus, Scheme, CL03Sha256, BBSplusShake256, BBSplusSha256, Ciphersuite}, signatures::{commitment::{Commitment, BBSplusCommitment, self}, blind::{self, BlindSignature, BBSplusBlindSignature}, signature::{BBSplusSignature, Signature, self}, proof::{PoKSignature, CL03PoKSignature, NISPSignaturePoK, ZKPoK}}, cl03::ciphersuites::{CLSha256, CLCiphersuite}};
 
 use links_crypto::keys::key::PrivateKey;
 use rug::{Integer, Complete};
@@ -99,7 +99,10 @@ fn test_cl03_sign() {
 
     let unrevealed_message_indexes = [0usize];
     let commitment = Commitment::<CL03Sha256>::commit_with_pk(&messages, cl03_keypair.public_key(), Some(&unrevealed_message_indexes));
-    let blind_signature = BlindSignature::<CL03Sha256>::blind_sign(cl03_keypair.public_key(), cl03_keypair.private_key(), &commitment);
+    
+    let zkpok = ZKPoK::<CL03Sha256>::generate_proof(&messages, commitment.cl03Commitment(), None, cl03_keypair.public_key(), None, &unrevealed_message_indexes);
+
+    let blind_signature = BlindSignature::<CL03Sha256>::blind_sign(cl03_keypair.public_key(), cl03_keypair.private_key(), &commitment, &zkpok, commitment.cl03Commitment(), None, None, &unrevealed_message_indexes);
     let unblided_signature = Signature::<CL03Sha256>::CL03(blind_signature.unblind_sign(&commitment));
     let verify = unblided_signature.verify_multiattr(cl03_keypair.public_key(), &messages);
 
