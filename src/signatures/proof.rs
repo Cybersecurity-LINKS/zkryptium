@@ -185,8 +185,8 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         let unrevealed_message_indexes = get_remaining_indexes(L, revealed_message_indexes);
 
         for i in revealed_message_indexes {
-            if *i < 0 || *i > L {
-                panic!("i < 0 or i >= L");
+            if *i > L {
+                panic!("i >= L");
             }
         }
 
@@ -351,12 +351,12 @@ impl <CS: CLCiphersuite> PoKSignature<CL03<CS>> {
                         println!("Knowledge verification of mi Failed!");
                         return false;
                     }
-                    let boolean_rproofs_mi = CLSPoK.range_proofs_commited_mi.get(idx).expect("index overflow").verify::<CS::HashAlg>(&gi, &commitment_pk.h, &commitment_pk.N, &min_x, &min_x);
+                    let boolean_rproofs_mi = CLSPoK.range_proofs_commited_mi.get(idx).expect("index overflow").verify::<CS::HashAlg>(&gi, &commitment_pk.h, &commitment_pk.N, &min_x, &max_x);
                     if !boolean_rproofs_mi {
                         println!("Range proof verification on mi Failed!");
                         return false;
                     }
-
+                    idx += 1;
                 }
             }
             else {
@@ -417,7 +417,7 @@ impl NISPSignaturePoK {
         }
         
         let C_Cx= Commitment::<CL03<CS>>::commit_with_commitment_pk(messages, commitment_pk, None);
-        let (Cx, rx) = (C_Cx.value(), C_Cx.randomness());
+        let (_Cx, rx) = (C_Cx.value(), C_Cx.randomness());
 
         let C_Cv =  Commitment::<CL03<CS>>::commit_v(&signature.v, commitment_pk);
         let (Cv, w) = (C_Cv.value(), C_Cv.randomness());
@@ -426,7 +426,7 @@ impl NISPSignaturePoK {
         let (Cw, rw) = (C_Cw.value(), C_Cw.randomness());
 
         let C_Ce = Commitment::<CL03<CS>>::commit_with_commitment_pk(&[CL03Message::new(signature.e.clone())], commitment_pk, None);
-        let (Ce, re) = (C_Ce.value(), C_Ce.randomness());
+        let (_Ce, re) = (C_Ce.value(), C_Ce.randomness());
 
         let (r_1, r_2, r_3, r_4, r_6, r_7, r_8, r_9) = (random_bits(CS::ln), random_bits(CS::ln), random_bits(CS::ln), random_bits(CS::ln), random_bits(CS::ln), random_bits(CS::ln), random_bits(CS::ln), random_bits(CS::ln));
         
@@ -772,7 +772,7 @@ impl Boudot2000RangeProof {
         while boolean {
             r_b_1 = rand_int(-Integer::from(2).pow(s) * Integer::from(2).pow(T) * n + Integer::from(1), Integer::from(2).pow(s) * Integer::from(2).pow(T) * n - Integer::from(1));
             r_b_2 = (-Integer::from(1)) * &r - &r_b_1;
-            if (-Integer::from(2).pow(s) * Integer::from(2).pow(T) * n + Integer::from(1) <= r_b_2 && r_b_2 <= Integer::from(2).pow(s) * Integer::from(2).pow(T) * n - Integer::from(1) && (-Integer::from(1)) * &r == (&r_b_1 + &r_b_2).complete()){
+            if -Integer::from(2).pow(s) * Integer::from(2).pow(T) * n + Integer::from(1) <= r_b_2 && r_b_2 <= Integer::from(2).pow(s) * Integer::from(2).pow(T) * n - Integer::from(1) && (-Integer::from(1)) * &r == (&r_b_1 + &r_b_2).complete() {
                 boolean = false;
             }
         }
@@ -920,7 +920,7 @@ impl NISP2Commitments {
 
         // Initialize multiple random values, equivalent to secrets m_i and stored in a list
         let mut omega: Vec<Integer> = Vec::new();
-        for i in unrevealed_message_indexes{ 
+        for _i in unrevealed_message_indexes{ 
             omega.push(random_bits(CS::lm));
         }
 
@@ -1221,7 +1221,7 @@ impl BBSplusZKPoK {
             panic!("len(generators) < max(unrevealed_message_indexes)");
         }
         // Get unrevealed messages length
-        let U = unrevealed_message_indexes.len();
+        // let U = unrevealed_message_indexes.len();
         // (i1,...,iU) = CGIdxs = unrevealed_indexes
 
         // U^ = commitment * -c + h0 * s^ + h[i1] \* r^[1] + ... + h[iU] \* r^[U]

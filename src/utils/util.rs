@@ -46,7 +46,7 @@ where
 
     let mut t: u8 = 0;
     let len_in_bytes = count * C::EXPAND_LEN;
-    let mut hashed_scalar = Scalar::from(0);
+    // let mut hashed_scalar = Scalar::from(0);
 
     let mut uniform_bytes = vec!(0u8; len_in_bytes);
 
@@ -159,7 +159,7 @@ where
 
     if first_type == TypeId::of::<Scalar>() {
         // Perform actions specific to Scalar struct
-        for mut element in array.iter() {
+        for element in array.iter() {
             let element_any = element as &dyn Any;
             if let Some(scalar) = element_any.downcast_ref::<Scalar>() {
                 // Process Scalar element
@@ -263,7 +263,7 @@ pub fn divm(a: &Integer, b: &Integer, m: &Integer) -> Integer{
     let mut num = a.clone();
     let mut den = b.clone();
     let mut module = m.clone();
-    let mut r: Integer;
+    let r: Integer;
     let mut result = b.invert_ref(&m);
     let mut ok = result.is_none();
     if ok {

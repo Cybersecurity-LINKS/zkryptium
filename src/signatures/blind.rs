@@ -43,9 +43,8 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
 
         let header = header.unwrap_or(b"");
 
-        let U = unrevealed_message_indexes.len();
-
-        let L = K + U;
+        // let U = unrevealed_message_indexes.len();
+        // let L = K + U;
 
         let domain = calculate_domain::<CS>(pk, generators.q1, generators.q2, &generators.message_generators, Some(header));
 

@@ -83,7 +83,7 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         e_s_for_hash_vec.push(domain);
         messages.iter().for_each(|m| e_s_for_hash_vec.push(m.value)); //the to_byte_le() may be needed instead
 
-        let mut e_s_for_hash = serialize(&e_s_for_hash_vec);
+        let e_s_for_hash = serialize(&e_s_for_hash_vec);
 
         println!("e_s: {}", hex::encode(e_s_for_hash.clone()));
 
