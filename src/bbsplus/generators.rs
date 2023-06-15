@@ -51,6 +51,11 @@ pub fn global_generators<F>(make_generators_fn: F, len: usize) -> Generators
 where
     F: for<'r> Fn(Option<&'r [u8]>, usize) -> Generators
 {
+    let mut len = len;
+    if len < 2 {
+        println!("len must be at least 2 -> default set to 2");
+        len = 2;
+    }
     make_generators_fn(None, len)
 }
 
@@ -62,6 +67,11 @@ where
     let mut rng = rand::thread_rng();
     let kp = KeyPair::<BBSplus<Bls12381Sha256>>::generate_rng(&mut rng);
 
+    let mut len = len;
+    if len < 2 {
+        println!("len must be at least 2 -> default set to 2");
+        len = 2;
+    }
 
     make_generators_fn(Some(&kp.public_key().to_bytes()), len)
 }
