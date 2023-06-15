@@ -180,16 +180,20 @@ where
         eprintln!("  Computed: {}", result2);
         assert!(result3, "failed");
        
-    } 
+    }else {
+        eprintln!("  SIGN: {}", result1);
+        eprintln!("  Expected: {}", SIGNATURE_expected);
+        eprintln!("  Computed: {}", hex::encode(signature.to_bytes()));
+    
+        eprintln!("  VERIFY: {}", result3);
+        eprintln!("  Expected: {}", RESULT_expected);
+        eprintln!("  Computed: {}", result2);
+        if RESULT_expected == false{
+            eprintln!("{} ({})", result3, res["result"]["reason"].as_str().unwrap());
+        }
+    }
 
-    eprintln!("  SIGN: {}", result1);
-    eprintln!("  Expected: {}", SIGNATURE_expected);
-    eprintln!("  Computed: {}", hex::encode(signature.to_bytes()));
 
-    eprintln!("  VERIFY: {}", result3);
-    eprintln!("  Expected: {}", RESULT_expected);
-    eprintln!("  Computed: {}", result2);
-    eprintln!("{} ({})", result3, res["result"]["reason"].as_str().unwrap());
 }
 
 
