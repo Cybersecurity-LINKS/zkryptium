@@ -1,5 +1,5 @@
-use bls12_381_plus::{Scalar, G2Projective};
-use elliptic_curve::group::Curve;
+use bls12_381_plus::{Scalar, G2Projective, G2Affine};
+use elliptic_curve::group::{Curve, GroupEncoding};
 use serde::{Serialize, Deserialize};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -13,6 +13,12 @@ impl BBSplusPublicKey{
     pub fn encode(&self) -> String {
         let pk_bytes = self.to_bytes();
         hex::encode(pk_bytes)
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Self{
+        let bytes: [u8; 96] = bytes.try_into().expect("Invalid number of bytes to be coverted into a BBSplus public key! (max 96 bytes)");
+        let g2 = G2Projective::from(G2Affine::from_compressed(&bytes).unwrap());
+        Self(g2)
     }
 }
 
@@ -31,6 +37,14 @@ impl BBSplusSecretKey{
     pub fn encode(&self) -> String {
         let sk_bytes = self.to_bytes();
         hex::encode(sk_bytes)
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Self {
+        let mut bytes: [u8; 32] = bytes.try_into().expect("Invalid number of bytes to be coverted into a BBSplus private key! (max 32 bytes)");
+        bytes.reverse();
+        let s = Scalar::from_bytes(&bytes).unwrap();
+
+        Self(s)
     }
 }
 

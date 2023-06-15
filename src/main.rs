@@ -128,4 +128,26 @@ fn main() {
     // let pair_cs =  KeyPair::<CL03Sha256>::generate(Some(2));
     // test(pair_cs.public_key());
 
+    const IKM: &str = "746869732d49532d6a7573742d616e2d546573742d494b4d2d746f2d67656e65726174652d246528724074232d6b6579";
+    const KEY_INFO: &str = "746869732d49532d736f6d652d6b65792d6d657461646174612d746f2d62652d757365642d696e2d746573742d6b65792d67656e";
+
+
+
+    let bbsplus_keypair = KeyPair::<BBSplusSha256>::generate(
+        &hex::decode(&IKM).unwrap(),
+        Some(&hex::decode(&KEY_INFO).unwrap())
+    );
+
+
+    let public = bbsplus_keypair.private_key();
+
+    println!("{}", public.encode());
+
+    let binding = public.to_bytes();
+    let bytes = binding.as_slice();
+
+    let pub2 = BBSplusSecretKey::from_bytes(bytes);
+
+    println!("{}", pub2.encode());
+
 }

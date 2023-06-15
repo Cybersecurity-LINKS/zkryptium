@@ -72,7 +72,6 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
 
         let domain = calculate_domain::<CS>(pk, generators.q1, generators.q2, &generators.message_generators, Some(header));
 
-        println!("domain: {}", hex::encode(domain.to_bytes_be()));
         // let mut e_s_for_hash: Vec<u8> = Vec::new();
         // e_s_for_hash.extend_from_slice(&sk.to_bytes());
         // e_s_for_hash.extend_from_slice(&domain.to_bytes_be());
@@ -85,7 +84,6 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
 
         let e_s_for_hash = serialize(&e_s_for_hash_vec);
 
-        println!("e_s: {}", hex::encode(e_s_for_hash.clone()));
 
         //UPDATED from standard (NOT working!)
         // let e_s_len = CS::OCTECT_SCALAR_LEN * 2;
@@ -100,12 +98,7 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         let e = scalars[0];
         let s = scalars[1];
 
-        println!("e: {}", hex::encode(e.to_bytes_be()));
         let mut B = generators.g1_base_point + generators.q1 * s + generators.q2 *domain;
-        println!("B: {}", hex::encode(B.to_affine().to_compressed()));
-        println!("s: {}", hex::encode(s.to_bytes_be()));
-        println!("P1: {}", hex::encode(generators.g1_base_point.to_affine().to_compressed()));
-        println!("L: {}", L);
         for i in 0..L {
             B = B + generators.message_generators[i] * messages[i].value;
         }
@@ -121,7 +114,6 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
             panic!("A == Identity_G1");
         }
 
-        println!("A: {}", hex::encode(A.to_affine().to_compressed()));
         let signature = BBSplusSignature{a: A, e: e, s: s};
 
         Self::BBSplus(signature)

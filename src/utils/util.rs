@@ -165,7 +165,6 @@ where
                 // Process Scalar element
                 // ...
                 result.extend_from_slice(&scalar.to_bytes_be());
-                println!("Processing Scalar element");
             }
         }
     } else if first_type == TypeId::of::<G1Projective>() {
@@ -176,7 +175,6 @@ where
                 // Process Scalar element
                 // ...
                 result.extend_from_slice(&g1.to_affine().to_compressed());
-                println!("Processing Scalar element");
             }
         }
     } else if first_type == TypeId::of::<G2Projective>() {
@@ -187,7 +185,6 @@ where
                 // Process Scalar element
                 // ...
                 result.extend_from_slice(&g2.to_affine().to_compressed());
-                println!("Processing Scalar element");
             }
         }
     } else {
