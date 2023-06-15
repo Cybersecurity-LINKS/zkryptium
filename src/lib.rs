@@ -13,7 +13,7 @@ pub mod tests;
 
 #[cfg(test)]
 mod bbsplus_tests {
-    use crate::{schemes::algorithms::{BBSplusSha256, BBSplusShake256}, tests::{map_message_to_scalar_as_hash, message_generators, msg_signature, h2s}};
+    use crate::{schemes::algorithms::{BBSplusSha256, BBSplusShake256}, tests::{map_message_to_scalar_as_hash, message_generators, msg_signature, h2s, mocked_rng}};
 
     #[test]
     fn map_message_to_scalar_as_hash_sha256() {
@@ -116,33 +116,48 @@ mod bbsplus_tests {
     //h2s - SHA256
     #[test]
     fn h2s_sha256_1() {
-        h2s::<BBSplusSha256>("./fixture_data/bls12-381-sha-256/", "h2s/h2s001.json")
+        h2s::<BBSplusSha256>("./fixture_data/bls12-381-sha-256/", "h2s/h2s001.json");
     }
     #[test]
     fn h2s_sha256_2() {
-        h2s::<BBSplusSha256>("./fixture_data/bls12-381-sha-256/", "h2s/h2s002.json")
+        h2s::<BBSplusSha256>("./fixture_data/bls12-381-sha-256/", "h2s/h2s002.json");
     }
 
     //h2s - SHAKE256
     #[test]
     fn h2s_shake256_1() {
-        h2s::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/", "h2s/h2s001.json")
+        h2s::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/", "h2s/h2s001.json");
     }
     #[test]
     fn h2s_shake256_2() {
-        h2s::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/", "h2s/h2s002.json")
+        h2s::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/", "h2s/h2s002.json");
     }
 
+    const SEED: &str = "332e313431353932363533353839373933323338343632363433333833323739";
 
     //mocked_rng - SHA256
     #[test]
     fn mocked_rng_sha256() {
-
+        mocked_rng::<BBSplusSha256>("./fixture_data/bls12-381-sha-256/", "mockedRng.json", SEED);
     }
 
     //mocked_rng - SHAKE256
     #[test]
     fn mocked_rng_shake256() {
+        mocked_rng::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/", "mockedRng.json", SEED);
+    }
+
+
+
+    //SIGNATURE POK - SHA256
+
+    fn proof_check_sha256_1() {
+
+    }
+
+    //SIGNATURE POK - SHAKE256
+
+    fn proof_check_shake256_1() {
 
     }
 

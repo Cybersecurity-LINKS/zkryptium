@@ -4,7 +4,7 @@ use bbsplus::ciphersuites::BbsCiphersuite;
 use elliptic_curve::{hash2curve::ExpandMsg, group::Curve};
 use schemes::algorithms::Scheme;
 
-use crate::{bbsplus::{message::{BBSplusMessage, Message}, self, generators::{make_generators, global_generators, print_generators}}, schemes::{self, algorithms::BBSplus}, signatures::signature::{BBSplusSignature, Signature}, keys::bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}, utils::util::{hash_to_scalar_old, ScalarExt}};
+use crate::{bbsplus::{message::{BBSplusMessage, Message}, self, generators::{make_generators, global_generators, print_generators}}, schemes::{self, algorithms::BBSplus}, signatures::signature::{BBSplusSignature, Signature}, keys::bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}, utils::util::{hash_to_scalar_old, ScalarExt, calculate_random_scalars}};
 
 
 
@@ -234,4 +234,86 @@ where
     }
 
     assert!(results, "Failed");
+}
+
+
+pub(crate) fn mocked_rng<S: Scheme>(pathname: &str, filename: &str, SEED: &str) 
+where
+    S::Ciphersuite: BbsCiphersuite,
+    <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
+{
+    let data = fs::read_to_string([pathname, filename].concat()).expect("Unable to read file");
+    let res: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
+    eprintln!("Mocked Random Scalars");
+
+    let mocked_scalars_hex: Vec<&str> = res["mockedScalars"].as_array().unwrap().iter().map(|s| s.as_str().unwrap()).collect();
+
+    let count = mocked_scalars_hex.len();
+
+    let r = calculate_random_scalars::<S::Ciphersuite>(count, Some(&hex::decode(SEED).unwrap()));
+
+    let mut results = true;
+
+    for i in 0..count{
+        let scalar_hex = hex::encode(r[i].to_bytes_be());
+
+        let scalar_expected = mocked_scalars_hex[i];
+
+        if scalar_hex != scalar_expected {
+            if results == true {
+                results = false
+            }
+            eprintln!(" count: {}", i);
+            eprintln!(" Expected scalar: {}", scalar_expected);
+            eprintln!(" Computed scalar: {}", scalar_hex);
+        }
+    }
+
+    assert!(results, "Failed");
+}
+
+
+pub(crate) fn proof_check<S: Scheme>(pathname: &str, sign_filename: &str, proof_filename: &str, SEED: &str) 
+where
+    S::Ciphersuite: BbsCiphersuite,
+    <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
+{
+    let data = fs::read_to_string([pathname, proof_filename].concat()).expect("Unable to read file");
+    let proof_json: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
+
+    let signerPK_hex = proof_json["signerPublicKey"].as_str().unwrap();
+    let header_hex = proof_json["header"].as_str().unwrap();
+    let ph_hex = proof_json["presentationHeader"].as_str().unwrap();
+    // let revealed_msgs_hex: Vec<&str> = proof_json["revealedMessages"].as_array().unwrap().iter().map(|m| m.as_str().unwrap()).collect();
+    let revealed_msgs_hex = proof_json["revealedMessages"].as_object().unwrap();
+
+
+    let proof_expected = proof_json["proof"].as_str().unwrap();
+    let result_expected = proof_json["result"]["valid"].as_bool().unwrap();
+
+    let ph = hex::decode(ph_hex).unwrap();
+    let idxs_list: Vec<usize> = revealed_msgs_hex.keys().filter_map(|k| k.parse::<usize>().ok()).collect();
+
+    let msgs_hex: Vec<&str> = revealed_msgs_hex.values().filter_map(|m| m.as_str()).collect();
+
+    let revealed_message_indexes = idxs_list;
+
+    let revealed_messages = msgs_hex;
+
+
+    //Get Message Signature
+
+    let data_sign = fs::read_to_string([pathname, sign_filename].concat()).expect("Unable to read file");
+    let sign_json: serde_json::Value = serde_json::from_str(&data_sign).expect("Unable to parse");
+
+    let msgs_hex = sign_json["messages"].as_array().unwrap();
+    let signature_expected = sign_json["signature"].as_str().unwrap();
+
+    let header = hex::decode(header_hex).unwrap();
+    let PK = BBSplusPublicKey::from_bytes(&hex::decode(signerPK_hex).unwrap());
+
+
+
+
+
 }
