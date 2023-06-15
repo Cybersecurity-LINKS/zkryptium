@@ -1,12 +1,9 @@
 
-use bls12_381_plus::{G1Projective, G2Projective, Scalar};
+use bls12_381_plus::{G1Projective};
 
 use elliptic_curve::group::Curve;
-use elliptic_curve::hash2curve::{ExpandMsg, ExpandMsgXmd, Expander};
-use ff::Field;
-use group::Curve as OtherCurve;
+use elliptic_curve::hash2curve::{ExpandMsg, Expander};
 use serde::{Serialize, Deserialize};
-use sha2::Sha256;
 use std::env;
 use std::fs::File;
 use std::io::{BufWriter, Write};

@@ -1,14 +1,12 @@
-use std::{marker::{PhantomData}, borrow::Borrow};
-
 use bls12_381_plus::{G1Projective, Scalar, G1Affine};
 use digest::Digest;
 use elliptic_curve::{group::Curve, subtle::{CtOption, Choice}, hash2curve::ExpandMsg};
 use rug::{Integer, ops::Pow};
 use serde::{Deserialize, Serialize};
 
-use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{CL03Message, BBSplusMessage}, generators::Generators}, cl03::ciphersuites::CLCiphersuite, keys::{cl03_key::{CL03PublicKey, CL03SecretKey, CL03CommitmentPublicKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, utils::{random::{random_prime, random_bits}, util::{calculate_domain, ScalarExt, hash_to_scalar_old}}};
+use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{BBSplusMessage}, generators::Generators}, cl03::ciphersuites::CLCiphersuite, keys::{cl03_key::{CL03PublicKey, CL03SecretKey, CL03CommitmentPublicKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, utils::{random::{random_prime, random_bits}, util::{calculate_domain, ScalarExt, hash_to_scalar_old}}};
 
-use super::{commitment::{CL03Commitment, self, Commitment, BBSplusCommitment}, signature::{CL03Signature, BBSplusSignature}, proof::{BBSplusZKPoK, ZKPoK}};
+use super::{commitment::{CL03Commitment, Commitment, BBSplusCommitment}, signature::{CL03Signature, BBSplusSignature}, proof::{ZKPoK}};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusBlindSignature {

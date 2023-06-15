@@ -1,6 +1,4 @@
-use std::process::Output;
-
-use digest::{HashMarker, Digest};
+use digest::{Digest};
 use elliptic_curve::hash2curve::ExpandMsg;
 use ff::Field;
 use rand::RngCore;
@@ -8,7 +6,7 @@ use rug::{Integer, integer::Order};
 use bls12_381_plus::Scalar;
 use serde::{Serialize, Deserialize};
 
-use crate::{schemes::algorithms::{Scheme, Ciphersuite}, utils::util::{hash_to_scalar, hash_to_scalar_old}, cl03::ciphersuites::CLCiphersuite};
+use crate::{utils::util::{hash_to_scalar_old}, cl03::ciphersuites::CLCiphersuite};
 
 use super::ciphersuites::BbsCiphersuite;
 

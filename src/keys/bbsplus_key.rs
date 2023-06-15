@@ -1,11 +1,6 @@
-use bls12_381_plus::{Scalar, G2Projective, G2Affine};
+use bls12_381_plus::{Scalar, G2Projective};
 use elliptic_curve::group::Curve;
-use ff::Field;
-use hkdf::Hkdf;
-use rand::RngCore;
 use serde::{Serialize, Deserialize};
-use sha2::Sha256;
-use digest::Digest;
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusPublicKey(pub G2Projective);

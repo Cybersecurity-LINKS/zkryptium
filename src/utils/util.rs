@@ -1,17 +1,12 @@
 
 use core::panic;
-use std::{borrow::Borrow, any::{TypeId, Any}};
+use std::{any::{TypeId, Any}};
 
 use bls12_381_plus::{Scalar, G1Projective, G2Projective};
-use digest::typenum::Pow;
 use elliptic_curve::{hash2curve::{ExpandMsg, Expander}, group::Curve};
-use ff::Field;
-use rand::{RngCore, seq::index};
+use rand::{RngCore};
 use rug::Integer;
-use serde::Serialize;
-use crate::{bbsplus::{ciphersuites::BbsCiphersuite, message::{BBSplusMessage, Message}}, keys::bbsplus_key::BBSplusPublicKey};
-
-use super::random::random_bits;
+use crate::{bbsplus::{ciphersuites::BbsCiphersuite, message::{BBSplusMessage}}, keys::bbsplus_key::BBSplusPublicKey};
 
 pub fn hash_to_scalar<C: BbsCiphersuite>(msg_octects: &[u8], dst: Option<&[u8]>) -> Scalar 
 where

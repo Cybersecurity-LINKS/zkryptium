@@ -19,6 +19,7 @@ pub fn random_number(n: Integer) -> Integer {
     let mut rng = rand::thread_rng();
     let seed = Integer::from(rng.gen::<u32>());
     let mut rand = RandState::new_mersenne_twister();
+    rand.seed(&seed);
     let number = n.random_below(&mut rand);
     number
 }
@@ -44,7 +45,7 @@ pub fn rand_int(a: Integer, b: Integer) -> Integer {
     let mut rng = rand::thread_rng();
     let seed = Integer::from(rng.gen::<u32>());
     let mut rand = RandState::new_mersenne_twister();
-
+    rand.seed(&seed);
     let range = (&b - &a).complete() + Integer::from(1);
     // NOTE: return a random integer in the range [a, b], including both end points.
     return a + range.random_below(&mut rand)

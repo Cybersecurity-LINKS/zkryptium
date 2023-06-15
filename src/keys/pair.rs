@@ -1,10 +1,7 @@
 use std::env;
-use std::marker::PhantomData;
-
 use bls12_381_plus::G2Affine;
 use bls12_381_plus::G2Projective;
 use bls12_381_plus::Scalar;
-use elliptic_curve::group::Curve;
 use ff::Field;
 use hkdf::Hkdf;
 use rand::RngCore;
@@ -16,25 +13,18 @@ use sha2::Sha256;
 
 use crate::bbsplus::ciphersuites::BbsCiphersuite;
 use crate::cl03::ciphersuites::CLCiphersuite;
-use crate::errors::BadParams;
+
 use crate::schemes::algorithms::BBSplus;
 use crate::schemes::algorithms::CL03;
 use crate::schemes::algorithms::Scheme;
 use crate::utils::random::random_prime;
 use crate::utils::random::random_qr;
-
 // use super::bbsplus_key::BBSplusKeyPair;
-
 use super::bbsplus_key::BBSplusPublicKey;
 use super::bbsplus_key::BBSplusSecretKey;
 // use super::cl03_key::CL03KeyPair;
 use super::cl03_key::CL03PublicKey;
 use super::cl03_key::CL03SecretKey;
-
-use super::key::PrivateKey;
-use super::key::PublicKey;
-
-
 use sha2::Digest;
 
 
@@ -177,7 +167,7 @@ impl <CS: CLCiphersuite> KeyPair<CL03<CS>>{
         let mut a_bases: Vec<(Integer, bool)> = Vec::new();
 
         let n_attr = n_attributes.unwrap_or(1);
-        for i in 0..n_attr {
+        for _i in 0..n_attr {
             let a = random_qr(&N);
             a_bases.push((a, true));
         }

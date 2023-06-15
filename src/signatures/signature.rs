@@ -1,16 +1,13 @@
-use core::result::Result;
-use std::{marker::PhantomData, clone};
+use std::{marker::PhantomData};
 
 use bls12_381_plus::{G1Projective, Scalar, G1Affine, G2Projective, Gt, multi_miller_loop, G2Prepared};
-use digest::typenum::private::InternalMarker;
 use ff::Field;
 use rug::{Integer, ops::Pow, integer::Order};
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
-use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{CL03Message, BBSplusMessage, Message}, generators::Generators}, cl03::ciphersuites::CLCiphersuite, utils::{random::{random_prime, random_bits}, util::{calculate_domain, hash_to_scalar, ScalarExt, serialize, hash_to_scalar_old}}, keys::{cl03_key::{CL03PublicKey, CL03SecretKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}};
+use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{CL03Message, BBSplusMessage}, generators::Generators}, cl03::ciphersuites::CLCiphersuite, utils::{random::{random_prime, random_bits}, util::{calculate_domain, ScalarExt, serialize, hash_to_scalar_old}}, keys::{cl03_key::{CL03PublicKey, CL03SecretKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}};
 
-use super::commitment::BBSplusCommitment;
-use elliptic_curve::{hash2curve::{ExpandMsg, Expander}, group::Curve, subtle::{CtOption, Choice}};
+use elliptic_curve::{hash2curve::{ExpandMsg}, group::Curve, subtle::{CtOption, Choice}};
 
 
 

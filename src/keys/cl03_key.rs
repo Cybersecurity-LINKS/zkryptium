@@ -1,16 +1,7 @@
-use std::{iter::Map, collections::HashMap};
-use glass_pumpkin::safe_prime;
-// use gmp::mpz::{Mpz, ProbabPrimeResult};
-use num_bigint::{BigUint, ToBigUint};
-use num_prime::{nt_funcs::is_prime, PrimalityTestConfig};
-use num_primes::Verification;
 use rug::{Integer, integer::IsPrime};
 use serde::{Serialize, Deserialize};
-use crate::{keys::pair::KeyPair, utils::random::{random_prime, random_qr, random_number}, schemes::algorithms::{Scheme, CL03, BBSplus}, cl03::ciphersuites::CLCiphersuite};
+use crate::{utils::random::{random_prime, random_qr, random_number}, cl03::ciphersuites::CLCiphersuite};
 
-use super::bbsplus_key::{BBSplusPublicKey, BBSplusSecretKey};
-
-// use super::key::PrivateKey;
 
 #[derive(Clone, PartialEq, PartialOrd, Eq, Hash, Debug, Ord, Serialize, Deserialize)]
 pub struct CL03PublicKey{
@@ -87,7 +78,7 @@ impl CL03CommitmentPublicKey {
 
         let mut g_bases: Vec<(Integer, bool)> = Vec::new();
 
-        for i in 0..n_attributes {
+        for _i in 0..n_attributes {
             let mut f = random_number(N.clone());
             let mut g_i = Integer::from(h.pow_mod_ref(&f, &N).unwrap());
 

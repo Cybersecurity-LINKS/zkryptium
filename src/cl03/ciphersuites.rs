@@ -1,9 +1,7 @@
-use std::collections::btree_map::Range;
-
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 
-use crate::{schemes::algorithms::Ciphersuite, signatures::proof::{RangeProof, Boudot2000RangeProof}};
+use crate::{schemes::algorithms::Ciphersuite, signatures::proof::{RangeProof}};
 
 pub trait CLCiphersuite: Eq + 'static + Ciphersuite{
     const SECPARAM: u32;

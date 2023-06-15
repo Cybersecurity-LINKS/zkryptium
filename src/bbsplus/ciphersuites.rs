@@ -1,10 +1,9 @@
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize};
 use sha3::Shake256;
 use sha2::Sha256;
-use elliptic_curve::hash2curve::{ExpandMsg, ExpandMsgXof, ExpandMsgXmd, Expander, ExpanderXmd};
-use digest::{HashMarker, OutputSizeUser};
+use elliptic_curve::hash2curve::{ExpandMsg, ExpandMsgXof, ExpandMsgXmd};
 
-use crate::{schemes::algorithms::{Scheme, Ciphersuite}, keys::bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}};
+use crate::{schemes::algorithms::{Ciphersuite}};
 
 
 pub trait BbsCiphersuite: Eq + 'static + Ciphersuite{
