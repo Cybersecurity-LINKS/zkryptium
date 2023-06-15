@@ -18,7 +18,7 @@ pub struct CL03Commitment {
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusCommitment {
     pub value: G1Projective,
-    pub randomness: Scalar
+    pub s_prime: Scalar
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -77,7 +77,7 @@ impl <CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
             index = index + 1;
         }
         
-        Self::BBSplus(BBSplusCommitment{value: commitment, randomness: s_prime[0]})
+        Self::BBSplus(BBSplusCommitment{value: commitment, s_prime: s_prime[0]})
 
     }
 
@@ -95,9 +95,9 @@ impl <CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
         }
     }
 
-    pub fn randomness(&self) -> &Scalar {
+    pub fn s_prime(&self) -> &Scalar {
         match self {
-            Self::BBSplus(inner) => &inner.randomness,
+            Self::BBSplus(inner) => &inner.s_prime,
             _ => panic!("Cannot happen!")
         }
     }

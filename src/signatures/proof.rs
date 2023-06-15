@@ -1200,7 +1200,7 @@ impl BBSplusZKPoK {
 		// TODO update hash_to_scalar as in latest draft	
 
 		// s^ = s~ + c * s'
-        let s_cap = s_tilde + c * commitment.randomness;
+        let s_cap = s_tilde + c * commitment.s_prime;
 		
 		// for i in 1 to U: r^[i] = r~[i] + c * msg[i]
 

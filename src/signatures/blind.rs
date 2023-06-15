@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{CL03Message, BBSplusMessage}, generators::Generators}, cl03::ciphersuites::CLCiphersuite, keys::{cl03_key::{CL03PublicKey, CL03SecretKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, utils::{random::{random_prime, random_bits}, util::{calculate_domain, ScalarExt, hash_to_scalar_old}}};
 
-use super::{commitment::{CL03Commitment, self, Commitment, BBSplusCommitment}, signature::CL03Signature, proof::{BBSplusZKPoK, ZKPoK}};
+use super::{commitment::{CL03Commitment, self, Commitment, BBSplusCommitment}, signature::{CL03Signature, BBSplusSignature}, proof::{BBSplusZKPoK, ZKPoK}};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusBlindSignature {
@@ -91,8 +91,10 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
 
     }
 
-    pub fn unblind_sign() {
-        todo!()
+    pub fn unblind_sign(&self, commitment: &BBSplusCommitment) -> BBSplusSignature {
+        let s = commitment.s_prime + self.s_second();
+
+        BBSplusSignature{ a: self.a(), e: self.e(), s: s }
     }
 
     pub fn a(&self) -> G1Projective {
