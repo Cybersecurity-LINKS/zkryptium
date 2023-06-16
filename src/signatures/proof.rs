@@ -108,7 +108,7 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
             H_j.push(*generators.message_generators.get(idx).expect("unrevealed_message_indexes not valid (overflow)"));
         }
 
-        let domain = calculate_domain::<CS>(pk, generators.q1, generators.q2, &generators.message_generators, Some(header));
+        let domain = calculate_domain::<CS>(pk, generators.q1, generators.q2, &generators.message_generators[0..L], Some(header));
 
         let random_scalars = calculate_random_scalars::<CS>(6+U, Some(seed));
 
@@ -129,10 +129,7 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
 
         let r3 = r1.invert().unwrap();
 
-        println!("A: {}", signature.a);
-        println!("r1: {}", r1);
         let A_prime = signature.a * r1;
-        println!("A_prime: {}", A_prime);
 
         let A_bar = A_prime * (-signature.e) + B * r1;
 
@@ -204,16 +201,16 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         let mut H_i: Vec<G1Projective> = Vec::new();
 
         for idx in revealed_message_indexes {
-            H_i.push(generators.message_generators[*idx]);
+            H_i.push(*generators.message_generators.get(*idx).expect("index overflow"));
         }
 
         let mut H_j: Vec<G1Projective> = Vec::new();
 
         for idx in unrevealed_message_indexes {
-            H_j.push(generators.message_generators[idx]);
+            H_j.push(*generators.message_generators.get(idx).expect("index overflow"));
         }
 
-        let domain = calculate_domain::<CS>(pk, generators.q1, generators.q2, &generators.message_generators, Some(header));
+        let domain = calculate_domain::<CS>(pk, generators.q1, generators.q2, &generators.message_generators[0..L], Some(header));
 
         let C1 = (proof.A_bar + (-proof.D)) * proof.c + proof.A_prime * proof.e_cap + generators.q1 * proof.r2_cap;
 		
@@ -277,8 +274,9 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Self{
+        
         let len = bytes.len();
-        if len < 304 {
+        if len < 304 || (len - 304) % 32 != 0 {
             panic!("Invalid number of bytes submitted!");
         }
 
@@ -288,7 +286,10 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         .map(G1Projective::from).unwrap();
         let D = G1Affine::from_compressed(&<[u8; 48]>::try_from(&bytes[96..144]).unwrap())
         .map(G1Projective::from).unwrap();
+
+
         let c = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[144..176]).unwrap());
+
         let e_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[176..208]).unwrap());
         let r2_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[208..240]).unwrap());
         let r3_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[240..272]).unwrap());
@@ -296,23 +297,17 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         let mut start = 304;
         let mut end = start + 32;
         let mut m_cap: Vec<Scalar> = Vec::new();
-        loop {
+
+
+        while end <= len {
             let b = <[u8; 32]>::try_from(&bytes[start..end]);
             if b.is_err() {
                 panic!("bytes not valid");
             } else {
                 m_cap.push(Scalar::from_bytes_be(&b.unwrap()));
             }
-
-            if end == len {
-                break;
-            }
             start = end;
             end += 32;
-
-            if end > len {
-                panic!("bytes not valid");
-            }
         }
 
         Self::BBSplus(BBSplusPoKSignature { A_prime, A_bar, D, c, e_cap, r2_cap, r3_cap, s_cap, m_cap })

@@ -5,9 +5,44 @@ use bls12_381_plus::Scalar;
 use elliptic_curve::{hash2curve::ExpandMsg, group::Curve};
 use schemes::algorithms::Scheme;
 
-use crate::{bbsplus::{message::{BBSplusMessage, Message}, self, generators::{make_generators, global_generators, print_generators}}, schemes::{self, algorithms::BBSplus}, signatures::{signature::{BBSplusSignature, Signature}, proof::PoKSignature}, keys::bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}, utils::util::{hash_to_scalar_old, ScalarExt, calculate_random_scalars, get_messages}};
+use crate::{bbsplus::{message::{BBSplusMessage, Message}, self, generators::{make_generators, global_generators, print_generators}}, schemes::{self, algorithms::BBSplus}, signatures::{signature::{BBSplusSignature, Signature}, proof::PoKSignature}, keys::{bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}, pair::KeyPair}, utils::util::{hash_to_scalar_old, ScalarExt, calculate_random_scalars, get_messages}};
 
+pub(crate) fn key_pair_gen<S: Scheme>(filename: &str) 
+where
+    S::Ciphersuite: BbsCiphersuite
+{
+    eprintln!("Key Pair");
+    let data = fs::read_to_string(filename).expect("Unable to read file");
+    let data_json: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
+    let IKM         = data_json["ikm"].as_str().unwrap();
+    let KEY_INFO    = data_json["keyInfo"].as_str().unwrap();
+    let SK_expected = data_json["keyPair"]["secretKey"].as_str().unwrap();                  
+    let PK_expected = data_json["keyPair"]["publicKey"].as_str().unwrap();  
 
+    let keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(hex::decode(IKM).unwrap(), Some(&hex::decode(KEY_INFO).unwrap()));
+    let sk = keypair.private_key().encode();
+    let pk = keypair.public_key().encode();
+
+    let result1 = sk == SK_expected;
+
+    if result1 == false{
+    println!("      keyGen:        {}", result1);
+    println!("      Expected key:  {}", SK_expected);
+    println!("      Generated key: {}", sk);
+    }
+
+    let result2 = pk ==  PK_expected;
+
+    if result2 == false{
+        println!("      skToPk:        {}", result2);
+        println!("      Expected key:  {}", PK_expected);
+        println!("      Generated key: {}", pk);
+        }
+    let result = result1 && result2;
+
+    assert!(result, "Failed");
+
+}
 
 pub(crate) fn map_message_to_scalar_as_hash<S: Scheme>(filename: &str) 
 where
@@ -289,7 +324,6 @@ where
     let signerPK_hex = proof_json["signerPublicKey"].as_str().unwrap();
     let header_hex = proof_json["header"].as_str().unwrap();
     let ph_hex = proof_json["presentationHeader"].as_str().unwrap();
-    // let revealed_msgs_hex: Vec<&str> = proof_json["revealedMessages"].as_array().unwrap().iter().map(|m| m.as_str().unwrap()).collect();
     let revealed_msgs_hex = proof_json["revealedMessages"].as_object().unwrap();
 
 
@@ -317,11 +351,8 @@ where
     let signature = Signature::<BBSplus<S::Ciphersuite>>::from_bytes(hex::decode(signature_expected).unwrap().as_slice().try_into().unwrap()).unwrap();
     let bbs_signature = signature.bbsPlusSignature();
     
-    println!("Signature {:?}", bbs_signature);
-    println!("Signature {}", hex::encode(signature.to_bytes()));
     let header = hex::decode(header_hex).unwrap();
     let PK = BBSplusPublicKey::from_bytes(&hex::decode(signerPK_hex).unwrap());
-    println!("{:?}", hex::encode(PK.to_bytes()));
 
     let mut messages = msgs_hex;
     let mut idx = 0usize;
@@ -338,22 +369,18 @@ where
 
     let mut msg_scalars: Vec<BBSplusMessage> = Vec::new();
     for m in messages {
-        println!("m: {}", m);
         msg_scalars.push(BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst)));
     }
 
-    println!("scalars: {:?}", msg_scalars);
-    println!("revealed_idx: {:?}", revealed_message_indexes);
+
     //Precompute generators
     let L = msg_scalars.len() + 1;
     // NOTE: one extra generator, for additional test vectors with one extra message
     let get_generators_fn = make_generators::<S::Ciphersuite>;
     let generators = global_generators(get_generators_fn, L + 2);
-    print_generators(&generators);
 
     let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(bbs_signature, &PK, Some(&msg_scalars), &generators, Some(&revealed_message_indexes), Some(&header), Some(&ph), Some(&hex::decode(SEED).unwrap()));
-    println!("proof: {:?}", proof.to_bbsplus_proof());
-    println!("proof_hex: {}", hex::encode(proof.to_bytes()));
+
     let result0 = hex::encode(proof.to_bytes()) == proof_expected;
     let result1 = result0 == result_expected; 
     if result1 == false{
@@ -365,8 +392,8 @@ where
 
     // Verify the Proof 
     let disclosed_messages = get_messages(&msg_scalars, &revealed_message_indexes);
-    let PROOF = PoKSignature::<BBSplus<S::Ciphersuite>>::from_bytes(&hex::decode(proof_expected).unwrap());
 
+    let PROOF = PoKSignature::<BBSplus<S::Ciphersuite>>::from_bytes(&hex::decode(proof_expected).unwrap());
     let result2 = PROOF.proof_verify(&PK, Some(&disclosed_messages), &generators, Some(&revealed_message_indexes), Some(&header), Some(&ph));
     let result3 = result2 == result_expected;
     if !result3 {

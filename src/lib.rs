@@ -13,22 +13,38 @@ pub mod tests;
 
 #[cfg(test)]
 mod bbsplus_tests {
-    use crate::{schemes::algorithms::{BBSplusSha256, BBSplusShake256}, tests::{map_message_to_scalar_as_hash, message_generators, msg_signature, h2s, mocked_rng, proof_check}};
+    use crate::{schemes::algorithms::{BBSplusSha256, BBSplusShake256}, tests::{map_message_to_scalar_as_hash, message_generators, msg_signature, h2s, mocked_rng, proof_check, key_pair_gen}};
+
+    //KEYPAIR
+    
+    #[test]
+    fn keypair() {
+        key_pair_gen::<BBSplusSha256>("./fixture_data/keyPair.json");
+    }
+
+
+    //MAP MESSAGE TO SCALAR - SHA256
 
     #[test]
     fn map_message_to_scalar_as_hash_sha256() {
         map_message_to_scalar_as_hash::<BBSplusSha256>("./fixture_data/bls12-381-sha-256/MapMessageToScalarAsHash.json");
     }
 
+    //MAP MESSAGE TO SCALAR - SHAKE256
+
     #[test]
     fn map_message_to_scalar_as_hash_shake256() {
         map_message_to_scalar_as_hash::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/MapMessageToScalarAsHash.json");
     }
 
+
+    //GENERATORS - SHA256
     #[test]
     fn message_generators_sha256() {
         message_generators::<BBSplusSha256>("./fixture_data/bls12-381-sha-256/generators.json");
     }
+
+    //GENERATORS - SHAKE256
 
     #[test]
     fn message_generators_shake256() {
@@ -154,11 +170,110 @@ mod bbsplus_tests {
     fn proof_check_sha256_1() {
         proof_check::<BBSplusSha256>("./fixture_data/bls12-381-sha-256/", "signature/signature001.json", "proof/proof001.json", SEED)
     }
+    #[test]
+    fn proof_check_sha256_2() {
+        proof_check::<BBSplusSha256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json", "proof/proof002.json", SEED)
+    }
+    #[test]
+    fn proof_check_sha256_3() {
+        proof_check::<BBSplusSha256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json", "proof/proof003.json", SEED)
+    }
+    #[test]
+    fn proof_check_sha256_4() {
+        proof_check::<BBSplusSha256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json", "proof/proof004.json", SEED)
+    }
+    #[test]
+    fn proof_check_sha256_5() {
+        proof_check::<BBSplusSha256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json", "proof/proof005.json", SEED)
+    }
+    #[test]
+    fn proof_check_sha256_6() {
+        proof_check::<BBSplusSha256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json", "proof/proof006.json", SEED)
+    }
+    #[test]
+    fn proof_check_sha256_7() {
+        proof_check::<BBSplusSha256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json", "proof/proof007.json", SEED)
+    }
+    #[test]
+    fn proof_check_sha256_8() {
+        proof_check::<BBSplusSha256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json", "proof/proof008.json", SEED)
+    }
+    #[test]
+    fn proof_check_sha256_9() {
+        proof_check::<BBSplusSha256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json", "proof/proof009.json", SEED)
+    }
+    #[test]
+    fn proof_check_sha256_10() {
+        proof_check::<BBSplusSha256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json", "proof/proof010.json", SEED)
+    }
+    #[test]
+    fn proof_check_sha256_11() {
+        proof_check::<BBSplusSha256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json", "proof/proof011.json", SEED)
+    }
+    #[test]
+    fn proof_check_sha256_12() {
+        proof_check::<BBSplusSha256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json", "proof/proof012.json", SEED)
+    }
+    #[test]
+    fn proof_check_sha256_13() {
+        proof_check::<BBSplusSha256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json", "proof/proof013.json", SEED)
+    }
+
+
 
     //SIGNATURE POK - SHAKE256
+
     #[test]
     fn proof_check_shake256_1() {
         proof_check::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/", "signature/signature001.json", "proof/proof001.json", SEED)
+    }
+    #[test]
+    fn proof_check_shake256_2() {
+        proof_check::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof002.json", SEED)
+    }
+    #[test]
+    fn proof_check_shake256_3() {
+        proof_check::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof003.json", SEED)
+    }
+    #[test]
+    fn proof_check_shake256_4() {
+        proof_check::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof004.json", SEED)
+    }
+    #[test]
+    fn proof_check_shake256_5() {
+        proof_check::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof005.json", SEED)
+    }
+    #[test]
+    fn proof_check_shake256_6() {
+        proof_check::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof006.json", SEED)
+    }
+    #[test]
+    fn proof_check_shake256_7() {
+        proof_check::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof007.json", SEED)
+    }
+    #[test]
+    fn proof_check_shake256_8() {
+        proof_check::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof008.json", SEED)
+    }
+    #[test]
+    fn proof_check_shake256_9() {
+        proof_check::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof009.json", SEED)
+    }
+    #[test]
+    fn proof_check_shake256_10() {
+        proof_check::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof010.json", SEED)
+    }
+    #[test]
+    fn proof_check_shake256_11() {
+        proof_check::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof011.json", SEED)
+    }
+    #[test]
+    fn proof_check_shake256_12() {
+        proof_check::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof012.json", SEED)
+    }
+    #[test]
+    fn proof_check_shake256_13() {
+        proof_check::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof013.json", SEED)
     }
 
 }

@@ -147,7 +147,7 @@ impl ScalarExt for Scalar {
         let mut bytes_le = [0u8; 32];
         bytes_le.copy_from_slice(bytes);
         bytes_le.reverse();
-        Scalar::from_bytes(&bytes).unwrap()
+        Scalar::from_bytes(&bytes_le).unwrap()
     }
 }
 

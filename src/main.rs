@@ -26,6 +26,7 @@ fn test_bbsplus_sign() {
     const ph: &str = "bed231d880675ed101ead304512e043ade9958dd0241ea70b4b3957fba941501";
     let revealed_message_indexes = [0usize];
     const seed: &str = "332e313431353932363533353839373933323338343632363433333833323739";
+                        
 
     let bbsplus_keypair = KeyPair::<BBSplusSha256>::generate(
         &hex::decode(&IKM).unwrap(),
@@ -67,7 +68,11 @@ fn test_bbsplus_sign() {
 
     let signature_PoK2 = PoKSignature::<BBSplusSha256>::proof_gen(signature2.bbsPlusSignature(), bbsplus_keypair.public_key(), Some(&messages), &generators, Some(&revealed_message_indexes), Some(&hex::decode(header).unwrap()), Some(&hex::decode(ph).unwrap()), Some(&hex::decode(seed).unwrap()));
     println!("SKPOK2: {:?}", signature_PoK2);
-    println!("SPoK2: {}", hex::encode(signature_PoK2.to_bytes()));
+    let enc_proof = hex::encode(signature_PoK2.to_bytes());
+    println!("SPoK2: {}", enc_proof);
+
+    let unwrap_proof = PoKSignature::<BBSplusSha256>::from_bytes(&hex::decode(enc_proof).unwrap());
+    
 
     // let valid = signature_PoK.proof_verify(bbsplus_keypair.public_key(), Some(&messages), &generators, Some(&revealed_message_indexes), Some(&hex::decode(header).unwrap()), Some(&hex::decode(ph).unwrap()));
     // println!("SPoK verify: {}", valid);
