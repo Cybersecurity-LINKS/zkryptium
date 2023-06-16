@@ -32,6 +32,8 @@ fn test_bbsplus_sign() {
         Some(&hex::decode(&KEY_INFO).unwrap())
     );
 
+    println!("PK {}", hex::encode(bbsplus_keypair.public_key().to_bytes()));
+
     let get_generators_fn = make_generators::<<BBSplusSha256 as Scheme>::Ciphersuite>;
 
     let generators = global_generators(get_generators_fn, 3);
@@ -44,22 +46,31 @@ fn test_bbsplus_sign() {
     let mut messages: Vec<BBSplusMessage> = Vec::new();
     messages.push(message);
 
+    println!("scalars: {:?}", messages);
+
 
     let message_to_verify = BBSplusMessage::map_message_to_scalar_as_hash::<Bls12381Sha256>(&hex::decode(msg_wrong).unwrap(), Some(&hex::decode(dst_sha256).unwrap()));
     let mut messages_to_verify: Vec<BBSplusMessage> = Vec::new();
     messages_to_verify.push(message_to_verify);
 
     let signature = Signature::<BBSplusSha256>::sign(Some(&messages), bbsplus_keypair.private_key(), bbsplus_keypair.public_key(), &generators, Some(&hex::decode(header).unwrap()));
+    let enc = hex::encode(signature.to_bytes());
     println!("signature: {}", hex::encode(signature.to_bytes()));
-    
+    println!("signature: {:?}", signature);
+    let signature2 = Signature::<BBSplusSha256>::from_bytes(hex::decode(enc).unwrap().as_slice().try_into().unwrap()).unwrap();
+    println!("signature2: {:?}", signature2);
     let valid = signature.verify(bbsplus_keypair.public_key(), Some(&messages_to_verify), &generators, Some(&hex::decode(header).unwrap()));
     println!("{}", valid);
 
-    let signature_PoK = PoKSignature::<BBSplusSha256>::proof_gen(signature.bbsPlusSignature(), bbsplus_keypair.public_key(), Some(&messages), &generators, Some(&revealed_message_indexes), Some(&hex::decode(header).unwrap()), Some(&hex::decode(ph).unwrap()), Some(&hex::decode(seed).unwrap()));
-    println!("SPoK: {}", hex::encode(signature_PoK.to_bytes()));
+    // let signature_PoK = PoKSignature::<BBSplusSha256>::proof_gen(signature.bbsPlusSignature(), bbsplus_keypair.public_key(), Some(&messages), &generators, Some(&revealed_message_indexes), Some(&hex::decode(header).unwrap()), Some(&hex::decode(ph).unwrap()), Some(&hex::decode(seed).unwrap()));
+    // println!("SPoK: {}", hex::encode(signature_PoK.to_bytes()));
 
-    let valid = signature_PoK.proof_verify(bbsplus_keypair.public_key(), Some(&messages), &generators, Some(&revealed_message_indexes), Some(&hex::decode(header).unwrap()), Some(&hex::decode(ph).unwrap()));
-    println!("SPoK verify: {}", valid);
+    let signature_PoK2 = PoKSignature::<BBSplusSha256>::proof_gen(signature2.bbsPlusSignature(), bbsplus_keypair.public_key(), Some(&messages), &generators, Some(&revealed_message_indexes), Some(&hex::decode(header).unwrap()), Some(&hex::decode(ph).unwrap()), Some(&hex::decode(seed).unwrap()));
+    println!("SKPOK2: {:?}", signature_PoK2);
+    println!("SPoK2: {}", hex::encode(signature_PoK2.to_bytes()));
+
+    // let valid = signature_PoK.proof_verify(bbsplus_keypair.public_key(), Some(&messages), &generators, Some(&revealed_message_indexes), Some(&hex::decode(header).unwrap()), Some(&hex::decode(ph).unwrap()));
+    // println!("SPoK verify: {}", valid);
 }
 
 
@@ -122,7 +133,7 @@ fn test_cl03_sign() {
 // }
 
 fn main() {
-    // test_bbsplus_sign();
+    test_bbsplus_sign();
     // test_cl03_sign();
 
     // let pair_cs =  KeyPair::<CL03Sha256>::generate(Some(2));

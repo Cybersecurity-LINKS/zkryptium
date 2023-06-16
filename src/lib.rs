@@ -13,7 +13,7 @@ pub mod tests;
 
 #[cfg(test)]
 mod bbsplus_tests {
-    use crate::{schemes::algorithms::{BBSplusSha256, BBSplusShake256}, tests::{map_message_to_scalar_as_hash, message_generators, msg_signature, h2s, mocked_rng}};
+    use crate::{schemes::algorithms::{BBSplusSha256, BBSplusShake256}, tests::{map_message_to_scalar_as_hash, message_generators, msg_signature, h2s, mocked_rng, proof_check}};
 
     #[test]
     fn map_message_to_scalar_as_hash_sha256() {
@@ -150,15 +150,15 @@ mod bbsplus_tests {
 
 
     //SIGNATURE POK - SHA256
-
+    #[test]
     fn proof_check_sha256_1() {
-
+        proof_check::<BBSplusSha256>("./fixture_data/bls12-381-sha-256/", "signature/signature001.json", "proof/proof001.json", SEED)
     }
 
     //SIGNATURE POK - SHAKE256
-
+    #[test]
     fn proof_check_shake256_1() {
-
+        proof_check::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/", "signature/signature001.json", "proof/proof001.json", SEED)
     }
 
 }

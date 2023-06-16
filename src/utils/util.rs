@@ -133,6 +133,7 @@ where
 
 pub trait ScalarExt {
     fn to_bytes_be(&self) -> [u8; 32];
+    fn from_bytes_be(bytes: &[u8; 32]) -> Self;
 }
 
 impl ScalarExt for Scalar {
@@ -140,6 +141,13 @@ impl ScalarExt for Scalar {
         let mut bytes = self.to_bytes();
         bytes.reverse();
         bytes
+    }
+
+    fn from_bytes_be(bytes: &[u8; 32]) -> Self {
+        let mut bytes_le = [0u8; 32];
+        bytes_le.copy_from_slice(bytes);
+        bytes_le.reverse();
+        Scalar::from_bytes(&bytes).unwrap()
     }
 }
 
