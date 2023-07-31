@@ -1,12 +1,14 @@
+use std::{error::Error, panic};
+
 use bls12_381_plus::{G1Projective, Scalar, G1Affine};
 use digest::Digest;
 use elliptic_curve::{group::Curve, subtle::{CtOption, Choice}, hash2curve::ExpandMsg};
 use rug::{Integer, ops::Pow};
 use serde::{Deserialize, Serialize};
 
-use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{BBSplusMessage}, generators::Generators}, cl03::ciphersuites::CLCiphersuite, keys::{cl03_key::{CL03PublicKey, CL03SecretKey, CL03CommitmentPublicKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, utils::{random::{random_prime, random_bits}, util::{calculate_domain, ScalarExt, hash_to_scalar_old}}};
+use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{BBSplusMessage}, generators::Generators}, cl03::ciphersuites::CLCiphersuite, keys::{cl03_key::{CL03PublicKey, CL03SecretKey, CL03CommitmentPublicKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, utils::{random::{random_prime, random_bits}, util::{calculate_domain, ScalarExt, hash_to_scalar_old}}, errors::BlindSignError};
 
-use super::{commitment::{CL03Commitment, Commitment, BBSplusCommitment}, signature::{CL03Signature, BBSplusSignature}, proof::{ZKPoK}};
+use super::{commitment::{CL03Commitment, Commitment, BBSplusCommitment}, signature::{CL03Signature, BBSplusSignature, Signature}, proof::{ZKPoK}};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusBlindSignature {
@@ -32,66 +34,72 @@ pub enum BlindSignature<S: Scheme> {
 
 impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
 
-    pub fn blind_sign(revealed_messages: &[BBSplusMessage], commitment: &BBSplusCommitment, zkpok: &ZKPoK<BBSplus<CS>>, sk: &BBSplusSecretKey, pk: &BBSplusPublicKey, generators: &Generators, revealed_message_indexes: &[usize], unrevealed_message_indexes: &[usize], nonce: &[u8], header: Option<&[u8]>) -> Self 
+    pub fn blind_sign(revealed_messages: &[BBSplusMessage], commitment: &BBSplusCommitment, zkpok: &ZKPoK<BBSplus<CS>>, sk: &BBSplusSecretKey, pk: &BBSplusPublicKey, generators: &Generators, revealed_message_indexes: &[usize], unrevealed_message_indexes: &[usize], nonce: &[u8], header: Option<&[u8]>) -> Result<Self, Box<BlindSignError>>
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
-        let K = revealed_message_indexes.len();
-        if revealed_messages.len() != K {
-            panic!("len(known_messages) != len(revealed_message_indexes")
-        }
-
-        let header = header.unwrap_or(b"");
-
-        // let U = unrevealed_message_indexes.len();
-        // let L = K + U;
-
-        let domain = calculate_domain::<CS>(pk, generators.q1, generators.q2, &generators.message_generators, Some(header));
-
-        let mut e_s_for_hash: Vec<u8> = Vec::new();
-        e_s_for_hash.extend_from_slice(&sk.0.to_bytes_be());
-        e_s_for_hash.extend_from_slice(&domain.to_bytes_be());
-        revealed_messages.iter().for_each(|m| e_s_for_hash.extend_from_slice(&m.value.to_bytes_be()));
-        // e = HASH(PRF(8 \* ceil(log2(r)))) mod r
-		// s'' = HASH(PRF(8 \* ceil(log2(r)))) mod r
-        let e_s = hash_to_scalar_old::<CS>(&e_s_for_hash, 2, None);
-        let e = e_s[0];
-        let s_second = e_s[1];
-
-        // if BlindMessagesProofVerify(commitment, nizk, CGIdxs, nonce) is INVALID abort
-        if !zkpok.verify_proof(commitment, generators, unrevealed_message_indexes, nonce){
-            panic!("Knowledge of committed secrets not verified");
-        }
-
-        for i in revealed_message_indexes {
-            if unrevealed_message_indexes.contains(i) {
-                panic!("revealed_message_indexes in unrevealed_message_indexes");
+            let K = revealed_message_indexes.len();
+            if revealed_messages.len() != K {
+                return Err(Box::new(BlindSignError(
+                    "len(known_messages) != len(revealed_message_indexes)".to_string(),
+                )));
             }
-        }
 
-        // b = commitment + P1 + h0 * s'' + h[j1] * msg[1] + ... + h[jK] * msg[K]
-        let mut B = commitment.value + generators.g1_base_point + generators.q1 * s_second + generators.q2 * domain;
+            let header = header.unwrap_or(b"");
 
-        for j in 0..K {
-            B += generators.message_generators.get(revealed_message_indexes[j]).expect("index overflow") * revealed_messages.get(j).expect("index overflow").value;
-        }
+            let U = unrevealed_message_indexes.len();
+            let L = K + U;
 
-        let SK_plus_e = sk.0 + e;
+            let domain = calculate_domain::<CS>(pk, generators.q1, generators.q2, &generators.message_generators[0..L], Some(header));
+            let a = domain.to_bytes_be();
+            println!("{}", hex::encode(a));
+            let mut e_s_for_hash: Vec<u8> = Vec::new();
+            e_s_for_hash.extend_from_slice(&sk.0.to_bytes_be());
+            e_s_for_hash.extend_from_slice(&domain.to_bytes_be());
+            revealed_messages.iter().for_each(|m| e_s_for_hash.extend_from_slice(&m.value.to_bytes_be()));
+            // e = HASH(PRF(8 \* ceil(log2(r)))) mod r
+            // s'' = HASH(PRF(8 \* ceil(log2(r)))) mod r
+            let e_s = hash_to_scalar_old::<CS>(&e_s_for_hash, 2, None);
+            let e = e_s[0];
+            let s_second = e_s[1];
 
-        let A = B * SK_plus_e.invert().unwrap();
+            // if BlindMessagesProofVerify(commitment, nizk, CGIdxs, nonce) is INVALID abort
+            if !zkpok.verify_proof(commitment, generators, unrevealed_message_indexes, nonce){
+                return Err(Box::new(BlindSignError(
+                    "Knowledge of committed secrets not verified".to_string(),
+                )));
+            }
 
-        if A == G1Projective::IDENTITY{
-			panic!("A == IDENTITY G1");
-        }
+            for i in revealed_message_indexes {
+                if unrevealed_message_indexes.contains(i) {
+                    return Err(Box::new(BlindSignError(
+                        "revealed_message_indexes in unrevealed_message_indexes".to_string(),
+                    )));
+                }
+            }
 
-        Self::BBSplus(BBSplusBlindSignature{a: A, e, s_second})
+            // b = commitment + P1 + h0 * s'' + h[j1] * msg[1] + ... + h[jK] * msg[K]
+            let mut B = commitment.value + generators.g1_base_point + generators.q1 * s_second + generators.q2 * domain;
+
+            for j in 0..K {
+                B += generators.message_generators.get(revealed_message_indexes[j]).expect("index overflow") * revealed_messages.get(j).expect("index overflow").value;
+            }
+
+            let SK_plus_e = sk.0 + e;
+
+            let A = B * SK_plus_e.invert().unwrap();
+
+            if A == G1Projective::IDENTITY{
+                return Err(Box::new(BlindSignError("A == IDENTITY G1".to_string())));
+            }
+            Ok(Self::BBSplus(BBSplusBlindSignature{a: A, e, s_second}))
 
     }
 
-    pub fn unblind_sign(&self, commitment: &BBSplusCommitment) -> BBSplusSignature {
+    pub fn unblind_sign(&self, commitment: &BBSplusCommitment) -> Signature<BBSplus<CS>> {
         let s = commitment.s_prime + self.s_second();
 
-        BBSplusSignature{ a: self.a(), e: self.e(), s: s }
+        Signature::<BBSplus<CS>>::BBSplus(BBSplusSignature{ a: self.a(), e: self.e(), s: s })
     }
 
     pub fn a(&self) -> G1Projective {

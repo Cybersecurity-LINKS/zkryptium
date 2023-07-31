@@ -9,11 +9,12 @@ pub mod schemes;
 pub mod bbsplus;
 pub mod cl03;
 pub mod tests;
+pub mod errors;
 
 
 #[cfg(test)]
 mod bbsplus_tests {
-    use crate::{schemes::algorithms::{BBSplusSha256, BBSplusShake256}, tests::{map_message_to_scalar_as_hash, message_generators, msg_signature, h2s, mocked_rng, proof_check, key_pair_gen}};
+    use crate::{schemes::algorithms::{BBSplusSha256, BBSplusShake256}, tests::{map_message_to_scalar_as_hash, message_generators, msg_signature, h2s, mocked_rng, proof_check, key_pair_gen, blind_sign}};
 
     //KEYPAIR
     
@@ -276,6 +277,18 @@ mod bbsplus_tests {
         proof_check::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof013.json", SEED)
     }
 
+
+    //Blind Signature and ZKPoK - SHA256
+    #[test]
+    fn blind_sign_sha256() {
+        blind_sign::<BBSplusSha256>("./fixture_data/bls12-381-sha-256/");
+    }
+
+    //Blind Signature and ZKPoK - SHAKE256
+    #[test]
+    fn blind_sign_shake256() {
+        blind_sign::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/");
+    }
 }
 
 

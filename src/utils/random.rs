@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use rug::integer::Order;
 use rug::{Integer, Complete};
 use rug::rand::RandState;
 use rand::Rng;
@@ -49,4 +50,10 @@ pub fn rand_int(a: Integer, b: Integer) -> Integer {
     let range = (&b - &a).complete() + Integer::from(1);
     // NOTE: return a random integer in the range [a, b], including both end points.
     return a + range.random_below(&mut rand)
+}
+
+
+pub fn generate_nonce() -> Vec<u8>{
+    let rand = random_bits(128);
+    rand.to_digits(Order::MsfBe)
 }

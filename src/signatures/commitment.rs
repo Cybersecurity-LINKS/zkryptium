@@ -64,15 +64,15 @@ impl <CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
             }
         }
 
-        let mut commitment = gens.g1_base_point * s_prime[0];
+        let mut commitment = gens.q1 * s_prime[0];
 
-        let mut index: usize = 0;
+        // let mut index: usize = 0;
 
         for i in unrevealed_message_indexes {
             // commitment = commitment + (gens.message_generators[*i] * Scalar::from_bytes(&messages[index].to_bytes()).unwrap());
-            commitment = commitment + (gens.message_generators[*i] * &messages[index].get_value());
+            commitment += gens.message_generators.get(*i).expect("index overflow") * &messages.get(*i).expect("Index overflow").get_value();
         
-            index = index + 1;
+            // index = index + 1;
         }
         
         Self::BBSplus(BBSplusCommitment{value: commitment, s_prime: s_prime[0]})
