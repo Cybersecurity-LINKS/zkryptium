@@ -38,6 +38,9 @@ pub struct CL03CommitmentPublicKey {
 }
 
 impl CL03CommitmentPublicKey {
+
+    //verifier_pk -> N = issuer_pk.N
+    //trusted_party_pk -> N = None
     pub fn generate<CS: CLCiphersuite>(N: Option<Integer>, n_attributes: Option<u32>) -> Self{
         let n = CS::SECPARAM; //SECPARAM
         let n_attributes = n_attributes.unwrap_or(1);
