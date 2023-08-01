@@ -230,6 +230,10 @@ impl <CS: CLCiphersuite> Signature<CL03<CS>> {
     }
 
     pub fn verify_multiattr(&self, pk: &CL03PublicKey, messages: &[CL03Message]) -> bool{
+        if messages.len() > pk.a_bases.len() {
+            panic!("Not enought a_bases!");
+        }
+
         let sign = self.cl03Signature();
 
         let lhs = Integer::from(sign.v.pow_mod_ref(&sign.e,&pk.N).unwrap());
