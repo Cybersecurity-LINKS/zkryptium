@@ -14,7 +14,7 @@ pub mod errors;
 
 #[cfg(test)]
 mod bbsplus_tests {
-    use crate::{schemes::algorithms::{BBSplusSha256, BBSplusShake256}, tests::{map_message_to_scalar_as_hash, message_generators, msg_signature, h2s, mocked_rng, proof_check, key_pair_gen, blind_sign}};
+    use crate::{schemes::algorithms::{BBSplusSha256, BBSplusShake256}, tests::{map_message_to_scalar_as_hash, message_generators, msg_signature, h2s, mocked_rng, proof_check, key_pair_gen, blind_sign, blind_messages_proof_gen}};
 
     //KEYPAIR
     
@@ -277,6 +277,20 @@ mod bbsplus_tests {
         proof_check::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof013.json", SEED)
     }
 
+    //ZKPoK (BlindMessagesProofGen) - SHA2563
+    #[test]
+    fn zkpok_sha256() {
+        blind_messages_proof_gen::<BBSplusSha256>("./fixture_data/bls12-381-sha-256/");
+    }
+
+    #[test]
+    //ZKPoK (BlindMessagesProofGen) - SHAKE256
+    fn zkpok_shake256() {
+        
+        blind_messages_proof_gen::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/");
+    }
+
+
 
     //Blind Signature and ZKPoK - SHA256
     #[test]
@@ -289,6 +303,7 @@ mod bbsplus_tests {
     fn blind_sign_shake256() {
         blind_sign::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/");
     }
+
 }
 
 
