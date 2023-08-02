@@ -151,25 +151,33 @@ impl <CS: CLCiphersuite> Commitment<CL03<CS>> {
         Self::CL03(CL03Commitment { value: Cx, randomness: r })
     }
 
-    pub fn extend_commitment_with_pk(&mut self, messages: &[CL03Message], pk: &CL03PublicKey, revealed_message_indexes: Option<&[usize]>) {
+    pub fn extend_commitment_with_pk(&mut self, revealed_messages: &[CL03Message], pk: &CL03PublicKey, revealed_message_indexes: Option<&[usize]>) {
         // let mut extended_Cx = self.value().clone();
         let revealed_message_indexes: Vec<usize> = match revealed_message_indexes {
             Some(indexes) => indexes.to_vec(),
-            None => (0..messages.len()).collect(),
+            None => (0..revealed_messages.len()).collect(),
         };
+
+        if revealed_message_indexes.len() != revealed_messages.len() {
+            panic!("Number of revealed messages note corresponds to the number of revelead message indexes!");
+        }
+
         let extended_Cx = self.cl03Commitment_mut();
         let mut extended_Cx_value = extended_Cx.value.clone();
+        let mut index = 0usize; 
         for i in revealed_message_indexes {
             let ai = pk.a_bases.get(i).and_then(|a| {let _ = a.1 == true; return Some(&a.0);}).expect("Invalid revealed message index!");
-            let mi = &messages[i];
+            let mi = &revealed_messages.get(index).expect("Index overflow");
             extended_Cx_value = (extended_Cx_value * Integer::from(ai.pow_mod_ref(&mi.get_value(), &pk.N).unwrap())) % &pk.N;
+            index += 1;
         }
 
         extended_Cx.value = extended_Cx_value;
         // self.set_value(extended_Cx);
     }
 
-    
+
+    //TODO: Forse da cambiare (messages sono revealed_messages e non tutti i messages)
     pub fn extend_commitment_with_commitment_pk(&mut self, messages: &[CL03Message], commitment_pk: &CL03CommitmentPublicKey, revealed_message_indexes: Option<&[usize]>) {
         // let mut extended_Cx = self.value().clone();
         let revealed_message_indexes: Vec<usize> = match revealed_message_indexes {

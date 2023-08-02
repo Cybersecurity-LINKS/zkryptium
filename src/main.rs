@@ -90,7 +90,7 @@ fn test_cl03_sign() {
     let message = CL03Message::map_message_to_integer_as_hash::<CLSha256>(&hex::decode(msg).unwrap());
     let message2 = CL03Message::map_message_to_integer_as_hash::<CLSha256>(&hex::decode(msg2).unwrap());
     let messages = [message.clone()];
-    
+    let unrevealed_message_indexes = [0usize];
     let wrong_message = CL03Message::map_message_to_integer_as_hash::<CLSha256>(&hex::decode(wrong_msg).unwrap());
 
     
@@ -113,13 +113,13 @@ fn test_cl03_sign() {
 
     println!("valid multiattr: {}", valid2);
 
-    let unrevealed_message_indexes = [0usize];
+    
     let commitment = Commitment::<CL03Sha256>::commit_with_pk(&messages, cl03_keypair.public_key(), Some(&unrevealed_message_indexes));
     
     let zkpok = ZKPoK::<CL03Sha256>::generate_proof(&messages, commitment.cl03Commitment(), None, cl03_keypair.public_key(), None, &unrevealed_message_indexes);
 
-    let blind_signature = BlindSignature::<CL03Sha256>::blind_sign(cl03_keypair.public_key(), cl03_keypair.private_key(), &commitment, &zkpok, commitment.cl03Commitment(), None, None, &unrevealed_message_indexes);
-    let unblided_signature = Signature::<CL03Sha256>::CL03(blind_signature.unblind_sign(&commitment));
+    let blind_signature = BlindSignature::<CL03Sha256>::blind_sign(cl03_keypair.public_key(), cl03_keypair.private_key(), &zkpok, None, commitment.cl03Commitment(), None, None, &unrevealed_message_indexes, None);
+    let unblided_signature = blind_signature.unblind_sign(&commitment);
     let verify = unblided_signature.verify_multiattr(cl03_keypair.public_key(), &messages);
 
     println!("valid signature multimessage: {}", verify);

@@ -6,7 +6,7 @@ use elliptic_curve::{group::Curve, subtle::{CtOption, Choice}, hash2curve::Expan
 use rug::{Integer, ops::Pow};
 use serde::{Deserialize, Serialize};
 
-use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{BBSplusMessage}, generators::Generators}, cl03::ciphersuites::CLCiphersuite, keys::{cl03_key::{CL03PublicKey, CL03SecretKey, CL03CommitmentPublicKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, utils::{random::{random_prime, random_bits}, util::{calculate_domain, ScalarExt, hash_to_scalar_old}}, errors::BlindSignError};
+use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{BBSplusMessage, CL03Message}, generators::Generators}, cl03::ciphersuites::CLCiphersuite, keys::{cl03_key::{CL03PublicKey, CL03SecretKey, CL03CommitmentPublicKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, utils::{random::{random_prime, random_bits}, util::{calculate_domain, ScalarExt, hash_to_scalar_old}}, errors::BlindSignError};
 
 use super::{commitment::{CL03Commitment, Commitment, BBSplusCommitment}, signature::{CL03Signature, BBSplusSignature, Signature}, proof::{ZKPoK}};
 
@@ -177,7 +177,7 @@ impl <CS:CLCiphersuite> BlindSignature<CL03<CS>> {
 
     //TODO: ("remove the indexes");
 
-    pub fn blind_sign(pk: &CL03PublicKey, sk: &CL03SecretKey, commitment: &Commitment<CL03<CS>>, zkpok: &ZKPoK<CL03<CS>>, C: &CL03Commitment, C_trusted: Option<&CL03Commitment>, commitment_pk: Option<&CL03CommitmentPublicKey>, unrevealed_message_indexes: &[usize]) -> Self
+    pub fn blind_sign(pk: &CL03PublicKey, sk: &CL03SecretKey, zkpok: &ZKPoK<CL03<CS>>, revealed_messages: Option<&[CL03Message]>, C: &CL03Commitment, C_trusted: Option<&CL03Commitment>, commitment_pk: Option<&CL03CommitmentPublicKey>, unrevealed_message_indexes: &[usize], revealed_message_indexes: Option<&[usize]>) -> Self
     where
         CS::HashAlg: Digest
     {
@@ -186,17 +186,21 @@ impl <CS:CLCiphersuite> BlindSignature<CL03<CS>> {
             panic!("Knowledge of committed secrets not verified");
         }
 
+        let mut extended_commitment: Commitment<CL03<CS>> = Commitment::CL03(C.clone());
+        if revealed_messages.is_some() && revealed_message_indexes.is_some() { 
+            extended_commitment.extend_commitment_with_pk(revealed_messages.unwrap(), pk, revealed_message_indexes);
+        }
         let mut e = random_prime(CS::le);
         let phi_n = (&sk.p - Integer::from(1)) * (&sk.q - Integer::from(1));
-        while ((&e > &Integer::from(Integer::from(2).pow(CS::le-1))) && (&e < &Integer::from(Integer::from(2).pow(CS::le))) && (Integer::from(e.gcd_ref(&phi_n)) == 1)) == false {
-            e = random_prime(CS::le.try_into().unwrap());
+        while ((&e > &Integer::from(2).pow(CS::le-1)) && (&e < &Integer::from(2).pow(CS::le)) && (Integer::from(e.gcd_ref(&phi_n)) == 1)) == false {
+            e = random_prime(CS::le);
         }
 
         let rprime = random_bits(CS::ls);
         let e2n = Integer::from(e.invert_ref(&phi_n).unwrap());
 
         // v = powmod(((Cx) * powmod(pk['b'], rprime, pk['N']) * pk['c']), e2n, pk['N'])
-        let v = ((commitment.value() * Integer::from(pk.b.pow_mod_ref(&rprime, &pk.N).unwrap())) * &pk.c).pow_mod(&e2n, &pk.N).unwrap();
+        let v = Integer::from((extended_commitment.value() * Integer::from(pk.b.pow_mod_ref(&rprime, &pk.N).unwrap()) * &pk.c).pow_mod_ref(&e2n, &pk.N).unwrap());
         let sig = CL03BlindSignature{e, rprime, v};
         // sig = { 'e':e, 'rprime':rprime, 'v':v }
 
@@ -204,9 +208,9 @@ impl <CS:CLCiphersuite> BlindSignature<CL03<CS>> {
 
     }
 
-    pub fn unblind_sign(&self, commitment: &Commitment<CL03<CS>>) -> CL03Signature {
+    pub fn unblind_sign(&self, commitment: &Commitment<CL03<CS>>) -> Signature<CL03<CS>> {
         let s = commitment.randomness().clone() + self.rprime();
-        CL03Signature { e: self.e().clone(), s: s, v: self.v().clone()}
+        Signature::CL03(CL03Signature { e: self.e().clone(), s, v: self.v().clone()})
     }
 }
 
