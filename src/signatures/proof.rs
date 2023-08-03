@@ -454,7 +454,7 @@ impl NISPSignaturePoK {
         // };
         let n_attr = messages.len();
 
-        if signer_pk.a_bases.len() < n_attr  && n_attr < commitment_pk.g_bases.len(){
+        if signer_pk.a_bases.len() < n_attr  && commitment_pk.g_bases.len() < n_attr {
             panic!("Not enough a_bases OR g_bases for the number of attributes");
         }
         
@@ -529,7 +529,7 @@ impl NISPSignaturePoK {
         CS::HashAlg: Digest
     {
 
-        if signer_pk.a_bases.len() < n_signed_messages  && n_signed_messages < commitment_pk.g_bases.len(){
+        if signer_pk.a_bases.len() < n_signed_messages  && commitment_pk.g_bases.len() < n_signed_messages{
             panic!("Not enough a_bases OR g_bases for the number of attributes");
         }
 
@@ -543,7 +543,8 @@ impl NISPSignaturePoK {
                 t_Cx = &t_Cx * Integer::from(signer_pk.a_bases[i].0.pow_mod_ref(&self.s_5[idx], N).unwrap());
                 idx += 1;
             } else {
-                let val = (&messages.get(idx_revealed_msgs).expect("index overflow!").value + &messages[idx].value).complete() * &self.challenge;
+                let mi = &messages.get(idx_revealed_msgs).expect("index overflow!").value;
+                let val = mi + (mi * &self.challenge).complete();
                 t_Cx = &t_Cx * Integer::from(signer_pk.a_bases[i].0.pow_mod_ref(&val, N).unwrap());
                 idx_revealed_msgs += 1;
             }
@@ -563,7 +564,8 @@ impl NISPSignaturePoK {
                 input4 = &input4 * Integer::from(commitment_pk.g_bases[i].0.pow_mod_ref(&self.s_5[idx], N).unwrap());
                 idx += 1;
             } else {
-                let val = (&messages.get(idx_revealed_msgs).expect("index overflow").value + &messages[idx_revealed_msgs].value).complete() * &self.challenge;
+                let mi = &messages.get(idx_revealed_msgs).expect("index overflow").value;
+                let val = mi + (mi * &self.challenge).complete();
                 t_Cx = &t_Cx * Integer::from(commitment_pk.g_bases[i].0.pow_mod_ref(&val, N).unwrap());
                 idx_revealed_msgs += 1;
             }

@@ -132,7 +132,7 @@ where S: Scheme
 
 impl <CS: CLCiphersuite> KeyPair<CL03<CS>>{
 
-    pub fn generate(n_attributes: Option<u32>) -> Self {
+    pub fn generate(n_attributes: Option<usize>) -> Self {
         let n = CS::SECPARAM; //SECPARAM
         let mut pprime = random_prime(n);
         let mut p = Integer::from(2) * pprime.clone() + Integer::from(1);
