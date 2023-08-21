@@ -140,6 +140,7 @@ where
     // const msg: &str = "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02";
     const wrong_msgs: &[&str] = &["7872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02", "7872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f03", "7872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f04"];
 
+    
     let n_attr = msgs.len();
     let cl03_keypair = KeyPair::<CL03<S::Ciphersuite>>::generate(Some(n_attr));
     //TODO: Fails with multuple messages!
