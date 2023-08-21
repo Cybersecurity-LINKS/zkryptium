@@ -143,7 +143,7 @@ where
     
     let n_attr = msgs.len();
     let cl03_keypair = KeyPair::<CL03<S::Ciphersuite>>::generate(Some(n_attr));
-    //TODO: Fails with multuple messages!
+    
     let messages: Vec<CL03Message> = msgs.iter().map(|&m| CL03Message::map_message_to_integer_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap()) ).collect();
     // let msg_intger = CL03Message::map_message_to_integer_as_hash::<S::Ciphersuite>(&hex::decode(msg).unwrap());
     // let messages = [msg_intger.clone()];
@@ -186,5 +186,45 @@ where
     let valid_proof = signature_pok.proof_verify(&commitment_pk, cl03_keypair.public_key(), &revealed_messages_wrong, &unrevealed_message_indexes, n_attr);
     
     assert!(!valid_proof, "Error! The signature proof of knowledge should FAIL!");
+
+}
+
+
+pub(crate) fn update_signature<S: Scheme>()
+where
+    S::Ciphersuite: CLCiphersuite,
+    <S::Ciphersuite as Ciphersuite>::HashAlg: Digest
+{
+    const msgs: &[&str] = &["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02", "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f03", "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f04"];
+    const updated_msgs: &[&str] = &["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02", "7872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f03", "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f04"];
+
+    let n_attr = msgs.len();
+    let cl03_keypair = KeyPair::<CL03<S::Ciphersuite>>::generate(Some(n_attr));
+    
+    let messages: Vec<CL03Message> = msgs.iter().map(|&m| CL03Message::map_message_to_integer_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap()) ).collect();
+    let updated_messages: Vec<CL03Message> = updated_msgs.iter().map(|&m| CL03Message::map_message_to_integer_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap()) ).collect();
+  
+    let unrevealed_message_indexes = [0usize];
+    let revealed_message_indexes = [1usize,  2usize];
+    let revealed_messages: Vec<CL03Message> = messages.iter().enumerate().filter(|&(i,_)| revealed_message_indexes.contains(&i) ).map(|(_, m)| m.clone()).collect();
+    let revealed_updated_messages: Vec<CL03Message> = updated_messages.iter().enumerate().filter(|&(i,_)| revealed_message_indexes.contains(&i) ).map(|(_, m)| m.clone()).collect();
+    let commitment = Commitment::<CL03<S::Ciphersuite>>::commit_with_pk(&messages, cl03_keypair.public_key(), Some(&unrevealed_message_indexes));
+    
+    let zkpok = ZKPoK::<CL03<S::Ciphersuite>>::generate_proof(&messages, commitment.cl03Commitment(), None, cl03_keypair.public_key(), None, &unrevealed_message_indexes);
+
+    let blind_signature = BlindSignature::<CL03<S::Ciphersuite>>::blind_sign(cl03_keypair.public_key(), cl03_keypair.private_key(), &zkpok, Some(&revealed_messages), commitment.cl03Commitment(), None, None, &unrevealed_message_indexes, Some(&revealed_message_indexes));
+    let unblided_signature = blind_signature.unblind_sign(&commitment);
+    let verify = unblided_signature.verify_multiattr(cl03_keypair.public_key(), &messages);
+
+    assert!(verify, "Error! The unblided signature verification should PASS!");
+
+
+
+    let updated_signature = blind_signature.update_signature(Some(&revealed_updated_messages), &commitment.cl03Commitment(), cl03_keypair.private_key(), cl03_keypair.public_key(), Some(&revealed_message_indexes));
+    let unblinded_updated_signature = updated_signature.unblind_sign(&commitment);
+
+    let verify = unblinded_updated_signature.verify_multiattr(cl03_keypair.public_key(), &updated_messages);
+    assert!(verify, "Error! The unblided signature verification should PASS!");
+
 
 }

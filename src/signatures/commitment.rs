@@ -159,7 +159,7 @@ impl <CS: CLCiphersuite> Commitment<CL03<CS>> {
         };
 
         if revealed_message_indexes.len() != revealed_messages.len() {
-            panic!("Number of revealed messages note corresponds to the number of revelead message indexes!");
+            panic!("Number of revealed messages not corresponds to the number of revelead message indexes!");
         }
 
         let extended_Cx = self.cl03Commitment_mut();

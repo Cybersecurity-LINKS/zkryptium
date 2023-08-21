@@ -212,6 +212,21 @@ impl <CS:CLCiphersuite> BlindSignature<CL03<CS>> {
         let s = commitment.randomness().clone() + self.rprime();
         Signature::CL03(CL03Signature { e: self.e().clone(), s, v: self.v().clone()})
     }
+
+    pub fn update_signature(&self, revealed_messages: Option<&[CL03Message]>, C: &CL03Commitment, sk: &CL03SecretKey, pk: &CL03PublicKey,  revealed_message_indexes: Option<&[usize]>) -> Self {
+        let mut extended_commitment: Commitment<CL03<CS>> = Commitment::CL03(C.clone());
+        if revealed_messages.is_some() && revealed_message_indexes.is_some() { 
+            extended_commitment.extend_commitment_with_pk(revealed_messages.unwrap(), pk, revealed_message_indexes);
+        }
+
+        let phi_N = (&sk.p - Integer::from(1)) * (&sk.q - Integer::from(1));
+        let e2n = Integer::from(self.e().invert_ref(&phi_N).unwrap());
+
+        let v = Integer::from((extended_commitment.value() * Integer::from(pk.b.pow_mod_ref(self.rprime(), &pk.N).unwrap()) * &pk.c).pow_mod_ref(&e2n, &pk.N).unwrap());
+    
+        let sig = CL03BlindSignature{e: self.e().clone(), rprime: self.rprime().clone(), v};
+        Self::CL03(sig)
+    }
 }
 
 

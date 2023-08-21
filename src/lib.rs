@@ -307,7 +307,7 @@ mod bbsplus_tests {
 
 #[cfg(test)]
 mod cl03_tests {
-    use crate::{cl03::tests::{signature, zkpok, blind_sign, spok}, schemes::algorithms::CL03Sha256};
+    use crate::{cl03::tests::{signature, zkpok, blind_sign, spok, update_signature}, schemes::algorithms::CL03Sha256};
 
     //Signature (sign)- SHA256
     #[test]
@@ -333,5 +333,11 @@ mod cl03_tests {
     #[test]
     fn spok_sha256() {
         spok::<CL03Sha256>();
+    }
+
+    //Signature update - SHA256
+    #[test]
+    fn update_signature_sha256() {
+        update_signature::<CL03Sha256>();
     }
 }
