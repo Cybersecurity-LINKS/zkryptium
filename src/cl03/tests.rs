@@ -182,4 +182,9 @@ where
     
     assert!(valid_proof, "Error! The signature proof of knowledge should PASS!");
 
+    let signature_pok = PoKSignature::<CL03<S::Ciphersuite>>::proof_gen(unblided_signature.cl03Signature(), &commitment_pk, cl03_keypair.public_key(), &messages, &unrevealed_message_indexes);
+    let valid_proof = signature_pok.proof_verify(&commitment_pk, cl03_keypair.public_key(), &revealed_messages_wrong, &unrevealed_message_indexes, n_attr);
+    
+    assert!(!valid_proof, "Error! The signature proof of knowledge should FAIL!");
+
 }
