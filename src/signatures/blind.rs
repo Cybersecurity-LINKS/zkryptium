@@ -102,6 +102,43 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         Signature::<BBSplus<CS>>::BBSplus(BBSplusSignature{ a: self.a(), e: self.e(), s: s })
     }
 
+    pub fn update_signature(&self, sk: &BBSplusSecretKey, generators: &Generators, old_messages: &[BBSplusMessage], new_message: &BBSplusMessage, update_index: usize) -> Self {
+        /*
+        
+        # Retrieve A and e from the signature
+		(A, e, _) = signature		
+		assert len(generators) > (2 + index), "len(generators) <= (2+index)"
+		H_i = generators[2 + index]
+		# Check if (SK + e) = 0 mod r
+		SK_plus_e = (int(SK) + e) % bls12_381.r
+		assert SK_plus_e != 0, "(SK + e) = 0 mod r"	
+		# A = B * (1 / (SK + e) mod r)		
+		B = A * SK_plus_e		
+		B = B + (-H_i * old_message) 
+		B = B + ( H_i * new_message)
+		A = B * int(invert(SK_plus_e, bls12_381.r))		
+		# Check if A != Identity_G1
+		assert A != G1Infinity(), "A != Identity_G1"
+		return A
+         */
+
+        if generators.message_generators.len() <= update_index  && old_messages.len() <= update_index{
+            panic!("len(generators) <= update_index");
+        }
+        let H_i = generators.message_generators.get(update_index).expect("index overflow");
+        let SK_plus_e = sk.0 + self.e();
+        let mut B = self.a() * SK_plus_e;
+        B = B + (-H_i * old_messages.get(update_index).expect("index overflow").value);
+        B = B + (H_i * new_message.value);
+        let A = B * SK_plus_e.invert().unwrap();
+
+        if A == G1Projective::IDENTITY{
+            panic!("A == IDENTITY G1");
+        }
+
+        return Self::BBSplus(BBSplusBlindSignature { a: A, e: self.e(), s_second: self.s_second() })
+    }
+
     pub fn a(&self) -> G1Projective {
         match self {
             Self::BBSplus(inner) => inner.a,

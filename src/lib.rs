@@ -13,7 +13,7 @@ pub mod errors;
 
 #[cfg(test)]
 mod bbsplus_tests {
-    use crate::{schemes::algorithms::{BBSplusSha256, BBSplusShake256}, bbsplus::tests::{map_message_to_scalar_as_hash, message_generators, msg_signature, h2s, mocked_rng, proof_check, key_pair_gen, blind_sign, blind_messages_proof_gen}};
+    use crate::{schemes::algorithms::{BBSplusSha256, BBSplusShake256}, bbsplus::tests::{map_message_to_scalar_as_hash, message_generators, msg_signature, h2s, mocked_rng, proof_check, key_pair_gen, blind_sign, blind_messages_proof_gen, update_signature}};
 
     //KEYPAIR
     
@@ -300,6 +300,19 @@ mod bbsplus_tests {
     #[test]
     fn blind_sign_shake256() {
         blind_sign::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/");
+    }
+
+
+    //Update Blinded Signature - SHA256
+    #[test]
+    fn update_signature_sha256() {
+        update_signature::<BBSplusSha256>("./fixture_data/bls12-381-sha-256/");
+    }
+
+    //Update Blinded Signature - SHAKE256
+    #[test]
+    fn update_signature_shake256() {
+        update_signature::<BBSplusShake256>("./fixture_data/bls12-381-shake-256/");
     }
 
 }
