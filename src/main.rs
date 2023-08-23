@@ -2,6 +2,7 @@ use std::{time::Instant, any::TypeId};
 
 use bls12_381_plus::{G1Affine, G2Affine, pairing, G1Projective, Scalar};
 use byteorder::BigEndian;
+use digest::Digest;
 use elliptic_curve::hash2curve::ExpandMsg;
 use glass_pumpkin::prime::new;
 use hex::ToHex;
@@ -92,6 +93,47 @@ where
     assert!(proof_result, "Signature Proof of Knowledge Verification Failed!");
 
     println!("Valid Signature Proof of Knowledge!");
+}
+
+
+fn cl03_main<S: Scheme>() 
+where
+    S::Ciphersuite: CLCiphersuite,
+    <S::Ciphersuite as Ciphersuite>::HashAlg: Digest
+{
+    const msgs: &[&str] = &["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02", "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f03", "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f04"];
+    
+    let issuer_keypair = KeyPair::<CL03<S::Ciphersuite>>::generate(Some(msgs.len().try_into().unwrap()));
+    //TODO: Fails with multuple messages!
+    let messages: Vec<CL03Message> = msgs.iter().map(|&m| CL03Message::map_message_to_integer_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap()) ).collect();
+    
+ 
+    let unrevealed_message_indexes = [0usize];
+    let revealed_message_indexes = [1usize,  2usize];
+    let revealed_messages: Vec<CL03Message> = messages.iter().enumerate().filter(|&(i,_)| revealed_message_indexes.contains(&i) ).map(|(_, m)| m.clone()).collect();
+    
+    let commitment = Commitment::<CL03<S::Ciphersuite>>::commit_with_pk(&messages, issuer_keypair.public_key(), Some(&unrevealed_message_indexes));
+    
+    let zkpok = ZKPoK::<CL03<S::Ciphersuite>>::generate_proof(&messages, commitment.cl03Commitment(), None, issuer_keypair.public_key(), None, &unrevealed_message_indexes);
+
+    let blind_signature = BlindSignature::<CL03<S::Ciphersuite>>::blind_sign(issuer_keypair.public_key(), issuer_keypair.private_key(), &zkpok, Some(&revealed_messages), commitment.cl03Commitment(), None, None, &unrevealed_message_indexes, Some(&revealed_message_indexes));
+    let unblided_signature = blind_signature.unblind_sign(&commitment);
+    let verify = unblided_signature.verify_multiattr(issuer_keypair.public_key(), &messages);
+
+    assert!(verify, "Error! The unblided signature verification should PASS!");
+    println!("Valid Blind Signature!");
+
+    //Verifier generates its pk
+    let verifier_commitment_pk = CL03CommitmentPublicKey::generate::<S::Ciphersuite>(Some(issuer_keypair.public_key().N.clone()), Some(msgs.len()));
+
+    //Holder compute the Signature Proof of Knowledge
+    let signature_pok = PoKSignature::<CL03<S::Ciphersuite>>::proof_gen(unblided_signature.cl03Signature(), &verifier_commitment_pk, issuer_keypair.public_key(), &messages, &unrevealed_message_indexes);
+    
+    //Verifier verifies the Signature Proof of Knowledge
+    let valid_proof = signature_pok.proof_verify(&verifier_commitment_pk, issuer_keypair.public_key(), &revealed_messages, &unrevealed_message_indexes, msgs.len());
+    
+    assert!(valid_proof, "Error! The signature proof of knowledge should PASS!");
+    println!("Valid SPok!")
 }
 
 
@@ -224,7 +266,11 @@ fn test_cl03_sign() {
 // }
 
 fn main() {
-    bbsplus_main::<BBSplusSha256>(); 
+
+    bbsplus_main::<BBSplusSha256>();
+    cl03_main::<CL03Sha256>();
+
+
     // test_bbsplus_sign();
     // test_cl03_sign();
 
