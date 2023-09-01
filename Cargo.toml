@@ -30,10 +30,10 @@ hkdf = "0.12.3"
 digest = "0.10.6"
 
 # bbsplus
-bls12_381_plus = "0.8.0"
-ff = "0.13.0"
-group = "0.10"
-elliptic-curve = "0.13.4"
+bls12_381_plus = "=0.8.0"
+ff = "=0.13.0"
+group = "=0.10"
+elliptic-curve = "=0.13.4"
 
 byteorder = "1.4.3"
 cargo-license = "0.5.1"
