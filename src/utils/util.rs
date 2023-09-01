@@ -5,7 +5,7 @@ use std::{any::{TypeId, Any}};
 use bls12_381_plus::{Scalar, G1Projective, G2Projective};
 use elliptic_curve::{hash2curve::{ExpandMsg, Expander}, group::Curve};
 use rand::{RngCore};
-use rug::Integer;
+use rug::{Integer, integer::Order};
 use crate::{bbsplus::{ciphersuites::BbsCiphersuite, message::{BBSplusMessage}}, keys::bbsplus_key::BBSplusPublicKey};
 
 pub fn hash_to_scalar<C: BbsCiphersuite>(msg_octects: &[u8], dst: Option<&[u8]>) -> Scalar 
@@ -295,3 +295,22 @@ pub fn divm(a: &Integer, b: &Integer, m: &Integer) -> Integer{
 // {
 //     indexes.iter().max().unwrap_or(&0usize) < &messages.len()
 // }
+
+
+pub trait IntegerExt{
+    fn to_bytes_be(&self, len: usize) -> Vec<u8>;
+    // fn from_bytes_be(bytes: &[u8], len: usize) -> Self;
+}
+
+impl IntegerExt for Integer {
+    fn to_bytes_be(&self, len: usize) -> Vec<u8> {
+        let mut bytes = vec!(0u8; len);
+        self.write_digits(&mut bytes, Order::MsfBe);
+        bytes
+    }
+
+    // fn from_bytes_be(bytes: &[u8], len: usize) -> Self {
+    //     let i = Integer::from_digits(&bytes[0usize .. len], Order::MsfBe);
+    //     i
+    // }
+}

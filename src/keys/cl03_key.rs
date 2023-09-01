@@ -1,6 +1,6 @@
 use rug::{Integer, integer::{IsPrime, Order}};
 use serde::{Serialize, Deserialize};
-use crate::{utils::random::{random_prime, random_qr, random_number}, cl03::ciphersuites::CLCiphersuite, schemes::algorithms::{BBSplus, Scheme}};
+use crate::{utils::{random::{random_prime, random_qr, random_number}, util::IntegerExt}, cl03::ciphersuites::CLCiphersuite, schemes::algorithms::{BBSplus, Scheme}};
 
 
 #[derive(Clone, PartialEq, PartialOrd, Eq, Hash, Debug, Ord, Serialize, Deserialize)]
@@ -32,6 +32,7 @@ impl CL03PublicKey {
         bytes.extend_from_slice(&N_digits);
         bytes.extend_from_slice(&b_digits);
         bytes.extend_from_slice(&c_digits);
+        self.a_bases.iter().for_each(|a| bytes.extend_from_slice(&a.to_bytes_be((<S as Scheme>::Ciphersuite::SECPARAM as usize) / 8usize + 1usize)));
         bytes
 
     }
