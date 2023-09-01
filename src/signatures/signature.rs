@@ -203,7 +203,7 @@ impl <CS: CLCiphersuite> Signature<CL03<CS>> {
         let s = random_bits(CS::ls);
         let e2n = Integer::from(e.invert_ref(&phi_n).unwrap());
         // v = powmod((powmod(pk['a0'], m, pk['N']) * powmod(pk['b'], s, pk['N']) * pk['c']), (e2n), pk['N'])
-        let v = ((Integer::from(pk.a_bases[0].0.pow_mod_ref(&message.value, &pk.N).unwrap())) * Integer::from(pk.b.pow_mod_ref(&s, &pk.N).unwrap()) * &pk.c).pow_mod(&e2n, &pk.N).unwrap();
+        let v = ((Integer::from(pk.a_bases[0].pow_mod_ref(&message.value, &pk.N).unwrap())) * Integer::from(pk.b.pow_mod_ref(&s, &pk.N).unwrap()) * &pk.c).pow_mod(&e2n, &pk.N).unwrap();
         
         let sig = CL03Signature{e, s, v};
         Self::CL03(sig)
@@ -216,7 +216,7 @@ impl <CS: CLCiphersuite> Signature<CL03<CS>> {
 
         let lhs = Integer::from(sign.v.pow_mod_ref(&sign.e,&pk.N).unwrap());
 
-        let rhs = (Integer::from(pk.a_bases[0].0.pow_mod_ref(&message.value, &pk.N).unwrap()) * Integer::from(pk.b.pow_mod_ref(&sign.s, &pk.N).unwrap()) * &pk.c) % &pk.N;
+        let rhs = (Integer::from(pk.a_bases[0].pow_mod_ref(&message.value, &pk.N).unwrap()) * Integer::from(pk.b.pow_mod_ref(&sign.s, &pk.N).unwrap()) * &pk.c) % &pk.N;
 
         if sign.e <= Integer::from(2).pow(CS::le-1) || sign.e >= Integer::from(2).pow(CS::le) {
             return false
@@ -240,7 +240,7 @@ impl <CS: CLCiphersuite> Signature<CL03<CS>> {
 
         let mut rhs = Integer::from(1);
 
-        messages.iter().enumerate().for_each(|(i,m)| rhs = &rhs * Integer::from(pk.a_bases[i].0.pow_mod_ref(&m.value, &pk.N).unwrap()) );
+        messages.iter().enumerate().for_each(|(i,m)| rhs = &rhs * Integer::from(pk.a_bases[i].pow_mod_ref(&m.value, &pk.N).unwrap()) );
 
         rhs = (&rhs * Integer::from(pk.b.pow_mod_ref(&sign.s, &pk.N).unwrap()) * &pk.c) % &pk.N;
 

@@ -164,12 +164,12 @@ impl <CS: CLCiphersuite> KeyPair<CL03<CS>>{
 
         let N = p.clone() * q.clone();
     
-        let mut a_bases: Vec<(Integer, bool)> = Vec::new();
+        let mut a_bases: Vec<Integer> = Vec::new();
 
         let n_attr = n_attributes.unwrap_or(1);
         for _i in 0..n_attr {
             let a = random_qr(&N);
-            a_bases.push((a, true));
+            a_bases.push(a);
         }
 
         let b = random_qr(&N);

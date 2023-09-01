@@ -339,14 +339,14 @@ impl <CS: CLCiphersuite> PoKSignature<CL03<CS>> {
 
         //range proof e
         let r_proof_e = match CS::RANGEPROOF_ALG {
-            RangeProof::Boudot2000 => Boudot2000RangeProof::prove::<CS::HashAlg>(&signature.e, &spok.Ce, &commitment_pk.g_bases[0].0, &commitment_pk.h, &commitment_pk.N, &min_e, &max_e),
+            RangeProof::Boudot2000 => Boudot2000RangeProof::prove::<CS::HashAlg>(&signature.e, &spok.Ce, &commitment_pk.g_bases[0], &commitment_pk.h, &commitment_pk.N, &min_e, &max_e),
         };
 
         let mut proofs_mi: Vec<ProofOfValue> = Vec::new();
         let mut r_proofs_mi: Vec<Boudot2000RangeProof> = Vec::new();
         for i in unrevealed_message_indexes {
             let mi = messages.get(*i).expect("unreaveled_message_indexes not valid with respect to the messages!");
-            let gi = &commitment_pk.g_bases.get(*i).expect("unreaveled_message_indexes not valid with respect to the commitment_pk.g_bases!").0;
+            let gi = &commitment_pk.g_bases.get(*i).expect("unreaveled_message_indexes not valid with respect to the commitment_pk.g_bases!");
             let cmi = Commitment::<CL03<CS>>::commit_with_commitment_pk(&[mi.clone()], commitment_pk, None).cl03Commitment().to_owned();
             let proof_mi_ri = NISPSecrets::nisp2sec_generate_proof::<CS>(mi, &cmi, &gi, &commitment_pk.h, &commitment_pk.N);
             proofs_mi.push(ProofOfValue { value: proof_mi_ri, commitment: cmi.clone()});
@@ -379,14 +379,14 @@ impl <CS: CLCiphersuite> PoKSignature<CL03<CS>> {
         }
         if CLSPoK.spok.Ce.value == CLSPoK.range_proof_e.E {
             //Verify RANGE PROOFS e
-            let boolean_rproof_e = CLSPoK.range_proof_e.verify::<CS::HashAlg>(&commitment_pk.g_bases[0].0, &commitment_pk.h, &commitment_pk.N, &min_e, &max_e);
+            let boolean_rproof_e = CLSPoK.range_proof_e.verify::<CS::HashAlg>(&commitment_pk.g_bases[0], &commitment_pk.h, &commitment_pk.N, &min_e, &max_e);
             
             if boolean_rproof_e {
                 //Verify RANGE PROOFS mi
                 let mut idx: usize = 0;
                 for i in unrevealed_message_indexes {
                     
-                    let gi = &commitment_pk.g_bases.get(*i).expect("unreaveled_message_indexes not valid with respect to the commitment_pk.g_bases!").0;
+                    let gi = &commitment_pk.g_bases.get(*i).expect("unreaveled_message_indexes not valid with respect to the commitment_pk.g_bases!");
                     let ProofOfValue{value: proof_mi, commitment: cmi} = CLSPoK.proofs_commited_mi.get(idx).expect("index overflow");
                     let boolean_proof_mi = proof_mi.nisp2sec_verify_proof::<CS>(&cmi, gi, &commitment_pk.h, &commitment_pk.N);
                     if !boolean_proof_mi {
@@ -494,22 +494,22 @@ impl NISPSignaturePoK {
 
         let mut t_Cx = Integer::from(1);
         for i in 0..n_attr {
-            t_Cx = t_Cx * Integer::from(signer_pk.a_bases[i].0.pow_mod_ref(&r_5[i], N).unwrap())
+            t_Cx = t_Cx * Integer::from(signer_pk.a_bases[i].pow_mod_ref(&r_5[i], N).unwrap())
         }
 
         t_Cx = t_Cx % N;
 
-        let t_1 = (Integer::from(Cv.pow_mod_ref(&r_4, N).unwrap()) * divm(&Integer::from(1), &t_Cx, N) * Integer::from(divm(&Integer::from(1), &signer_pk.b, N).pow_mod_ref(&r_6, N).unwrap()) * Integer::from(divm(&Integer::from(1), &commitment_pk.g_bases[0].0, N).pow_mod_ref(&r_8, N).unwrap())) % N;
-        let t_2 = (Integer::from(commitment_pk.g_bases[0].0.pow_mod_ref(&r_7, N).unwrap()) * Integer::from(commitment_pk.h.pow_mod_ref(&r_1, N).unwrap())) % N;
-        let t_3 = (Integer::from(Cw.pow_mod_ref(&r_4, N).unwrap()) * Integer::from(divm(&Integer::from(1), &commitment_pk.g_bases[0].0, N).pow_mod_ref(&r_8, N).unwrap()) * Integer::from(divm(&Integer::from(1), &commitment_pk.h, N).pow_mod_ref(&r_2, N).unwrap())) % N;
+        let t_1 = (Integer::from(Cv.pow_mod_ref(&r_4, N).unwrap()) * divm(&Integer::from(1), &t_Cx, N) * Integer::from(divm(&Integer::from(1), &signer_pk.b, N).pow_mod_ref(&r_6, N).unwrap()) * Integer::from(divm(&Integer::from(1), &commitment_pk.g_bases[0], N).pow_mod_ref(&r_8, N).unwrap())) % N;
+        let t_2 = (Integer::from(commitment_pk.g_bases[0].pow_mod_ref(&r_7, N).unwrap()) * Integer::from(commitment_pk.h.pow_mod_ref(&r_1, N).unwrap())) % N;
+        let t_3 = (Integer::from(Cw.pow_mod_ref(&r_4, N).unwrap()) * Integer::from(divm(&Integer::from(1), &commitment_pk.g_bases[0], N).pow_mod_ref(&r_8, N).unwrap()) * Integer::from(divm(&Integer::from(1), &commitment_pk.h, N).pow_mod_ref(&r_2, N).unwrap())) % N;
 
         let mut t_4 = Integer::from(1);
         for i in 0..n_attr {
-            t_4 = t_4 * Integer::from(commitment_pk.g_bases[i].0.pow_mod_ref(&r_5[i], N).unwrap());
+            t_4 = t_4 * Integer::from(commitment_pk.g_bases[i].pow_mod_ref(&r_5[i], N).unwrap());
         }
         t_4 = (t_4 * Integer::from(commitment_pk.h.pow_mod_ref(&r_3, N).unwrap())) % N;
 
-        let t_5 = (Integer::from(commitment_pk.g_bases[0].0.pow_mod_ref(&r_4, N).unwrap()) * Integer::from(commitment_pk.h.pow_mod_ref(&r_9, N).unwrap())) % N;
+        let t_5 = (Integer::from(commitment_pk.g_bases[0].pow_mod_ref(&r_4, N).unwrap()) * Integer::from(commitment_pk.h.pow_mod_ref(&r_9, N).unwrap())) % N;
         let str =  t_1.to_string() + &t_2.to_string()+ &t_3.to_string()+ &t_4.to_string()+ &t_5.to_string();
         let hash = <CS::HashAlg as Digest>::digest(str);
         let challenge = Integer::from_digits(hash.as_slice(), Order::MsfBe);
@@ -549,20 +549,20 @@ impl NISPSignaturePoK {
         
         for i in 0..n_signed_messages {
             if unrevealed_message_indexes.contains(&i) {
-                t_Cx = t_Cx * Integer::from(signer_pk.a_bases[i].0.pow_mod_ref(&self.s_5[idx], N).unwrap());
+                t_Cx = t_Cx * Integer::from(signer_pk.a_bases[i].pow_mod_ref(&self.s_5[idx], N).unwrap());
                 idx += 1;
             } else {
                 let mi = &messages.get(idx_revealed_msgs).expect("index overflow!").value;
                 let val = mi + (mi * &self.challenge).complete();
-                t_Cx = t_Cx * Integer::from(signer_pk.a_bases[i].0.pow_mod_ref(&val, N).unwrap());
+                t_Cx = t_Cx * Integer::from(signer_pk.a_bases[i].pow_mod_ref(&val, N).unwrap());
                 idx_revealed_msgs += 1;
             }
         }
         t_Cx = t_Cx % N;
 
-        let input1 = (Integer::from(self.Cv.value.pow_mod_ref(&self.s_4, N).unwrap()) * divm(&Integer::from(1), &t_Cx, N) * Integer::from(divm(&Integer::from(1), &signer_pk.b, N).pow_mod_ref(&self.s_6, N).unwrap()) * Integer::from(divm(&Integer::from(1), &commitment_pk.g_bases[0].0, N).pow_mod_ref(&self.s_8, N).unwrap()) * Integer::from(signer_pk.c.pow_mod_ref(&(Integer::from(-1) * &self.challenge), N).unwrap())) % N;
-        let input2 = (Integer::from(commitment_pk.g_bases[0].0.pow_mod_ref(&self.s_7, N).unwrap()) * Integer::from(commitment_pk.h.pow_mod_ref(&self.s_1, N).unwrap()) * Integer::from(self.Cw.value.pow_mod_ref(&(Integer::from(-1) * &self.challenge), N).unwrap()) ) % N;
-        let input3 = (Integer::from(self.Cw.value.pow_mod_ref(&self.s_4, N).unwrap()) * Integer::from(divm(&Integer::from(1), &commitment_pk.g_bases[0].0, N).pow_mod_ref(&self.s_8, N).unwrap()) * Integer::from(divm(&Integer::from(1), &commitment_pk.h, N).pow_mod_ref(&self.s_2, N).unwrap())) % N;
+        let input1 = (Integer::from(self.Cv.value.pow_mod_ref(&self.s_4, N).unwrap()) * divm(&Integer::from(1), &t_Cx, N) * Integer::from(divm(&Integer::from(1), &signer_pk.b, N).pow_mod_ref(&self.s_6, N).unwrap()) * Integer::from(divm(&Integer::from(1), &commitment_pk.g_bases[0], N).pow_mod_ref(&self.s_8, N).unwrap()) * Integer::from(signer_pk.c.pow_mod_ref(&(Integer::from(-1) * &self.challenge), N).unwrap())) % N;
+        let input2 = (Integer::from(commitment_pk.g_bases[0].pow_mod_ref(&self.s_7, N).unwrap()) * Integer::from(commitment_pk.h.pow_mod_ref(&self.s_1, N).unwrap()) * Integer::from(self.Cw.value.pow_mod_ref(&(Integer::from(-1) * &self.challenge), N).unwrap()) ) % N;
+        let input3 = (Integer::from(self.Cw.value.pow_mod_ref(&self.s_4, N).unwrap()) * Integer::from(divm(&Integer::from(1), &commitment_pk.g_bases[0], N).pow_mod_ref(&self.s_8, N).unwrap()) * Integer::from(divm(&Integer::from(1), &commitment_pk.h, N).pow_mod_ref(&self.s_2, N).unwrap())) % N;
 
         let mut input4 = Integer::from(1);
         let mut idx: usize = 0;
@@ -570,19 +570,19 @@ impl NISPSignaturePoK {
 
         for i in 0..n_signed_messages {
             if unrevealed_message_indexes.contains(&i) {
-                input4 = input4 * Integer::from(commitment_pk.g_bases[i].0.pow_mod_ref(&self.s_5[idx], N).unwrap());
+                input4 = input4 * Integer::from(commitment_pk.g_bases[i].pow_mod_ref(&self.s_5[idx], N).unwrap());
                 idx += 1;
             } else {
                 let mi = &messages.get(idx_revealed_msgs).expect("index overflow").value;
                 let val = mi + (mi * &self.challenge).complete();
-                input4 = input4 * Integer::from(commitment_pk.g_bases[i].0.pow_mod_ref(&val, N).unwrap());
+                input4 = input4 * Integer::from(commitment_pk.g_bases[i].pow_mod_ref(&val, N).unwrap());
                 idx_revealed_msgs += 1;
             }
         }
 
         input4 = (input4 * Integer::from(commitment_pk.h.pow_mod_ref(&self.s_3, N).unwrap()) * Integer::from(self.Cx.value.pow_mod_ref(&(Integer::from(-1) * &self.challenge), N).unwrap())) % N;
 
-        let input5 = (Integer::from(commitment_pk.g_bases[0].0.pow_mod_ref(&self.s_4, N).unwrap()) * Integer::from(commitment_pk.h.pow_mod_ref(&self.s_9, N).unwrap()) * Integer::from(self.Ce.value.pow_mod_ref(&(Integer::from(-1) * &self.challenge), N).unwrap()) ) % N;
+        let input5 = (Integer::from(commitment_pk.g_bases[0].pow_mod_ref(&self.s_4, N).unwrap()) * Integer::from(commitment_pk.h.pow_mod_ref(&self.s_9, N).unwrap()) * Integer::from(self.Ce.value.pow_mod_ref(&(Integer::from(-1) * &self.challenge), N).unwrap()) ) % N;
         
         let str =  input1.to_string() + &input2.to_string()+ &input3.to_string()+ &input4.to_string()+ &input5.to_string();
         let hash = <CS::HashAlg as Digest>::digest(str);
@@ -986,8 +986,8 @@ impl NISP2Commitments {
 
 
         for i in unrevealed_message_indexes {
-            w_1 = w_1 * (Integer::from(signer_pk.a_bases.get(*i).expect("unrevealed_message_indexes not valid (overflow)").0.pow_mod_ref(&omega[idx], n1).unwrap()));
-            w_2 = w_2 * (Integer::from(commitment_pk.g_bases.get(*i).expect("unrevealed_message_indexes not valid (overflow)").0.pow_mod_ref(&omega[idx], n2).unwrap()));
+            w_1 = w_1 * (Integer::from(signer_pk.a_bases.get(*i).expect("unrevealed_message_indexes not valid (overflow)").pow_mod_ref(&omega[idx], n1).unwrap()));
+            w_2 = w_2 * (Integer::from(commitment_pk.g_bases.get(*i).expect("unrevealed_message_indexes not valid (overflow)").pow_mod_ref(&omega[idx], n2).unwrap()));
             idx = idx + 1;
         }
         w_1 = (w_1 * Integer::from(h1.pow_mod_ref(&mu_1, n1).unwrap())) % n1;
@@ -1038,8 +1038,8 @@ impl NISP2Commitments {
         let mut idx = 0usize;
 
         for i in unrevealed_message_indexes {
-            lhs = lhs * Integer::from(signer_pk.a_bases.get(*i).expect("unrevealed_message_indexes not valid (overflow)").0.pow_mod_ref(&d[idx], n1).unwrap());
-            rhs = rhs * Integer::from(commitment_pk.g_bases.get(*i).expect("unrevealed_message_indexes not valid (overflow)").0.pow_mod_ref(&d[idx], n2).unwrap());
+            lhs = lhs * Integer::from(signer_pk.a_bases.get(*i).expect("unrevealed_message_indexes not valid (overflow)").pow_mod_ref(&d[idx], n1).unwrap());
+            rhs = rhs * Integer::from(commitment_pk.g_bases.get(*i).expect("unrevealed_message_indexes not valid (overflow)").pow_mod_ref(&d[idx], n2).unwrap());
             idx += 1;
         }
         // lhs = ((lhs * powmod(h1, d_1, n1)) * inv_C1) % n1  
@@ -1138,8 +1138,8 @@ impl NISPMultiSecrets {
         let mut str_input = String::from("");
         let mut idx = 0usize;
         for i in unrevealed_message_indexes {
-            t = t * Integer::from(signer_pk.a_bases.get(*i).expect("unrevealed_message_indexes not valid (overflow)").0.pow_mod_ref(&r1[idx], n1).unwrap());
-            str_input = str_input + &signer_pk.a_bases[*i].0.to_string();
+            t = t * Integer::from(signer_pk.a_bases.get(*i).expect("unrevealed_message_indexes not valid (overflow)").pow_mod_ref(&r1[idx], n1).unwrap());
+            str_input = str_input + &signer_pk.a_bases[*i].to_string();
             idx += 1;
         }
         t = (t * Integer::from(h1.pow_mod_ref(&r2, n1).unwrap())) % n1; 
@@ -1183,8 +1183,8 @@ impl NISPMultiSecrets {
         let mut idx = 0usize;
 
         for i in unrevealed_message_indexes {
-            lhs = lhs * Integer::from(signer_pk.a_bases.get(*i).expect("unrevealed_message_indexes not valid (overflow)").0.pow_mod_ref(&s1[idx], n1).unwrap());
-            str_input = str_input + &signer_pk.a_bases[*i].0.to_string();
+            lhs = lhs * Integer::from(signer_pk.a_bases.get(*i).expect("unrevealed_message_indexes not valid (overflow)").pow_mod_ref(&s1[idx], n1).unwrap());
+            str_input = str_input + &signer_pk.a_bases[*i].to_string();
             idx += 1;
         }
         lhs = (lhs * Integer::from(h1.pow_mod_ref(&s2, n1).unwrap())) % n1;
@@ -1382,7 +1382,7 @@ impl <CS: CLCiphersuite> ZKPoK<CL03<CS>> {
         let mut r_proofs_msgs: Vec<Boudot2000RangeProof> = Vec::new();
         for i in unrevealed_message_indexes {
             let mi = messages.get(*i).expect("unreaveled_message_indexes not valid with respect to the messages!");
-            let ai = &signer_pk.a_bases.get(*i).expect("unreaveled_message_indexes not valid with respect to the commitment_pk.g_bases!").0;
+            let ai = &signer_pk.a_bases.get(*i).expect("unreaveled_message_indexes not valid with respect to the commitment_pk.g_bases!");
             let cmi = Commitment::<CL03<CS>>::commit_with_pk(&[mi.clone()], signer_pk, None).cl03Commitment().to_owned();
             let proof_mi = NISPSecrets::nisp2sec_generate_proof::<CS>(mi, &cmi, &ai, &signer_pk.b, &signer_pk.N);
             proofs_mi.push(ProofOfValue { value: proof_mi, commitment: cmi.clone()});
@@ -1399,10 +1399,10 @@ impl <CS: CLCiphersuite> ZKPoK<CL03<CS>> {
         let max_r = Integer::from(2).pow(CS::ln) - 1;
         let r = CL03Message::new(C.randomness.clone());
         let cr = Commitment::<CL03<CS>>::commit_with_pk(&[r.clone()], &signer_pk, None);
-        let proof_r = ProofOfValue{value: NISPSecrets::nisp2sec_generate_proof::<CS>(&r, cr.cl03Commitment(), &signer_pk.a_bases[0].0, &signer_pk.b, &signer_pk.N), commitment: cr.cl03Commitment().to_owned()};
+        let proof_r = ProofOfValue{value: NISPSecrets::nisp2sec_generate_proof::<CS>(&r, cr.cl03Commitment(), &signer_pk.a_bases[0], &signer_pk.b, &signer_pk.N), commitment: cr.cl03Commitment().to_owned()};
 
         let rproof_r = match CS::RANGEPROOF_ALG {
-            RangeProof::Boudot2000 => Boudot2000RangeProof::prove::<CS::HashAlg>(&r.value, cr.cl03Commitment(), &signer_pk.a_bases[0].0, &signer_pk.b, &signer_pk.N, &min_r, &max_r),
+            RangeProof::Boudot2000 => Boudot2000RangeProof::prove::<CS::HashAlg>(&r.value, cr.cl03Commitment(), &signer_pk.a_bases[0], &signer_pk.b, &signer_pk.N, &min_r, &max_r),
         };
 
 
@@ -1440,7 +1440,7 @@ impl <CS: CLCiphersuite> ZKPoK<CL03<CS>> {
         let mut idx = 0usize;
 
         for i in unrevealed_message_indexes {
-            let ai = &signer_pk.a_bases.get(*i).expect("unreaveled_message_indexes not valid with respect to the messages!").0;
+            let ai = &signer_pk.a_bases.get(*i).expect("unreaveled_message_indexes not valid with respect to the messages!");
             let proof_mi = zkpok.proofs_commited_mi.get(idx).expect("index overflow");
             let boolean_proof_mi = proof_mi.value.nisp2sec_verify_proof::<CS>(&proof_mi.commitment, ai, &signer_pk.b, &signer_pk.N);
 
@@ -1458,7 +1458,7 @@ impl <CS: CLCiphersuite> ZKPoK<CL03<CS>> {
             idx += 1;
         }
 
-        let boolean_proof_r = zkpok.proof_r.value.nisp2sec_verify_proof::<CS>(&zkpok.proof_r.commitment, &signer_pk.a_bases[0].0, &signer_pk.b, &signer_pk.N);
+        let boolean_proof_r = zkpok.proof_r.value.nisp2sec_verify_proof::<CS>(&zkpok.proof_r.commitment, &signer_pk.a_bases[0], &signer_pk.b, &signer_pk.N);
         if !boolean_proof_r {
             println!("Verification of the Proof of Knowledge of r. Failed!");
             return false;
@@ -1466,7 +1466,7 @@ impl <CS: CLCiphersuite> ZKPoK<CL03<CS>> {
 
         let min_r = Integer::from(0);  
         let max_r = Integer::from(2).pow(CS::ln) - 1;
-        let boolean_rproof_r = zkpok.range_proof_r.verify::<CS::HashAlg>(&signer_pk.a_bases[0].0, &signer_pk.b, &signer_pk.N, &min_r, &max_r);
+        let boolean_rproof_r = zkpok.range_proof_r.verify::<CS::HashAlg>(&signer_pk.a_bases[0], &signer_pk.b, &signer_pk.N, &min_r, &max_r);
         if !boolean_rproof_r {
             println!("Verification of the Range Proof of r. Failed");
             return false;

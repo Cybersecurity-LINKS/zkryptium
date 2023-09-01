@@ -8,11 +8,11 @@ pub struct CL03PublicKey{
     pub N: Integer,
     pub b: Integer,
     pub c: Integer,
-    pub a_bases: Vec<(Integer, bool)>
+    pub a_bases: Vec<Integer>
 }
 
 impl CL03PublicKey {
-    pub fn new(N: Integer, b: Integer, c: Integer, a_bases: Vec<(Integer, bool)>) -> Self {
+    pub fn new(N: Integer, b: Integer, c: Integer, a_bases: Vec<Integer>) -> Self {
         Self{N, b, c, a_bases}
     }
 
@@ -89,7 +89,7 @@ impl CL03SecretKey{
 pub struct CL03CommitmentPublicKey {
     pub N: Integer,
     pub h: Integer,
-    pub g_bases: Vec<(Integer, bool)>
+    pub g_bases: Vec<Integer>
 }
 
 impl CL03CommitmentPublicKey {
@@ -134,7 +134,7 @@ impl CL03CommitmentPublicKey {
 
         let h = random_qr(&N);
 
-        let mut g_bases: Vec<(Integer, bool)> = Vec::new();
+        let mut g_bases: Vec<Integer> = Vec::new();
 
         for _i in 0..n_attributes {
             let mut f = random_number(N.clone());
@@ -149,7 +149,7 @@ impl CL03CommitmentPublicKey {
                     break;
                 }
             }
-            g_bases.push((g_i, true));
+            g_bases.push(g_i);
         }
 
         CL03CommitmentPublicKey{N: N, h: h, g_bases: g_bases}
