@@ -22,7 +22,7 @@ impl PublicKey for BBSplusPublicKey{
     type Output = [u8; 96];
     // type Params = G2Projective;
     fn to_bytes(&self) -> Self::Output {
-        self.0.to_affine().to_compressed()
+        self.to_bytes()
     }
 
     fn encode(&self) -> String {
@@ -54,9 +54,7 @@ impl PrivateKey for BBSplusSecretKey{
     type Output = [u8; 32];
     //in BE order
     fn to_bytes(&self) -> Self::Output{
-        let mut bytes = self.0.to_be_bytes();
-        // bytes.reverse();
-        bytes
+        self.to_bytes()
     }
 
     fn encode(&self) -> String {

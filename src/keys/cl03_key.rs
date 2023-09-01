@@ -1,6 +1,6 @@
-use rug::{Integer, integer::IsPrime};
+use rug::{Integer, integer::{IsPrime, Order}};
 use serde::{Serialize, Deserialize};
-use crate::{utils::random::{random_prime, random_qr, random_number}, cl03::ciphersuites::CLCiphersuite};
+use crate::{utils::random::{random_prime, random_qr, random_number}, cl03::ciphersuites::CLCiphersuite, schemes::algorithms::{BBSplus, Scheme}};
 
 
 #[derive(Clone, PartialEq, PartialOrd, Eq, Hash, Debug, Ord, Serialize, Deserialize)]
@@ -15,6 +15,34 @@ impl CL03PublicKey {
     pub fn new(N: Integer, b: Integer, c: Integer, a_bases: Vec<(Integer, bool)>) -> Self {
         Self{N, b, c, a_bases}
     }
+
+    pub fn to_bytes<S: Scheme>(&self) -> Vec<u8> 
+    where
+        S: Scheme,
+        S::Ciphersuite:  CLCiphersuite
+    {
+
+        let mut bytes: Vec<u8> = Vec::new();
+        let mut N_digits = vec!(0u8; (<S as Scheme>::Ciphersuite::SECPARAM as usize) / 8usize + 1usize);
+        let mut b_digits = vec!(0u8; (<S as Scheme>::Ciphersuite::SECPARAM as usize) / 8usize + 1usize);
+        let mut c_digits = vec!(0u8; (<S as Scheme>::Ciphersuite::SECPARAM as usize) / 8usize + 1usize);
+        self.N.write_digits(&mut N_digits, Order::MsfBe);
+        self.b.write_digits(&mut b_digits, Order::MsfBe);
+        self.c.write_digits(&mut c_digits, Order::MsfBe);
+        bytes.extend_from_slice(&N_digits);
+        bytes.extend_from_slice(&b_digits);
+        bytes.extend_from_slice(&c_digits);
+        bytes
+
+    }
+
+    pub fn from_bytes<S: Scheme>() -> Self
+    where
+        S: Scheme,
+        S::Ciphersuite:  CLCiphersuite
+    {
+        todo!()
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
@@ -27,6 +55,33 @@ pub struct CL03SecretKey{
 impl CL03SecretKey{
     pub fn new(p: Integer, q: Integer) -> Self {
         Self { p, q}
+    }
+
+    pub fn to_bytes<S>(&self) -> Vec<u8> 
+    where
+        S: Scheme,
+        S::Ciphersuite:  CLCiphersuite
+    {
+        let mut bytes: Vec<u8> = Vec::new();
+        let mut p_digits = vec!(0u8; (<S as Scheme>::Ciphersuite::SECPARAM as usize) / 8usize + 1usize);
+        let mut q_digits = vec!(0u8; (<S as Scheme>::Ciphersuite::SECPARAM as usize) / 8usize + 1usize);
+        self.p.write_digits(&mut p_digits, Order::MsfBe);
+        self.q.write_digits(&mut q_digits, Order::MsfBe);
+        bytes.extend_from_slice(&p_digits);
+        bytes.extend_from_slice(&q_digits);
+        bytes
+    }
+
+    pub fn from_bytes<S: Scheme>(bytes: &[u8]) -> Self 
+    where
+        S: Scheme,
+        S::Ciphersuite:  CLCiphersuite
+    {
+        let delta = (<S as Scheme>::Ciphersuite::SECPARAM as usize) / 8usize + 1usize;
+        let p = Integer::from_digits(&bytes[0usize .. delta], Order::MsfBe);
+        let q = Integer::from_digits(&bytes[delta .. (2*delta)], Order::MsfBe);
+
+        Self { p, q }
     }
 }
 

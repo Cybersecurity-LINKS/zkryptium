@@ -185,7 +185,7 @@ impl <CS: CLCiphersuite> KeyPair<CL03<CS>>{
     }
 }
 
-impl <CS: BbsCiphersuite> KeyPair<BBSplus<CS>>{
+impl <CS: BbsCiphersuite> KeyPair<BBSplus<CS>>{ 
      
     pub fn generate_rng<R: RngCore>(rng: &mut R) -> Self {
         let sk = Scalar::random(rng);
