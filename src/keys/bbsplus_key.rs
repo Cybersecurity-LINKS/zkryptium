@@ -29,8 +29,8 @@ pub struct BBSplusSecretKey(pub Scalar);
 impl BBSplusSecretKey{
     //in BE order
     pub fn to_bytes(&self) -> [u8; 32] {
-        let mut bytes = self.0.to_bytes();
-        bytes.reverse();
+        let mut bytes = self.0.to_be_bytes();
+        // bytes.reverse();
         bytes
     }
 
@@ -41,8 +41,8 @@ impl BBSplusSecretKey{
 
     pub fn from_bytes(bytes: &[u8]) -> Self {
         let mut bytes: [u8; 32] = bytes.try_into().expect("Invalid number of bytes to be coverted into a BBSplus private key! (max 32 bytes)");
-        bytes.reverse();
-        let s = Scalar::from_bytes(&bytes).unwrap();
+        // bytes.reverse();
+        let s = Scalar::from_be_bytes(&bytes).unwrap();
 
         Self(s)
     }

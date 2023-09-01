@@ -86,13 +86,13 @@ impl Message for BBSplusMessage {
 
     //in BE
     fn to_bytes_be(&self) -> [u8; 32] {
-        let mut bytes = self.value.to_bytes();
-        bytes.reverse();
+        let mut bytes = self.value.to_be_bytes();
+        // bytes.reverse();
         bytes
     }
 
     fn to_bytes_le(&self) -> [u8; 32] {
-        self.value.to_bytes()
+        self.value.to_le_bytes()
     }
     
     fn get_value(&self) -> Scalar {

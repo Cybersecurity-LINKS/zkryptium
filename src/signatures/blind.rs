@@ -163,11 +163,11 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     pub fn to_bytes(&self) -> [u8; 112] {
         let mut bytes = [0u8; 112];
         bytes[0..48].copy_from_slice(&self.a().to_affine().to_compressed());
-        let mut e = self.e().to_bytes();
-        e.reverse();
+        let mut e = self.e().to_be_bytes();
+        // e.reverse();
         bytes[48..80].copy_from_slice(&e[..]);
-        let mut s_second = self.s_second().to_bytes();
-        s_second.reverse();
+        let mut s_second = self.s_second().to_be_bytes();
+        // s_second.reverse();
         bytes[80..112].copy_from_slice(&s_second[..]);
         bytes
     }
@@ -176,11 +176,11 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         let aa = G1Affine::from_compressed(&<[u8; 48]>::try_from(&data[0..48]).unwrap())
             .map(G1Projective::from);
         let mut e_bytes = <[u8; 32]>::try_from(&data[48..80]).unwrap();
-        e_bytes.reverse();
-        let ee = Scalar::from_bytes(&e_bytes);
+        // e_bytes.reverse();
+        let ee = Scalar::from_be_bytes(&e_bytes);
         let mut s_bytes = <[u8; 32]>::try_from(&data[80..112]).unwrap();
-        s_bytes.reverse();
-        let ss = Scalar::from_bytes(&s_bytes);
+        // s_bytes.reverse();
+        let ss = Scalar::from_be_bytes(&s_bytes);
 
         aa.and_then(|a| {
             ee.and_then(|e| ss.and_then(|s| CtOption::new(Self::BBSplus(BBSplusBlindSignature{ a, e, s_second: s }), Choice::from(1))))

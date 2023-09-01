@@ -54,8 +54,8 @@ impl PrivateKey for BBSplusSecretKey{
     type Output = [u8; 32];
     //in BE order
     fn to_bytes(&self) -> Self::Output{
-        let mut bytes = self.0.to_bytes();
-        bytes.reverse();
+        let mut bytes = self.0.to_be_bytes();
+        // bytes.reverse();
         bytes
     }
 

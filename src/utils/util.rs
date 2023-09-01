@@ -17,13 +17,13 @@ where
     let dst = dst.unwrap_or(default_dst);
 
     let mut counter: u8 = 0;
-    let mut hashed_scalar = Scalar::from(0);
+    let mut hashed_scalar = Scalar::from(0u32);
 
     let mut uniform_bytes = vec!(0u8; C::EXPAND_LEN);
 
     let mut msg_prime: Vec<u8>;
 
-    while hashed_scalar == Scalar::from(0) {
+    while hashed_scalar == Scalar::from(0u32) {
 
         // msg_prime = [msg_octects, &[counter; 1][..], &[0u8, 0u8, 0u8, 1u8][..]].concat();
         msg_prime = [msg_octects, &[counter; 1][..]].concat(); //from UPDATED STANDARD
@@ -61,7 +61,7 @@ where
         for i in 0..count {
             let tv = &uniform_bytes[i*C::EXPAND_LEN..(i+1)*C::EXPAND_LEN];
             let scalar_i = Scalar::from_okm(tv.try_into().unwrap());
-            if scalar_i == Scalar::from(0) {
+            if scalar_i == Scalar::from(0u32) {
                 t = t + 1;
                 repeat = true;
                 break;
@@ -138,16 +138,16 @@ pub trait ScalarExt {
 
 impl ScalarExt for Scalar {
     fn to_bytes_be(&self) -> [u8; 32] {
-        let mut bytes = self.to_bytes();
-        bytes.reverse();
+        let mut bytes = self.to_be_bytes();
+        // bytes.reverse();
         bytes
     }
 
     fn from_bytes_be(bytes: &[u8; 32]) -> Self {
         let mut bytes_le = [0u8; 32];
         bytes_le.copy_from_slice(bytes);
-        bytes_le.reverse();
-        Scalar::from_bytes(&bytes_le).unwrap()
+        // bytes_le.reverse();
+        Scalar::from_be_bytes(&bytes_le).unwrap()
     }
 }
 

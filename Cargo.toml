@@ -6,36 +6,36 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rand = {version = "=0.8.5"}
-num-bigint = { version = "=0.4.3",  features = ["rand"] }
-zeroize = { version = "=1.5.3" }
-serde = { version = "=1.0.25", default_feature = false, features = ["derive", "serde_derive"] }
+rand = {version = "0.8.5"}
+num-bigint = { version = "0.4.3",  features = ["rand"] }
+zeroize = { version = "1.5" }
+serde = { version = "1.0.25", default_feature = false, features = ["derive", "serde_derive"] }
 # serde_jcs = { version = "0.1", default-features = false }
-serde_json = "=1.0.59"
-num-prime = "=0.4.3"
-num-integer = "=0.1.45"
-rug = { version = "=1.19.2", features = ["serde"]}
-hex = "=0.4.3"
+serde_json = "1.0.59"
+num-prime = "0.4.3"
+num-integer = "0.1.45"
+rug = { version = "1.19.2", features = ["serde"]}
+hex = "0.4.3"
 # rust-gmp = "0.5.0"
 
 # gmp-mpfr-sys = "1.5"
-glass_pumpkin = "=1.5.0"
+glass_pumpkin = "1.5.0"
 
-num-primes = "=0.3.0"
+num-primes = "0.3.0"
 
 
-sha3 = "=0.10.8"
-sha2 = "=0.10.6"
-hkdf = "=0.12.3"
-digest = "=0.10.6"
+sha3 = "0.10.8"
+sha2 = "0.10.6"
+hkdf = "0.12.3"
+digest = "0.10.6"
 
 # bbsplus
-bls12_381_plus = "=0.8.0"
-ff = "=0.13.0"
-group = "=0.10"
-elliptic-curve = "=0.13.4"
+bls12_381_plus = "0.8.5"
+ff = "0.13.0"
+group = "0.10"
+elliptic-curve = "0.13.4"
 
-byteorder = "=1.4.3"
+byteorder = "1.4.3"
 cargo-license = "0.5.1"
 
 
