@@ -23,26 +23,65 @@ impl CL03PublicKey {
     {
 
         let mut bytes: Vec<u8> = Vec::new();
-        let mut N_digits = vec!(0u8; (<S as Scheme>::Ciphersuite::SECPARAM as usize) / 8usize + 1usize);
-        let mut b_digits = vec!(0u8; (<S as Scheme>::Ciphersuite::SECPARAM as usize) / 8usize + 1usize);
-        let mut c_digits = vec!(0u8; (<S as Scheme>::Ciphersuite::SECPARAM as usize) / 8usize + 1usize);
+        let mut N_digits = vec!(0u8; <S as Scheme>::Ciphersuite::ln as usize);
+        let mut b_digits = vec!(0u8; <S as Scheme>::Ciphersuite::ln as usize);
+        let mut c_digits = vec!(0u8; <S as Scheme>::Ciphersuite::ln as usize);
         self.N.write_digits(&mut N_digits, Order::MsfBe);
         self.b.write_digits(&mut b_digits, Order::MsfBe);
         self.c.write_digits(&mut c_digits, Order::MsfBe);
         bytes.extend_from_slice(&N_digits);
         bytes.extend_from_slice(&b_digits);
         bytes.extend_from_slice(&c_digits);
-        self.a_bases.iter().for_each(|a| bytes.extend_from_slice(&a.to_bytes_be((<S as Scheme>::Ciphersuite::SECPARAM as usize) / 8usize + 1usize)));
+        self.a_bases.iter().for_each(|a| bytes.extend_from_slice(&a.to_bytes_be(<S as Scheme>::Ciphersuite::ln as usize)));
         bytes
 
     }
 
-    pub fn from_bytes<S: Scheme>() -> Self
+
+    pub fn from_bytes<S: Scheme>(bytes: &[u8]) -> Self
     where
         S: Scheme,
         S::Ciphersuite:  CLCiphersuite
     {
-        todo!()
+        // let delta: usize = (<S as Scheme>::Ciphersuite::SECPARAM as usize) / 8usize + 1usize;
+        let N_len = <S as Scheme>::Ciphersuite::ln as usize;
+
+        let len = bytes.len();
+        if len < 3 * N_len || (len - (3 * N_len)) % (N_len) != 0 {
+            panic!("Invalid number of bytes submitted!");
+        }
+
+        
+        let N = Integer::from_digits(&bytes[0usize .. N_len], Order::MsfBe);
+        let b = Integer::from_digits(&bytes[N_len .. 2 * N_len], Order::MsfBe);
+        let c = Integer::from_digits(&bytes[2 * N_len .. 3 * N_len], Order::MsfBe);
+
+        let mut start = 3 * N_len;
+        let mut end = start + N_len;
+        let mut a_bases: Vec<Integer> = Vec::new();
+
+
+        // const delta = compute_delta::<S>();
+        while end <= len {
+
+            let a = &bytes[start..end];
+            if a.len() != N_len {
+                panic!("Invalid bytes length");
+            }
+            // let a = <[u8; delta]>::try_from(&bytes[start..end]);
+            // if a.is_err() {
+            //     panic!("bytes not valid");
+            // } else {
+
+            // a_bases.push(Integer::from_digits(&a[0usize .. delta], Order::MsfBe));
+            a_bases.push(Integer::from_digits(&a, Order::MsfBe));
+            // }
+            start = end;
+            end += N_len;
+        }
+
+        Self { N, b, c, a_bases }
+
     }
 }
 

@@ -265,10 +265,31 @@ fn test_cl03_sign() {
 //     let (N, b, c, a_bases) = pk.get_params();
 // }
 
+fn test() {
+    let issuer_keypair = KeyPair::<CL03Sha256>::generate(Some(3));
+
+    let pk = issuer_keypair.public_key().to_bytes::<CL03Sha256>();
+
+    let pk_2 = CL03PublicKey::from_bytes::<CL03Sha256>(&pk);
+
+
+    let pk2_bytes = pk_2.to_bytes::<CL03Sha256>();
+
+    
+    assert!(issuer_keypair.public_key().clone() == pk_2);
+
+    let str1 = hex::encode(pk);
+    let str2 =  hex::encode(pk2_bytes);
+
+    print!("{}", str1 == str2);
+
+}
+
 fn main() {
 
-    bbsplus_main::<BBSplusSha256>();
-    cl03_main::<CL03Sha256>();
+    // bbsplus_main::<BBSplusSha256>();
+    // cl03_main::<CL03Sha256>();
+    test();
 
 
     // test_bbsplus_sign();
