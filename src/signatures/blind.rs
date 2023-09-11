@@ -52,7 +52,6 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
 
             let domain = calculate_domain::<CS>(pk, generators.q1, generators.q2, &generators.message_generators[0..L], Some(header));
             let a = domain.to_bytes_be();
-            println!("{}", hex::encode(a));
             let mut e_s_for_hash: Vec<u8> = Vec::new();
             e_s_for_hash.extend_from_slice(&sk.0.to_bytes_be());
             e_s_for_hash.extend_from_slice(&domain.to_bytes_be());
