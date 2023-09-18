@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Fondazione LINKS
+//
+// SPDX-License-Identifier: APACHE-2.0
+
 use serde::{Serialize, de::DeserializeOwned};
 
 use super::{cl03_key::{CL03PublicKey, CL03SecretKey}, bbsplus_key::{BBSplusPublicKey, BBSplusSecretKey}};

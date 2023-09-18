@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Fondazione LINKS
+//
+// SPDX-License-Identifier: APACHE-2.0
+
 use digest::Digest;
 
 use crate::{keys::{pair::KeyPair, cl03_key::CL03CommitmentPublicKey}, schemes::algorithms::{Scheme, CL03, Ciphersuite}, utils::message::CL03Message, signatures::{signature::Signature, commitment::Commitment, proof::{ZKPoK, PoKSignature}, blind::BlindSignature}};

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Fondazione LINKS
+//
+// SPDX-License-Identifier: APACHE-2.0
+
 use digest::HashMarker;
 use serde::{Serialize, Deserialize, de::DeserializeOwned};
 use sha2::Sha256;

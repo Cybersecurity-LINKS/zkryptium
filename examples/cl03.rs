@@ -1,5 +1,9 @@
+// SPDX-FileCopyrightText: 2023 Fondazione LINKS
+//
+// SPDX-License-Identifier: APACHE-2.0
+
 use digest::Digest;
-use links_crypto::{schemes::algorithms::{CL03, Scheme, CL03Sha256, Ciphersuite}, signatures::{commitment::Commitment, blind::BlindSignature, proof::{PoKSignature, ZKPoK}}, cl03::ciphersuites::CLCiphersuite, keys::{pair::KeyPair, cl03_key::CL03CommitmentPublicKey}, utils::message::CL03Message};
+use zkryptium::{schemes::algorithms::{CL03, Scheme, CL03Sha256, Ciphersuite}, signatures::{commitment::Commitment, blind::BlindSignature, proof::{PoKSignature, ZKPoK}}, cl03::ciphersuites::CLCiphersuite, keys::{pair::KeyPair, cl03_key::CL03CommitmentPublicKey}, utils::message::CL03Message};
 
 
 fn cl03_main<S: Scheme>() 

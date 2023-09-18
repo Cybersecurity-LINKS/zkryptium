@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Fondazione LINKS
+//
+// SPDX-License-Identifier: APACHE-2.0
+
 use std::env;
 use bls12_381_plus::G2Affine;
 use bls12_381_plus::G2Projective;

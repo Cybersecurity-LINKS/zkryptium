@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Fondazione LINKS
+//
+// SPDX-License-Identifier: APACHE-2.0
+
 use bls12_381_plus::{Scalar, G2Projective, G2Affine};
 use elliptic_curve::group::Curve;
 use serde::{Serialize, Deserialize};

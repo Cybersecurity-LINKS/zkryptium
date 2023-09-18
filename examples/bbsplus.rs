@@ -1,6 +1,10 @@
+// SPDX-FileCopyrightText: 2023 Fondazione LINKS
+//
+// SPDX-License-Identifier: APACHE-2.0
+
 use elliptic_curve::hash2curve::ExpandMsg;
 
-use links_crypto::{utils::message::BBSplusMessage, keys::pair::KeyPair, bbsplus::{generators::{make_generators, global_generators}, ciphersuites::BbsCiphersuite}, schemes::algorithms::{BBSplus, Scheme, BBSplusShake256, BBSplusSha256}, signatures::{commitment::Commitment, blind::BlindSignature, proof::{PoKSignature, ZKPoK}}};
+use zkryptium::{utils::message::BBSplusMessage, keys::pair::KeyPair, bbsplus::{generators::{make_generators, global_generators}, ciphersuites::BbsCiphersuite}, schemes::algorithms::{BBSplus, Scheme, BBSplusShake256, BBSplusSha256}, signatures::{commitment::Commitment, blind::BlindSignature, proof::{PoKSignature, ZKPoK}}};
 
 
 

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Fondazione LINKS
+//
+// SPDX-License-Identifier: APACHE-2.0
+
 use std::cmp::Ordering;
 use rug::integer::Order;
 use rug::{Integer, Complete};

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Fondazione LINKS
+//
+// SPDX-License-Identifier: APACHE-2.0
+
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 

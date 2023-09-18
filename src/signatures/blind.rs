@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: 2023 Fondazione LINKS
+//
+// SPDX-License-Identifier: APACHE-2.0
+
+
 use std::panic;
 
 use bls12_381_plus::{G1Projective, Scalar, G1Affine};

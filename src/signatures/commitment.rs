@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Fondazione LINKS
+//
+// SPDX-License-Identifier: APACHE-2.0
+
 use bls12_381_plus::{Scalar, G1Projective};
 use elliptic_curve::hash2curve::ExpandMsg;
 use rug::Integer;

@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: 2023 Fondazione LINKS
+//
+// SPDX-License-Identifier: APACHE-2.0
+
+
 use rug::{Integer, integer::{IsPrime, Order}};
 use serde::{Serialize, Deserialize};
 use crate::{utils::{random::{random_prime, random_qr, random_number}, util::IntegerExt}, cl03::ciphersuites::CLCiphersuite, schemes::algorithms::Scheme};

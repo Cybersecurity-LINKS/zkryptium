@@ -1,5 +1,6 @@
-
-//RANGE PROOF
+// SPDX-FileCopyrightText: 2023 Fondazione LINKS
+//
+// SPDX-License-Identifier: APACHE-2.0
 
 use digest::Digest;
 use rug::{Integer, integer::Order, ops::Pow, Complete};

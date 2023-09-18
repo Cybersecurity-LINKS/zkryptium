@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Fondazione LINKS
+//
+// SPDX-License-Identifier: APACHE-2.0
+
 use std::marker::PhantomData;
 
 use bls12_381_plus::{G1Projective, Scalar, G1Affine, G2Projective, Gt, multi_miller_loop, G2Prepared};
