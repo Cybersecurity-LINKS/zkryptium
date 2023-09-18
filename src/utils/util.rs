@@ -1,13 +1,13 @@
 
 use core::panic;
-use std::{any::{TypeId, Any}};
+use std::any::{TypeId, Any};
 
 use bls12_381_plus::{Scalar, G1Projective, G2Projective};
 use elliptic_curve::{hash2curve::{ExpandMsg, Expander}, group::Curve};
-use rand::{RngCore};
+use rand::RngCore;
 use rug::{Integer, integer::Order};
-use super::message::{BBSplusMessage};
-use crate::{bbsplus::{ciphersuites::BbsCiphersuite}, keys::bbsplus_key::BBSplusPublicKey};
+use super::message::BBSplusMessage;
+use crate::{bbsplus::ciphersuites::BbsCiphersuite, keys::bbsplus_key::BBSplusPublicKey};
 
 pub fn hash_to_scalar<C: BbsCiphersuite>(msg_octects: &[u8], dst: Option<&[u8]>) -> Scalar 
 where
@@ -139,7 +139,7 @@ pub trait ScalarExt {
 
 impl ScalarExt for Scalar {
     fn to_bytes_be(&self) -> [u8; 32] {
-        let mut bytes = self.to_be_bytes();
+        let bytes = self.to_be_bytes();
         // bytes.reverse();
         bytes
     }
@@ -267,7 +267,7 @@ where
 //b*x = a mod m -> return x
 pub fn divm(a: &Integer, b: &Integer, m: &Integer) -> Integer{
     let mut num = a.clone();
-    let mut den = b.clone();
+    let den;
     let mut module = m.clone();
     let r: Integer;
     let mut result = b.invert_ref(&m);

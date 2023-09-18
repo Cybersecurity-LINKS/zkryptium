@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 
-use crate::{schemes::algorithms::Ciphersuite, signatures::proof::{RangeProof}};
+use crate::schemes::algorithms::Ciphersuite;
+use super::range_proof::RangeProof;
 
 pub trait CLCiphersuite: Eq + 'static + Ciphersuite{
     const SECPARAM: u32;

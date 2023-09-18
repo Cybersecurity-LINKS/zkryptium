@@ -19,16 +19,11 @@ use crate::schemes::algorithms::CL03;
 use crate::schemes::algorithms::Scheme;
 use crate::utils::random::random_prime;
 use crate::utils::random::random_qr;
-// use super::bbsplus_key::BBSplusKeyPair;
 use super::bbsplus_key::BBSplusPublicKey;
 use super::bbsplus_key::BBSplusSecretKey;
-// use super::cl03_key::CL03KeyPair;
 use super::cl03_key::CL03PublicKey;
 use super::cl03_key::CL03SecretKey;
 use sha2::Digest;
-
-
-
 
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -75,59 +70,6 @@ where S: Scheme
         ).expect(&format!("failed to write key pair to file: {}", file_to_write.to_str().unwrap()));
     }
 }
-
-
-// pub trait KeyPairI {
-//     type PrivKey: PrivateKey;
-//     type PubKey: PublicKey;
-
-//     fn public(&self) -> &Self::PubKey;
-//     fn private(&self) -> &Self::PrivKey;
-// }
-
-// impl KeyPairI for CL03KeyPair {
-//     type PrivKey = CL03SecretKey;
-
-//     type PubKey = CL03PublicKey;
-
-//     fn public(&self) -> &Self::PubKey {
-//         self.public()
-//     }
-
-//     fn private(&self) -> &Self::PrivKey {
-//        self.private()
-//     }
-// }
-
-
-// impl KeyPairI for BBSplusKeyPair {
-//     type PrivKey = BBSplusSecretKey;
-
-//     type PubKey = BBSplusPublicKey;
-
-//     fn public(&self) -> &Self::PubKey {
-//         self.public()
-//     }
-
-//     fn private(&self) -> &Self::PrivKey {
-//        self.private()
-//     }
-// }
-
-// impl<S: Scheme> KeyPairI for KeyPair<S>{
-//     type PrivKey = S::PrivKey;
-//     type PubKey = S::PubKey;
-
-//     fn public(&self) -> &Self::PubKey {
-//         &self.public
-//     }
-
-//     fn private(&self) -> &Self::PrivKey {
-//         &self.private
-//     }
-
-    
-// }
 
 
 impl <CS: CLCiphersuite> KeyPair<CL03<CS>>{

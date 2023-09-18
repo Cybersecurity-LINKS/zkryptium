@@ -66,7 +66,7 @@ impl CL03Message {
     {
         let binding = <C::HashAlg as Digest>::digest(data);
         let msg_digest = binding.as_slice();
-        let msg_integer = Integer::from_digits(msg_digest, Order::MsfBe); //TODO: check Order
+        let msg_integer = Integer::from_digits(msg_digest, Order::MsfBe);
         Self{value: msg_integer}
 
     }
