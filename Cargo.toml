@@ -38,6 +38,11 @@ dotenv = "0.15.0"
 name = "links_crypto"
 path = "src/lib.rs"
 
-[[bin]]
-name = "demo"
-path = "src/main.rs"
+[[example]]
+name = "bbsplus"
+path = "examples/bbsplus.rs"
+
+[[example]]
+name = "cl03"
+path = "examples/cl03.rs"
+
