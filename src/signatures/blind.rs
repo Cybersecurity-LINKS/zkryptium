@@ -1,4 +1,4 @@
-use std::{error::Error, panic};
+use std::panic;
 
 use bls12_381_plus::{G1Projective, Scalar, G1Affine};
 use digest::Digest;
@@ -6,9 +6,9 @@ use elliptic_curve::{group::Curve, subtle::{CtOption, Choice}, hash2curve::Expan
 use rug::{Integer, ops::Pow};
 use serde::{Deserialize, Serialize};
 
-use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{BBSplusMessage, CL03Message}, generators::Generators}, cl03::ciphersuites::CLCiphersuite, keys::{cl03_key::{CL03PublicKey, CL03SecretKey, CL03CommitmentPublicKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, utils::{random::{random_prime, random_bits}, util::{calculate_domain, ScalarExt, hash_to_scalar_old}}, errors::BlindSignError};
+use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, utils::message::{BBSplusMessage, CL03Message}, bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, cl03::ciphersuites::CLCiphersuite, keys::{cl03_key::{CL03PublicKey, CL03SecretKey, CL03CommitmentPublicKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, utils::{random::{random_prime, random_bits}, util::{calculate_domain, ScalarExt, hash_to_scalar_old}}, errors::BlindSignError};
 
-use super::{commitment::{CL03Commitment, Commitment, BBSplusCommitment}, signature::{CL03Signature, BBSplusSignature, Signature}, proof::{ZKPoK}};
+use super::{commitment::{CL03Commitment, Commitment, BBSplusCommitment}, signature::{CL03Signature, BBSplusSignature, Signature}, proof::ZKPoK};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusBlindSignature {
@@ -51,7 +51,7 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
             let L = K + U;
 
             let domain = calculate_domain::<CS>(pk, generators.q1, generators.q2, &generators.message_generators[0..L], Some(header));
-            let a = domain.to_bytes_be();
+            
             let mut e_s_for_hash: Vec<u8> = Vec::new();
             e_s_for_hash.extend_from_slice(&sk.0.to_bytes_be());
             e_s_for_hash.extend_from_slice(&domain.to_bytes_be());
@@ -162,10 +162,10 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     pub fn to_bytes(&self) -> [u8; 112] {
         let mut bytes = [0u8; 112];
         bytes[0..48].copy_from_slice(&self.a().to_affine().to_compressed());
-        let mut e = self.e().to_be_bytes();
+        let e = self.e().to_be_bytes();
         // e.reverse();
         bytes[48..80].copy_from_slice(&e[..]);
-        let mut s_second = self.s_second().to_be_bytes();
+        let s_second = self.s_second().to_be_bytes();
         // s_second.reverse();
         bytes[80..112].copy_from_slice(&s_second[..]);
         bytes
@@ -174,10 +174,10 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     pub fn from_bytes(data: &[u8; 112]) -> CtOption<Self> {
         let aa = G1Affine::from_compressed(&<[u8; 48]>::try_from(&data[0..48]).unwrap())
             .map(G1Projective::from);
-        let mut e_bytes = <[u8; 32]>::try_from(&data[48..80]).unwrap();
+        let e_bytes = <[u8; 32]>::try_from(&data[48..80]).unwrap();
         // e_bytes.reverse();
         let ee = Scalar::from_be_bytes(&e_bytes);
-        let mut s_bytes = <[u8; 32]>::try_from(&data[80..112]).unwrap();
+        let s_bytes = <[u8; 32]>::try_from(&data[80..112]).unwrap();
         // s_bytes.reverse();
         let ss = Scalar::from_be_bytes(&s_bytes);
 

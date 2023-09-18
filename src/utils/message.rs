@@ -1,4 +1,4 @@
-use digest::{Digest};
+use digest::Digest;
 use elliptic_curve::hash2curve::ExpandMsg;
 use ff::Field;
 use rand::RngCore;
@@ -6,9 +6,7 @@ use rug::{Integer, integer::Order};
 use bls12_381_plus::Scalar;
 use serde::{Serialize, Deserialize};
 
-use crate::{utils::util::{hash_to_scalar_old}, cl03::ciphersuites::CLCiphersuite};
-
-use super::ciphersuites::BbsCiphersuite;
+use crate::{utils::util::hash_to_scalar_old, cl03::ciphersuites::CLCiphersuite, bbsplus::ciphersuites::BbsCiphersuite};
 
 pub const BBS_MESSAGE_LENGTH: usize = usize::MAX;
 
@@ -86,7 +84,7 @@ impl Message for BBSplusMessage {
 
     //in BE
     fn to_bytes_be(&self) -> [u8; 32] {
-        let mut bytes = self.value.to_be_bytes();
+        let bytes = self.value.to_be_bytes();
         // bytes.reverse();
         bytes
     }
@@ -103,7 +101,7 @@ impl Message for BBSplusMessage {
 impl Message for CL03Message {
     type Value = Integer;
 
-    fn random(rng: impl RngCore) -> Self {
+    fn random(_rng: impl RngCore) -> Self {
         todo!()
     }
 

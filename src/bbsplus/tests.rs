@@ -1,11 +1,10 @@
 use std::fs;
 
 use bbsplus::ciphersuites::BbsCiphersuite;
-use bls12_381_plus::Scalar;
 use elliptic_curve::{hash2curve::ExpandMsg, group::Curve};
 use schemes::algorithms::Scheme;
 
-use crate::{bbsplus::{message::{BBSplusMessage, Message}, self, generators::{make_generators, global_generators, print_generators}}, schemes::{self, algorithms::BBSplus}, signatures::{signature::{BBSplusSignature, Signature}, proof::{PoKSignature, ZKPoK}, commitment::{Commitment, self}, blind::BlindSignature}, keys::{bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}, pair::KeyPair}, utils::{util::{hash_to_scalar_old, ScalarExt, calculate_random_scalars, get_messages}, random::generate_nonce}};
+use crate::{utils::message::BBSplusMessage, bbsplus::{self, generators::{make_generators, global_generators}}, schemes::{self, algorithms::BBSplus}, signatures::{signature::{BBSplusSignature, Signature}, proof::{PoKSignature, ZKPoK}, commitment::Commitment, blind::BlindSignature}, keys::{bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}, pair::KeyPair}, utils::{util::{hash_to_scalar_old, ScalarExt, calculate_random_scalars, get_messages}, message::Message}};
 
 pub(crate) fn key_pair_gen<S: Scheme>(filename: &str) 
 where

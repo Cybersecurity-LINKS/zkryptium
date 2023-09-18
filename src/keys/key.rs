@@ -1,4 +1,3 @@
-use elliptic_curve::group::Curve;
 use serde::{Serialize, de::DeserializeOwned};
 
 use super::{cl03_key::{CL03PublicKey, CL03SecretKey}, bbsplus_key::{BBSplusPublicKey, BBSplusSecretKey}};

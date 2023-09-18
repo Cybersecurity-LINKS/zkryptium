@@ -1,6 +1,6 @@
 use rug::{Integer, integer::{IsPrime, Order}};
 use serde::{Serialize, Deserialize};
-use crate::{utils::{random::{random_prime, random_qr, random_number}, util::IntegerExt}, cl03::ciphersuites::CLCiphersuite, schemes::algorithms::{BBSplus, Scheme}};
+use crate::{utils::{random::{random_prime, random_qr, random_number}, util::IntegerExt}, cl03::ciphersuites::CLCiphersuite, schemes::algorithms::Scheme};
 
 
 #[derive(Clone, PartialEq, PartialOrd, Eq, Hash, Debug, Ord, Serialize, Deserialize)]

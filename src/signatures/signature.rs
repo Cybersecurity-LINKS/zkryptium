@@ -1,13 +1,13 @@
-use std::{marker::PhantomData};
+use std::marker::PhantomData;
 
 use bls12_381_plus::{G1Projective, Scalar, G1Affine, G2Projective, Gt, multi_miller_loop, G2Prepared};
 use ff::Field;
 use rug::{Integer, ops::Pow, integer::Order};
 use serde::{Deserialize, Serialize};
 
-use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, bbsplus::{ciphersuites::BbsCiphersuite, message::{CL03Message, BBSplusMessage}, generators::Generators}, cl03::ciphersuites::CLCiphersuite, utils::{random::{random_prime, random_bits}, util::{calculate_domain, ScalarExt, serialize, hash_to_scalar_old}}, keys::{cl03_key::{CL03PublicKey, CL03SecretKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}};
+use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, utils::message::{CL03Message, BBSplusMessage}, bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, cl03::ciphersuites::CLCiphersuite, utils::{random::{random_prime, random_bits}, util::{calculate_domain, serialize, hash_to_scalar_old}}, keys::{cl03_key::{CL03PublicKey, CL03SecretKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}};
 
-use elliptic_curve::{hash2curve::{ExpandMsg}, group::Curve, subtle::{CtOption, Choice}};
+use elliptic_curve::{hash2curve::ExpandMsg, group::Curve, subtle::{CtOption, Choice}};
 
 
 
@@ -165,10 +165,10 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
     pub fn to_bytes(&self) -> [u8; 112] {
         let mut bytes = [0u8; 112];
         bytes[0..48].copy_from_slice(&self.a().to_affine().to_compressed());
-        let mut e = self.e().to_be_bytes();
+        let e = self.e().to_be_bytes();
         // e.reverse();
         bytes[48..80].copy_from_slice(&e[..]);
-        let mut s = self.s().to_be_bytes();
+        let s = self.s().to_be_bytes();
         // s.reverse();
         bytes[80..112].copy_from_slice(&s[..]);
         bytes
@@ -177,10 +177,10 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
     pub fn from_bytes(data: &[u8; 112]) -> CtOption<Self> {
         let aa = G1Affine::from_compressed(&<[u8; 48]>::try_from(&data[0..48]).unwrap())
             .map(G1Projective::from);
-        let mut e_bytes = <[u8; 32]>::try_from(&data[48..80]).unwrap();
+        let e_bytes = <[u8; 32]>::try_from(&data[48..80]).unwrap();
         // e_bytes.reverse();
         let ee = Scalar::from_be_bytes(&e_bytes);
-        let mut s_bytes = <[u8; 32]>::try_from(&data[80..112]).unwrap();
+        let s_bytes = <[u8; 32]>::try_from(&data[80..112]).unwrap();
         // s_bytes.reverse();
         let ss = Scalar::from_be_bytes(&s_bytes);
 

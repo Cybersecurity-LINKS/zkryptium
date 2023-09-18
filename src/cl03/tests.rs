@@ -1,6 +1,6 @@
 use digest::Digest;
 
-use crate::{keys::{pair::KeyPair, cl03_key::CL03CommitmentPublicKey}, schemes::algorithms::{CL03Sha256, Scheme, CL03, Ciphersuite}, bbsplus::message::CL03Message, cl03::ciphersuites::CLSha256, signatures::{signature::Signature, commitment::Commitment, proof::{ZKPoK, PoKSignature}, blind::BlindSignature}};
+use crate::{keys::{pair::KeyPair, cl03_key::CL03CommitmentPublicKey}, schemes::algorithms::{Scheme, CL03, Ciphersuite}, utils::message::CL03Message, signatures::{signature::Signature, commitment::Commitment, proof::{ZKPoK, PoKSignature}, blind::BlindSignature}};
 
 use super::ciphersuites::CLCiphersuite;
 

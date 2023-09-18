@@ -1,5 +1,5 @@
 use bls12_381_plus::{Scalar, G2Projective, G2Affine};
-use elliptic_curve::group::{Curve, GroupEncoding};
+use elliptic_curve::group::Curve;
 use serde::{Serialize, Deserialize};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -29,7 +29,7 @@ pub struct BBSplusSecretKey(pub Scalar);
 impl BBSplusSecretKey{
     //in BE order
     pub fn to_bytes(&self) -> [u8; 32] {
-        let mut bytes = self.0.to_be_bytes();
+        let bytes = self.0.to_be_bytes();
         // bytes.reverse();
         bytes
     }
@@ -40,7 +40,7 @@ impl BBSplusSecretKey{
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Self {
-        let mut bytes: [u8; 32] = bytes.try_into().expect("Invalid number of bytes to be coverted into a BBSplus private key! (max 32 bytes)");
+        let bytes: [u8; 32] = bytes.try_into().expect("Invalid number of bytes to be coverted into a BBSplus private key! (max 32 bytes)");
         // bytes.reverse();
         let s = Scalar::from_be_bytes(&bytes).unwrap();
 
