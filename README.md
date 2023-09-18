@@ -30,12 +30,12 @@
 
 Take a look at the [examples](https://github.com/Cybersecurity-LINKS/ZKryptium/tree/main/examples).
 
-You can run the [BBS](https://identity.foundation/bbs-signature/draft-irtf-cfrg-bbs-signatures.html) Signature Scheme example with:
+You can run the example based on the [BBS+](https://identity.foundation/bbs-signature/draft-irtf-cfrg-bbs-signatures.html) Signature Scheme with:
 ```
 cargo run --example bbsplus
 ```
 
-You can run the [CL2003](https://link.springer.com/chapter/10.1007/3-540-36413-7_20) Signature Scheme example with:
+You can run the example based on the [CL2003](https://link.springer.com/chapter/10.1007/3-540-36413-7_20) Signature Scheme with:
 ```
 cargo run --example cl03
 ```
