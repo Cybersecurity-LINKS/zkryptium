@@ -10,6 +10,11 @@
 - Why did you build this project? (Note: the answer is not "Because it was a homework assignment.")
 - What problem does it solve?
 - What did you learn? --> 
+ZKryptium offers implementations of the [BBS+](https://identity.foundation/bbs-signature/draft-irtf-cfrg-bbs-signatures.html) and [CL2003](https://link.springer.com/chapter/10.1007/3-540-36413-7_20) signature schemes, enabling the creation of zero-knowledge proofs for both signed attributes and signatures.
+This library has been designed to expose cryptographic primitives, facilitating the development of a Verifiable Credentials (VCs) system capable of supporting:
+- Anonymous Credentials
+- Selective Disclosure Credentials
+
 
 
 
