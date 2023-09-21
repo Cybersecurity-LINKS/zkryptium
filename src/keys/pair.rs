@@ -79,14 +79,10 @@ where S: Scheme
 impl <CS: CLCiphersuite> KeyPair<CL03<CS>>{
 
     pub fn generate(n_attributes: Option<usize>) -> Self {
-        let n = CS::SECPARAM; //SECPARAM
+        let n = CS::SECPARAM;
         let mut pprime = random_prime(n);
         let mut p = Integer::from(2) * pprime.clone() + Integer::from(1);
         loop{
-            // println!("{} INT", p);
-            // let digits = p.to_digits::<u8>(Order::MsfBe);
-            // let bignum = BigUint::from_bytes_be(&digits);
-            // println!("{} BIGNUM", bignum);
             if p.is_probably_prime(50) !=IsPrime::No {
                 break;
             }
@@ -97,10 +93,6 @@ impl <CS: CLCiphersuite> KeyPair<CL03<CS>>{
         let mut qprime = random_prime(n);
         let mut q = Integer::from(2) * qprime.clone() + Integer::from(1);
         loop{
-            // println!("{} INT", p);
-            // let digits = p.to_digits::<u8>(Order::MsfBe);
-            // let bignum = BigUint::from_bytes_be(&digits);
-            // println!("{} BIGNUM", bignum);
             if p != q && q.is_probably_prime(100) !=IsPrime::No {
                 break;
             }
@@ -124,10 +116,7 @@ impl <CS: CLCiphersuite> KeyPair<CL03<CS>>{
         let pk = CL03PublicKey::new(N, b, c, a_bases);
         let sk = CL03SecretKey::new(p, q);
 
-        //let pair = CL03KeyPair::new(sk, pk);
         Self{public: pk, private: sk}
-        // Self{public: PublicKey::new(PublicKeyData::CL03(pk)), private: PrivateKey::new(PrivateKeyData::CL03(sk)), p: PhantomData}
-
     }
 }
 

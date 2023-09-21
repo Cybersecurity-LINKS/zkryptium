@@ -4,7 +4,7 @@
 
 use elliptic_curve::hash2curve::ExpandMsg;
 
-use zkryptium::{utils::message::BBSplusMessage, keys::pair::KeyPair, bbsplus::{generators::{make_generators, global_generators}, ciphersuites::BbsCiphersuite}, schemes::algorithms::{BBSplus, Scheme, BBSplusShake256, BBSplusSha256}, signatures::{commitment::Commitment, blind::BlindSignature, proof::{PoKSignature, ZKPoK}}};
+use zkryptium::{utils::message::BBSplusMessage, keys::pair::KeyPair, bbsplus::{generators::{make_generators, global_generators}, ciphersuites::BbsCiphersuite}, schemes::algorithms::{BBSplus, Scheme, BBS_BLS12381_SHAKE256, BBS_BLS12381_SHA256}, signatures::{commitment::Commitment, blind::BlindSignature, proof::{PoKSignature, ZKPoK}}};
 
 
 
@@ -108,10 +108,10 @@ fn main() {
 
     println!("\n");
     log::info!("Ciphersuite: BLS12-381-SHA-256");
-    bbsplus_main::<BBSplusSha256>();
+    bbsplus_main::<BBS_BLS12381_SHA256>();
 
     println!("\n");
     log::info!("Ciphersuite: BLS12-381-SHAKE-256");
-    bbsplus_main::<BBSplusShake256>();
+    bbsplus_main::<BBS_BLS12381_SHAKE256>();
 
 }

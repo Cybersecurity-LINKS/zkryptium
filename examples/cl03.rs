@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: APACHE-2.0
 
 use digest::Digest;
-use zkryptium::{schemes::algorithms::{CL03, Scheme, CL03Sha256, Ciphersuite}, signatures::{commitment::Commitment, blind::BlindSignature, proof::{PoKSignature, ZKPoK}}, cl03::ciphersuites::CLCiphersuite, keys::{pair::KeyPair, cl03_key::CL03CommitmentPublicKey}, utils::message::CL03Message};
+use zkryptium::{schemes::algorithms::{CL03, Scheme, CL03_CL1024_SHA256, Ciphersuite}, signatures::{commitment::Commitment, blind::BlindSignature, proof::{PoKSignature, ZKPoK}}, cl03::ciphersuites::CLCiphersuite, keys::{pair::KeyPair, cl03_key::CL03CommitmentPublicKey}, utils::message::CL03Message};
 
 
 fn cl03_main<S: Scheme>() 
@@ -64,5 +64,5 @@ fn main() {
     println!("\n");
     log::info!("Ciphersuite: CL03-SHA-256");
 
-    cl03_main::<CL03Sha256>();
+    cl03_main::<CL03_CL1024_SHA256>();
 }

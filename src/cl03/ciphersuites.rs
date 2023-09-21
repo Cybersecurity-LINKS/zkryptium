@@ -26,9 +26,10 @@ pub trait CLCiphersuite: Eq + 'static + Ciphersuite{
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub struct CLSha256{}
+pub struct CL1024Sha256{}
 
-impl CLCiphersuite for CLSha256{
+
+impl CLCiphersuite for CL1024Sha256{
     const SECPARAM: u32 = 512;
     const ln: u32 = 2 * Self::SECPARAM;   // NOTE: length of n (i.e. special RSA modulus), ln will be used to generate all randomness and bases for public keys
     const lm: u32 = 256;            // NOTE: length of each secret attribute in the credential, i.e. x = (m0, m1, ... m(M-1))
@@ -55,10 +56,9 @@ impl CLCiphersuite for CLSha256{
     
 }
 
-impl Ciphersuite for CLSha256 {
+impl Ciphersuite for CL1024Sha256 {
     type HashAlg = Sha256;      
 }
-
 
 
 
