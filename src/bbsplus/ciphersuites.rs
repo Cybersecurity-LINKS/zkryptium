@@ -20,6 +20,7 @@ pub trait BbsCiphersuite: Eq + 'static + Ciphersuite{
     type Expander: ExpandMsg<'static>;
     const EXPAND_LEN: usize = 48;
     const OCTECT_SCALAR_LEN: usize = 32;
+    const IKM_LEN: usize = 32;
 }
 
 

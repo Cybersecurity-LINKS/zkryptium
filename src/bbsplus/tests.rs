@@ -22,7 +22,7 @@ where
     let SK_expected = data_json["keyPair"]["secretKey"].as_str().unwrap();                  
     let PK_expected = data_json["keyPair"]["publicKey"].as_str().unwrap();  
 
-    let keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(hex::decode(IKM).unwrap(), Some(&hex::decode(KEY_INFO).unwrap()));
+    let keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(Some(&hex::decode(IKM).unwrap()), Some(&hex::decode(KEY_INFO).unwrap()));
     let sk = keypair.private_key().encode();
     let pk = keypair.public_key().encode();
 
@@ -437,7 +437,7 @@ where
     let nonce = b"aaaa".as_slice();
 
     let keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
-        &hex::decode(&IKM).unwrap(),
+        Some(&hex::decode(&IKM).unwrap()),
         Some(&hex::decode(&KEY_INFO).unwrap())
     );
 
@@ -523,7 +523,7 @@ where
     let nonce = b"aaaa".as_slice();
 
     let keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
-        &hex::decode(&IKM).unwrap(),
+        Some(&hex::decode(&IKM).unwrap()),
         Some(&hex::decode(&KEY_INFO).unwrap())
     );
 
@@ -623,7 +623,7 @@ where
     let nonce = b"aaaa".as_slice();
 
     let keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
-        &hex::decode(&IKM).unwrap(),
+        Some(&hex::decode(&IKM).unwrap()),
         Some(&hex::decode(&KEY_INFO).unwrap())
     );
 

@@ -2,12 +2,14 @@
 //
 // SPDX-License-Identifier: APACHE-2.0
 
+use std::borrow::Cow;
 use std::env;
 use bls12_381_plus::G2Affine;
 use bls12_381_plus::G2Projective;
 use bls12_381_plus::Scalar;
 use ff::Field;
 use hkdf::Hkdf;
+use rand::Rng;
 use rand::RngCore;
 use rug::Integer;
 use rug::integer::IsPrime;
@@ -130,11 +132,21 @@ impl <CS: BbsCiphersuite> KeyPair<BBSplus<CS>>{
         Self{public: BBSplusPublicKey(pk), private: BBSplusSecretKey(sk)}
     }
     
-    pub fn generate<T>(ikm: T, key_info: Option<&[u8]>) -> Self
-    where
-        T: AsRef<[u8]>
+    pub fn generate(ikm: Option<&[u8]>, key_info: Option<&[u8]>) -> Self
+    // where
+    //     T: AsRef<[u8]>
     {
+
+        let ikm = if let Some(ikm_data) = ikm {
+            ikm_data.to_vec()
+        } else {
+            let mut rng = rand::thread_rng();
+            (0..CS::IKM_LEN).map(|_| rng.gen()).collect()
+        };
+
         let ikm = ikm.as_ref();
+        
+
         let key_info = key_info.unwrap_or(&[]);
         let init_salt = "BBS-SIG-KEYGEN-SALT-".as_bytes();
     

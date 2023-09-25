@@ -27,7 +27,7 @@ where
 
     log::info!("Keypair Generation");
     let issuer_keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
-        &hex::decode(&IKM).unwrap(),
+        None,
         Some(&hex::decode(&KEY_INFO).unwrap())
     );
 
