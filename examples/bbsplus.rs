@@ -4,7 +4,7 @@
 
 use elliptic_curve::hash2curve::ExpandMsg;
 
-use zkryptium::{utils::message::BBSplusMessage, keys::pair::KeyPair, bbsplus::{generators::{make_generators, global_generators}, ciphersuites::BbsCiphersuite}, schemes::algorithms::{BBSplus, Scheme, BBS_BLS12381_SHAKE256, BBS_BLS12381_SHA256}, signatures::{commitment::Commitment, blind::BlindSignature, proof::{PoKSignature, ZKPoK}}};
+use zkryptium::{utils::{message::BBSplusMessage, random::generate_nonce}, keys::pair::KeyPair, bbsplus::{generators::{make_generators, global_generators}, ciphersuites::BbsCiphersuite}, schemes::algorithms::{BBSplus, Scheme, BBS_BLS12381_SHAKE256, BBS_BLS12381_SHA256}, signatures::{commitment::Commitment, blind::BlindSignature, proof::{PoKSignature, ZKPoK}}};
 
 
 
@@ -22,8 +22,7 @@ where
     let header = hex::decode(header_hex).unwrap();
     let unrevealed_message_indexes = [1usize];
     let revealed_message_indexes = [0usize, 2usize];
-    // let nonce = generate_nonce();
-    let nonce = b"aaaa".as_slice();
+    let nonce = generate_nonce();
 
     log::info!("Keypair Generation");
     let issuer_keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
