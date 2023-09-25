@@ -201,7 +201,7 @@ impl <CS: CLCiphersuite> Signature<CL03<CS>> {
         let phi_n = (&sk.p - Integer::from(1)) * (&sk.q - Integer::from(1));
 
         while ((&e > &Integer::from(2).pow(CS::le-1)) && (&e < &Integer::from(2).pow(CS::le)) && (Integer::from(e.gcd_ref(&phi_n)) == 1)) == false {
-            e = random_prime(CS::le.try_into().unwrap());
+            e = random_prime(CS::le);
         }
 
         let s = random_bits(CS::ls);

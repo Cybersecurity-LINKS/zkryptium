@@ -13,7 +13,6 @@ pub struct CL03PublicKey{
     pub N: Integer,
     pub b: Integer,
     pub c: Integer,
-    // pub a_bases: Vec<Integer>
 }
 
 impl CL03PublicKey {
