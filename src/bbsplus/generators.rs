@@ -12,6 +12,7 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 use serde::ser::{Serializer, SerializeStruct};
 
+use crate::keys::bbsplus_key::BBSplusPublicKey;
 // use crate::keys::bbsplus_key::BBSplusKeyPair;
 use crate::keys::pair::{KeyPair};
 use crate::schemes::algorithms::BBSplus;
@@ -62,13 +63,13 @@ where
     make_generators_fn(None, len)
 }
 
-pub fn signer_specific_generators<F>(make_generators_fn: F, len: usize) -> Generators
+pub fn signer_specific_generators<F>(pk: &BBSplusPublicKey, make_generators_fn: F, len: usize) -> Generators
 where
     F: for<'r> Fn(Option<&'r [u8]>, usize) -> Generators
 {
 
-    let mut rng = rand::thread_rng();
-    let kp = KeyPair::<BBSplus<Bls12381Sha256>>::generate_rng(&mut rng);
+    // let mut rng = rand::thread_rng();
+    // let kp = KeyPair::<BBSplus<Bls12381Sha256>>::generate_rng(&mut rng);
 
     let mut len = len;
     if len < 2 {
@@ -76,7 +77,7 @@ where
         len = 2;
     }
 
-    make_generators_fn(Some(&kp.public_key().to_bytes()), len)
+    make_generators_fn(Some(&pk.to_bytes()), len)
 }
 
 pub fn print_generators(generators: &Generators) {
