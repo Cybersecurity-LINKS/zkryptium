@@ -9,7 +9,7 @@ use ff::Field;
 use rug::{Integer, ops::Pow, integer::Order};
 use serde::{Deserialize, Serialize};
 
-use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, utils::message::{CL03Message, BBSplusMessage}, bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, cl03::ciphersuites::CLCiphersuite, utils::{random::{random_prime, random_bits}, util::{calculate_domain, serialize, hash_to_scalar_old}}, keys::{cl03_key::{CL03PublicKey, CL03SecretKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}};
+use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, utils::message::{CL03Message, BBSplusMessage}, bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, cl03::{ciphersuites::CLCiphersuite, bases::Bases}, utils::{random::{random_prime, random_bits}, util::{calculate_domain, serialize, hash_to_scalar_old}}, keys::{cl03_key::{CL03PublicKey, CL03SecretKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}};
 
 use elliptic_curve::{hash2curve::ExpandMsg, group::Curve, subtle::{CtOption, Choice}};
 
@@ -196,7 +196,7 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
 
 impl <CS: CLCiphersuite> Signature<CL03<CS>> {
 
-    pub fn sign(pk: &CL03PublicKey, sk: &CL03SecretKey, message: &CL03Message) -> Self {
+    pub fn sign(pk: &CL03PublicKey, sk: &CL03SecretKey, a_bases: &Bases, message: &CL03Message) -> Self {
         let mut e = random_prime(CS::le);
         let phi_n = (&sk.p - Integer::from(1)) * (&sk.q - Integer::from(1));
 
@@ -207,20 +207,20 @@ impl <CS: CLCiphersuite> Signature<CL03<CS>> {
         let s = random_bits(CS::ls);
         let e2n = Integer::from(e.invert_ref(&phi_n).unwrap());
         // v = powmod((powmod(pk['a0'], m, pk['N']) * powmod(pk['b'], s, pk['N']) * pk['c']), (e2n), pk['N'])
-        let v = ((Integer::from(pk.a_bases[0].pow_mod_ref(&message.value, &pk.N).unwrap())) * Integer::from(pk.b.pow_mod_ref(&s, &pk.N).unwrap()) * &pk.c).pow_mod(&e2n, &pk.N).unwrap();
+        let v = ((Integer::from(a_bases.0[0].pow_mod_ref(&message.value, &pk.N).unwrap())) * Integer::from(pk.b.pow_mod_ref(&s, &pk.N).unwrap()) * &pk.c).pow_mod(&e2n, &pk.N).unwrap();
         
         let sig = CL03Signature{e, s, v};
         Self::CL03(sig)
     }
 
     //TODO: tenere solo verify_multiattr visto che funzione anche con un solo messaggio?
-    pub fn verify(&self, pk: &CL03PublicKey, message: &CL03Message) -> bool {
+    pub fn verify(&self, pk: &CL03PublicKey, a_bases: &Bases, message: &CL03Message) -> bool {
 
         let sign = self.cl03Signature();
 
         let lhs = Integer::from(sign.v.pow_mod_ref(&sign.e,&pk.N).unwrap());
 
-        let rhs = (Integer::from(pk.a_bases[0].pow_mod_ref(&message.value, &pk.N).unwrap()) * Integer::from(pk.b.pow_mod_ref(&sign.s, &pk.N).unwrap()) * &pk.c) % &pk.N;
+        let rhs = (Integer::from(a_bases.0[0].pow_mod_ref(&message.value, &pk.N).unwrap()) * Integer::from(pk.b.pow_mod_ref(&sign.s, &pk.N).unwrap()) * &pk.c) % &pk.N;
 
         if sign.e <= Integer::from(2).pow(CS::le-1) || sign.e >= Integer::from(2).pow(CS::le) {
             return false
@@ -233,8 +233,8 @@ impl <CS: CLCiphersuite> Signature<CL03<CS>> {
         false
     }
 
-    pub fn verify_multiattr(&self, pk: &CL03PublicKey, messages: &[CL03Message]) -> bool{
-        if messages.len() > pk.a_bases.len() {
+    pub fn verify_multiattr(&self, pk: &CL03PublicKey, a_bases: &Bases, messages: &[CL03Message]) -> bool{
+        if messages.len() > a_bases.0.len() {
             panic!("Not enought a_bases!");
         }
 
@@ -244,7 +244,7 @@ impl <CS: CLCiphersuite> Signature<CL03<CS>> {
 
         let mut rhs = Integer::from(1);
 
-        messages.iter().enumerate().for_each(|(i,m)| rhs = &rhs * Integer::from(pk.a_bases[i].pow_mod_ref(&m.value, &pk.N).unwrap()) );
+        messages.iter().enumerate().for_each(|(i,m)| rhs = &rhs * Integer::from(a_bases.0[i].pow_mod_ref(&m.value, &pk.N).unwrap()) );
 
         rhs = (&rhs * Integer::from(pk.b.pow_mod_ref(&sign.s, &pk.N).unwrap()) * &pk.c) % &pk.N;
 

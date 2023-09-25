@@ -13,12 +13,12 @@ pub struct CL03PublicKey{
     pub N: Integer,
     pub b: Integer,
     pub c: Integer,
-    pub a_bases: Vec<Integer>
+    // pub a_bases: Vec<Integer>
 }
 
 impl CL03PublicKey {
-    pub fn new(N: Integer, b: Integer, c: Integer, a_bases: Vec<Integer>) -> Self {
-        Self{N, b, c, a_bases}
+    pub fn new(N: Integer, b: Integer, c: Integer) -> Self {
+        Self{N, b, c}
     }
 
     pub fn to_bytes<S: Scheme>(&self) -> Vec<u8> 
@@ -37,7 +37,7 @@ impl CL03PublicKey {
         bytes.extend_from_slice(&N_digits);
         bytes.extend_from_slice(&b_digits);
         bytes.extend_from_slice(&c_digits);
-        self.a_bases.iter().for_each(|a| bytes.extend_from_slice(&a.to_bytes_be(<S as Scheme>::Ciphersuite::ln as usize)));
+        
         bytes
 
     }
@@ -61,31 +61,7 @@ impl CL03PublicKey {
         let b = Integer::from_digits(&bytes[N_len .. 2 * N_len], Order::MsfBe);
         let c = Integer::from_digits(&bytes[2 * N_len .. 3 * N_len], Order::MsfBe);
 
-        let mut start = 3 * N_len;
-        let mut end = start + N_len;
-        let mut a_bases: Vec<Integer> = Vec::new();
-
-
-        // const delta = compute_delta::<S>();
-        while end <= len {
-
-            let a = &bytes[start..end];
-            if a.len() != N_len {
-                panic!("Invalid bytes length");
-            }
-            // let a = <[u8; delta]>::try_from(&bytes[start..end]);
-            // if a.is_err() {
-            //     panic!("bytes not valid");
-            // } else {
-
-            // a_bases.push(Integer::from_digits(&a[0usize .. delta], Order::MsfBe));
-            a_bases.push(Integer::from_digits(&a, Order::MsfBe));
-            // }
-            start = end;
-            end += N_len;
-        }
-
-        Self { N, b, c, a_bases }
+        Self { N, b, c }
 
     }
 }

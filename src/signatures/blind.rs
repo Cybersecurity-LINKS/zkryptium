@@ -11,7 +11,7 @@ use elliptic_curve::{group::Curve, subtle::{CtOption, Choice}, hash2curve::Expan
 use rug::{Integer, ops::Pow};
 use serde::{Deserialize, Serialize};
 
-use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, utils::message::{BBSplusMessage, CL03Message}, bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, cl03::ciphersuites::CLCiphersuite, keys::{cl03_key::{CL03PublicKey, CL03SecretKey, CL03CommitmentPublicKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, utils::{random::{random_prime, random_bits}, util::{calculate_domain, ScalarExt, hash_to_scalar_old}}, errors::BlindSignError};
+use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, utils::message::{BBSplusMessage, CL03Message}, bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, cl03::{ciphersuites::CLCiphersuite, bases::Bases}, keys::{cl03_key::{CL03PublicKey, CL03SecretKey, CL03CommitmentPublicKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, utils::{random::{random_prime, random_bits}, util::{calculate_domain, ScalarExt, hash_to_scalar_old}}, errors::BlindSignError};
 
 use super::{commitment::{CL03Commitment, Commitment, BBSplusCommitment}, signature::{CL03Signature, BBSplusSignature, Signature}, proof::ZKPoK};
 
@@ -200,18 +200,18 @@ impl <CS:CLCiphersuite> BlindSignature<CL03<CS>> {
 
     //TODO: ("remove the indexes");
 
-    pub fn blind_sign(pk: &CL03PublicKey, sk: &CL03SecretKey, zkpok: &ZKPoK<CL03<CS>>, revealed_messages: Option<&[CL03Message]>, C: &CL03Commitment, C_trusted: Option<&CL03Commitment>, commitment_pk: Option<&CL03CommitmentPublicKey>, unrevealed_message_indexes: &[usize], revealed_message_indexes: Option<&[usize]>) -> Self
+    pub fn blind_sign(pk: &CL03PublicKey, sk: &CL03SecretKey, a_bases: &Bases, zkpok: &ZKPoK<CL03<CS>>, revealed_messages: Option<&[CL03Message]>, C: &CL03Commitment, C_trusted: Option<&CL03Commitment>, commitment_pk: Option<&CL03CommitmentPublicKey>, unrevealed_message_indexes: &[usize], revealed_message_indexes: Option<&[usize]>) -> Self
     where
         CS::HashAlg: Digest
     {
 
-        if !zkpok.verify_proof(C, C_trusted, pk, commitment_pk, unrevealed_message_indexes) {
+        if !zkpok.verify_proof(C, C_trusted, pk, a_bases, commitment_pk, unrevealed_message_indexes) {
             panic!("Knowledge of committed secrets not verified");
         }
 
         let mut extended_commitment: Commitment<CL03<CS>> = Commitment::CL03(C.clone());
         if revealed_messages.is_some() && revealed_message_indexes.is_some() { 
-            extended_commitment.extend_commitment_with_pk(revealed_messages.unwrap(), pk, revealed_message_indexes);
+            extended_commitment.extend_commitment_with_pk(revealed_messages.unwrap(), pk, a_bases, revealed_message_indexes);
         }
         let mut e = random_prime(CS::le);
         let phi_n = (&sk.p - Integer::from(1)) * (&sk.q - Integer::from(1));
@@ -236,10 +236,10 @@ impl <CS:CLCiphersuite> BlindSignature<CL03<CS>> {
         Signature::CL03(CL03Signature { e: self.e().clone(), s, v: self.v().clone()})
     }
 
-    pub fn update_signature(&self, revealed_messages: Option<&[CL03Message]>, C: &CL03Commitment, sk: &CL03SecretKey, pk: &CL03PublicKey,  revealed_message_indexes: Option<&[usize]>) -> Self {
+    pub fn update_signature(&self, revealed_messages: Option<&[CL03Message]>, C: &CL03Commitment, sk: &CL03SecretKey, pk: &CL03PublicKey, a_bases: &Bases,  revealed_message_indexes: Option<&[usize]>) -> Self {
         let mut extended_commitment: Commitment<CL03<CS>> = Commitment::CL03(C.clone());
         if revealed_messages.is_some() && revealed_message_indexes.is_some() { 
-            extended_commitment.extend_commitment_with_pk(revealed_messages.unwrap(), pk, revealed_message_indexes);
+            extended_commitment.extend_commitment_with_pk(revealed_messages.unwrap(), pk, a_bases, revealed_message_indexes);
         }
 
         let phi_N = (&sk.p - Integer::from(1)) * (&sk.q - Integer::from(1));

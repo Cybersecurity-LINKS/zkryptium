@@ -78,7 +78,7 @@ where S: Scheme
 
 impl <CS: CLCiphersuite> KeyPair<CL03<CS>>{
 
-    pub fn generate(n_attributes: Option<usize>) -> Self {
+    pub fn generate() -> Self {
         let n = CS::SECPARAM;
         let mut pprime = random_prime(n);
         let mut p = Integer::from(2) * pprime.clone() + Integer::from(1);
@@ -102,18 +102,18 @@ impl <CS: CLCiphersuite> KeyPair<CL03<CS>>{
 
         let N = p.clone() * q.clone();
     
-        let mut a_bases: Vec<Integer> = Vec::new();
+        // let mut a_bases: Vec<Integer> = Vec::new();
 
-        let n_attr = n_attributes.unwrap_or(1);
-        for _i in 0..n_attr {
-            let a = random_qr(&N);
-            a_bases.push(a);
-        }
+        // let n_attr = n_attributes.unwrap_or(1);
+        // for _i in 0..n_attr {
+        //     let a = random_qr(&N);
+        //     a_bases.push(a);
+        // }
 
         let b = random_qr(&N);
         let c = random_qr(&N);
 
-        let pk = CL03PublicKey::new(N, b, c, a_bases);
+        let pk = CL03PublicKey::new(N, b, c);
         let sk = CL03SecretKey::new(p, q);
 
         Self{public: pk, private: sk}

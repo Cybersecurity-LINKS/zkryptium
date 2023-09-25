@@ -7,7 +7,7 @@ use elliptic_curve::hash2curve::ExpandMsg;
 use rug::Integer;
 use serde::{Deserialize, Serialize};
 
-use crate::{utils::message::{Message, BBSplusMessage, CL03Message}, bbsplus::{ciphersuites::BbsCiphersuite, generators::{Generators, make_generators, global_generators}}, schemes::algorithms::{Scheme, BBSplus, CL03}, cl03::ciphersuites::CLCiphersuite, utils::{util::{calculate_random_scalars, subgroup_check_g1}, random::random_bits}, keys::cl03_key::{CL03PublicKey, CL03CommitmentPublicKey}};
+use crate::{utils::message::{Message, BBSplusMessage, CL03Message}, bbsplus::{ciphersuites::BbsCiphersuite, generators::{Generators, make_generators, global_generators}}, schemes::algorithms::{Scheme, BBSplus, CL03}, cl03::{ciphersuites::CLCiphersuite, bases::Bases}, utils::{util::{calculate_random_scalars, subgroup_check_g1}, random::random_bits}, keys::cl03_key::{CL03PublicKey, CL03CommitmentPublicKey}};
 
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -115,7 +115,7 @@ impl <CS: CLCiphersuite> Commitment<CL03<CS>> {
         Self::CL03(CL03Commitment { value: Cv, randomness: w })
     }
 
-    pub fn commit_with_pk(messages: &[CL03Message], pk: &CL03PublicKey, unrevealed_message_indexes: Option<&[usize]>) -> Self {
+    pub fn commit_with_pk(messages: &[CL03Message], pk: &CL03PublicKey, a_bases: &Bases, unrevealed_message_indexes: Option<&[usize]>) -> Self {
         let unrevealed_message_indexes: Vec<usize> = match unrevealed_message_indexes {
             Some(indexes) => indexes.to_vec(),
             None => (0..messages.len()).collect(),
@@ -125,7 +125,7 @@ impl <CS: CLCiphersuite> Commitment<CL03<CS>> {
         let mut Cx = Integer::from(1);
 
         for i in unrevealed_message_indexes {
-            let ai = pk.a_bases.get(i).and_then(|a| {return Some(a);}).expect("Invalid unrevealed message index!");
+            let ai = a_bases.0.get(i).and_then(|a| {return Some(a);}).expect("Invalid unrevealed message index!");
             let mi = &messages[i];
             Cx = Cx * Integer::from(ai.pow_mod_ref(&mi.get_value(), &pk.N).unwrap());
         }
@@ -155,7 +155,7 @@ impl <CS: CLCiphersuite> Commitment<CL03<CS>> {
         Self::CL03(CL03Commitment { value: Cx, randomness: r })
     }
 
-    pub fn extend_commitment_with_pk(&mut self, revealed_messages: &[CL03Message], pk: &CL03PublicKey, revealed_message_indexes: Option<&[usize]>) {
+    pub fn extend_commitment_with_pk(&mut self, revealed_messages: &[CL03Message], pk: &CL03PublicKey, a_bases: &Bases, revealed_message_indexes: Option<&[usize]>) {
         // let mut extended_Cx = self.value().clone();
         let revealed_message_indexes: Vec<usize> = match revealed_message_indexes {
             Some(indexes) => indexes.to_vec(),
@@ -170,7 +170,7 @@ impl <CS: CLCiphersuite> Commitment<CL03<CS>> {
         let mut extended_Cx_value = extended_Cx.value.clone();
         let mut index = 0usize; 
         for i in revealed_message_indexes {
-            let ai = pk.a_bases.get(i).and_then(|a| {return Some(a);}).expect("Invalid revealed message index!");
+            let ai = a_bases.0.get(i).and_then(|a| {return Some(a);}).expect("Invalid revealed message index!");
             let mi = &revealed_messages.get(index).expect("Index overflow");
             extended_Cx_value = (extended_Cx_value * Integer::from(ai.pow_mod_ref(&mi.get_value(), &pk.N).unwrap())) % &pk.N;
             index += 1;

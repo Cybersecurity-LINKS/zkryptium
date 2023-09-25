@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{utils::{message::CL03Message, random::random_bits, util::divm}, signatures::{commitment::{CL03Commitment, Commitment}, signature::CL03Signature}, keys::cl03_key::{CL03PublicKey, CL03CommitmentPublicKey}, schemes::algorithms::CL03};
 
-use super::ciphersuites::CLCiphersuite;
+use super::{ciphersuites::CLCiphersuite, bases::Bases};
 
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -21,14 +21,14 @@ pub(crate) struct NISP2Commitments {
 
 impl NISP2Commitments {
     /* Generation of the proof related to two commitments (C1 and C2) (generate proof that C1 is a commitment to the same secrets as C2) */
-    pub(crate) fn nisp2_generate_proof_MultiSecrets<CS>(messages: &[CL03Message], c1: &CL03Commitment, c2: &CL03Commitment, signer_pk: &CL03PublicKey, commitment_pk: &CL03CommitmentPublicKey, unrevealed_message_indexes: &[usize]) -> Self
+    pub(crate) fn nisp2_generate_proof_MultiSecrets<CS>(messages: &[CL03Message], c1: &CL03Commitment, c2: &CL03Commitment, signer_pk: &CL03PublicKey, a_bases: &Bases, commitment_pk: &CL03CommitmentPublicKey, unrevealed_message_indexes: &[usize]) -> Self
     where
         CS: CLCiphersuite,
         CS::HashAlg: Digest
     {
         let n_attr = messages.len();
 
-        if signer_pk.a_bases.len() < n_attr  && n_attr < commitment_pk.g_bases.len(){
+        if a_bases.0.len() < n_attr  && n_attr < commitment_pk.g_bases.len(){
             panic!("Not enough a_bases OR g_bases for the number of attributes");
         }
 
@@ -52,7 +52,7 @@ impl NISP2Commitments {
 
 
         for i in unrevealed_message_indexes {
-            w_1 = w_1 * (Integer::from(signer_pk.a_bases.get(*i).expect("unrevealed_message_indexes not valid (overflow)").pow_mod_ref(&omega[idx], n1).unwrap()));
+            w_1 = w_1 * (Integer::from(a_bases.0.get(*i).expect("unrevealed_message_indexes not valid (overflow)").pow_mod_ref(&omega[idx], n1).unwrap()));
             w_2 = w_2 * (Integer::from(commitment_pk.g_bases.get(*i).expect("unrevealed_message_indexes not valid (overflow)").pow_mod_ref(&omega[idx], n2).unwrap()));
             idx = idx + 1;
         }
@@ -81,7 +81,7 @@ impl NISP2Commitments {
     }
 
     /* Verification of the proof for two commitments (C1 and C2) */
-    pub(crate) fn nisp2_verify_proof_MultiSecrets<CS>(&self, c1: &CL03Commitment, c2: &CL03Commitment, signer_pk: &CL03PublicKey, commitment_pk: &CL03CommitmentPublicKey, unrevealed_message_indexes: &[usize]) -> bool
+    pub(crate) fn nisp2_verify_proof_MultiSecrets<CS>(&self, c1: &CL03Commitment, c2: &CL03Commitment, signer_pk: &CL03PublicKey, a_bases: &Bases, commitment_pk: &CL03CommitmentPublicKey, unrevealed_message_indexes: &[usize]) -> bool
     where
         CS: CLCiphersuite,
         CS::HashAlg: Digest
@@ -104,7 +104,7 @@ impl NISP2Commitments {
         let mut idx = 0usize;
 
         for i in unrevealed_message_indexes {
-            lhs = lhs * Integer::from(signer_pk.a_bases.get(*i).expect("unrevealed_message_indexes not valid (overflow)").pow_mod_ref(&d[idx], n1).unwrap());
+            lhs = lhs * Integer::from(a_bases.0.get(*i).expect("unrevealed_message_indexes not valid (overflow)").pow_mod_ref(&d[idx], n1).unwrap());
             rhs = rhs * Integer::from(commitment_pk.g_bases.get(*i).expect("unrevealed_message_indexes not valid (overflow)").pow_mod_ref(&d[idx], n2).unwrap());
             idx += 1;
         }
@@ -178,7 +178,7 @@ pub(crate) struct NISPMultiSecrets {
 impl NISPMultiSecrets {
 
     /* Generation of the proof related to multiple secrets (x and r) */
-    pub(crate) fn nispMultiSecrets_generate_proof<CS>(messages: &[CL03Message], commitment: &CL03Commitment, signer_pk: &CL03PublicKey, unrevealed_message_indexes: Option<&[usize]>) -> Self
+    pub(crate) fn nispMultiSecrets_generate_proof<CS>(messages: &[CL03Message], commitment: &CL03Commitment, signer_pk: &CL03PublicKey, a_bases: &Bases, unrevealed_message_indexes: Option<&[usize]>) -> Self
     where
         CS: CLCiphersuite,
         CS::HashAlg: Digest
@@ -204,8 +204,8 @@ impl NISPMultiSecrets {
         let mut str_input = String::from("");
         let mut idx = 0usize;
         for i in unrevealed_message_indexes {
-            t = t * Integer::from(signer_pk.a_bases.get(*i).expect("unrevealed_message_indexes not valid (overflow)").pow_mod_ref(&r1[idx], n1).unwrap());
-            str_input = str_input + &signer_pk.a_bases[*i].to_string();
+            t = t * Integer::from(a_bases.0.get(*i).expect("unrevealed_message_indexes not valid (overflow)").pow_mod_ref(&r1[idx], n1).unwrap());
+            str_input = str_input + &a_bases.0[*i].to_string();
             idx += 1;
         }
         t = (t * Integer::from(h1.pow_mod_ref(&r2, n1).unwrap())) % n1; 
@@ -229,7 +229,7 @@ impl NISPMultiSecrets {
    
     }
 
-    pub(crate) fn nispMultiSecrets_verify_proof<CS>(&self, commitment: &CL03Commitment, signer_pk: &CL03PublicKey, unrevealed_message_indexes: Option<&[usize]>) -> bool
+    pub(crate) fn nispMultiSecrets_verify_proof<CS>(&self, commitment: &CL03Commitment, signer_pk: &CL03PublicKey, a_bases: &Bases, unrevealed_message_indexes: Option<&[usize]>) -> bool
     where
         CS: CLCiphersuite,
         CS::HashAlg: Digest
@@ -249,8 +249,8 @@ impl NISPMultiSecrets {
         let mut idx = 0usize;
 
         for i in unrevealed_message_indexes {
-            lhs = lhs * Integer::from(signer_pk.a_bases.get(*i).expect("unrevealed_message_indexes not valid (overflow)").pow_mod_ref(&s1[idx], n1).unwrap());
-            str_input = str_input + &signer_pk.a_bases[*i].to_string();
+            lhs = lhs * Integer::from(a_bases.0.get(*i).expect("unrevealed_message_indexes not valid (overflow)").pow_mod_ref(&s1[idx], n1).unwrap());
+            str_input = str_input + &a_bases.0[*i].to_string();
             idx += 1;
         }
         lhs = (lhs * Integer::from(h1.pow_mod_ref(&s2, n1).unwrap())) % n1;
@@ -290,17 +290,14 @@ pub(crate) struct NISPSignaturePoK{
 
 impl NISPSignaturePoK {
 
-    pub(crate) fn nisp5_MultiAttr_generate_proof<CS: CLCiphersuite>(signature: &CL03Signature, commitment_pk: &CL03CommitmentPublicKey, signer_pk: &CL03PublicKey, messages: &[CL03Message], unrevealed_message_indexes: &[usize]) -> NISPSignaturePoK
+    pub(crate) fn nisp5_MultiAttr_generate_proof<CS: CLCiphersuite>(signature: &CL03Signature, commitment_pk: &CL03CommitmentPublicKey, signer_pk: &CL03PublicKey, a_bases: &Bases, messages: &[CL03Message], unrevealed_message_indexes: &[usize]) -> NISPSignaturePoK
     where
         CS::HashAlg: Digest
     {
-        // let unrevealed_message_indexes: Vec<usize> = match unrevealed_message_indexes {
-        //     Some(indexes) => indexes.to_vec(),
-        //     None => (0..messages.len()).collect(),
-        // };
+
         let n_attr = messages.len();
 
-        if signer_pk.a_bases.len() < n_attr  && commitment_pk.g_bases.len() < n_attr {
+        if a_bases.0.len() < n_attr  && commitment_pk.g_bases.len() < n_attr {
             panic!("Not enough a_bases OR g_bases for the number of attributes");
         }
         
@@ -319,13 +316,6 @@ impl NISPSignaturePoK {
         let (r_1, r_2, r_3, r_4, r_6, r_7, r_8, r_9) = (random_bits(CS::ln), random_bits(CS::ln), random_bits(CS::ln), random_bits(CS::ln), random_bits(CS::ln), random_bits(CS::ln), random_bits(CS::ln), random_bits(CS::ln));
         
         let mut r_5: Vec<Integer> = Vec::new();
-        // messages.iter().enumerate().for_each(|(i, m)| {
-        //     if unrevealed_message_indexes.contains(&i) {
-        //         r_5.push(random_bits(CS::ln))
-        //     } else {
-        //         r_5.push(m.value.clone());
-        //     }
-        // });
 
         for i in 0..n_attr {
             if unrevealed_message_indexes.contains(&i) {
@@ -340,7 +330,7 @@ impl NISPSignaturePoK {
 
         let mut t_Cx = Integer::from(1);
         for i in 0..n_attr {
-            t_Cx = t_Cx * Integer::from(signer_pk.a_bases[i].pow_mod_ref(&r_5[i], N).unwrap())
+            t_Cx = t_Cx * Integer::from(a_bases.0[i].pow_mod_ref(&r_5[i], N).unwrap())
         }
 
         t_Cx = t_Cx % N;
@@ -379,12 +369,12 @@ impl NISPSignaturePoK {
 
     }
 
-    pub(crate) fn nisp5_MultiAttr_verify_proof<CS: CLCiphersuite>(&self, commitment_pk: &CL03CommitmentPublicKey, signer_pk: &CL03PublicKey, messages: &[CL03Message], unrevealed_message_indexes: &[usize], n_signed_messages: usize) -> bool
+    pub(crate) fn nisp5_MultiAttr_verify_proof<CS: CLCiphersuite>(&self, commitment_pk: &CL03CommitmentPublicKey, signer_pk: &CL03PublicKey, a_bases: &Bases, messages: &[CL03Message], unrevealed_message_indexes: &[usize], n_signed_messages: usize) -> bool
     where
         CS::HashAlg: Digest
     {
 
-        if signer_pk.a_bases.len() < n_signed_messages  && commitment_pk.g_bases.len() < n_signed_messages{
+        if a_bases.0.len() < n_signed_messages  && commitment_pk.g_bases.len() < n_signed_messages{
             panic!("Not enough a_bases OR g_bases for the number of attributes");
         }
 
@@ -395,12 +385,12 @@ impl NISPSignaturePoK {
         
         for i in 0..n_signed_messages {
             if unrevealed_message_indexes.contains(&i) {
-                t_Cx = t_Cx * Integer::from(signer_pk.a_bases[i].pow_mod_ref(&self.s_5[idx], N).unwrap());
+                t_Cx = t_Cx * Integer::from(a_bases.0[i].pow_mod_ref(&self.s_5[idx], N).unwrap());
                 idx += 1;
             } else {
                 let mi = &messages.get(idx_revealed_msgs).expect("index overflow!").value;
                 let val = mi + (mi * &self.challenge).complete();
-                t_Cx = t_Cx * Integer::from(signer_pk.a_bases[i].pow_mod_ref(&val, N).unwrap());
+                t_Cx = t_Cx * Integer::from(a_bases.0[i].pow_mod_ref(&val, N).unwrap());
                 idx_revealed_msgs += 1;
             }
         }
