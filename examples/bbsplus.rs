@@ -23,6 +23,8 @@ where
     let unrevealed_message_indexes = [1usize];
     let revealed_message_indexes = [0usize, 2usize];
     let nonce = generate_nonce();
+    log::info!("Generate Nonce...");
+    log::info!("Nonce: {}", hex::encode(&nonce));
 
     log::info!("Keypair Generation");
     let issuer_keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
@@ -88,12 +90,11 @@ where
 
     //Holder generates SPoK
     log::info!("Computation of a Zero-Knowledge proof-of-knowledge of a signature");
-    let ph = hex::decode("bed231d880675ed101ead304512e043ade9958dd0241ea70b4b3957fba941501").unwrap();
-    let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(unblind_signature.bbsPlusSignature(), &issuer_pk, Some(&msgs_scalars), &generators, Some(&revealed_message_indexes), Some(&header), Some(&ph), None);
+    let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(unblind_signature.bbsPlusSignature(), &issuer_pk, Some(&msgs_scalars), &generators, Some(&revealed_message_indexes), Some(&header), Some(&nonce), None);
 
     //Verifier verifies SPok
     log::info!("Signature Proof of Knowledge verification...");
-    let proof_result = proof.proof_verify(&issuer_pk, Some(&revealed_msgs), &generators, Some(&revealed_message_indexes), Some(&header), Some(&ph));
+    let proof_result = proof.proof_verify(&issuer_pk, Some(&revealed_msgs), &generators, Some(&revealed_message_indexes), Some(&header), Some(&nonce));
     assert!(proof_result, "Signature Proof of Knowledge Verification Failed!");
     log::info!("Signature Proof of Knowledge is VALID!");
 
