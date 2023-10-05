@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: APACHE-2.0
 
+use std::env;
+
 use digest::Digest;
 use zkryptium::{schemes::algorithms::{CL03, Scheme, CL03_CL1024_SHA256, Ciphersuite}, signatures::{commitment::Commitment, blind::BlindSignature, proof::{PoKSignature, ZKPoK}}, cl03::{ciphersuites::CLCiphersuite, bases::Bases}, keys::{pair::KeyPair, cl03_key::CL03CommitmentPublicKey}, utils::message::CL03Message};
 
@@ -13,6 +15,8 @@ where
 {
     const msgs: &[&str] = &["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02", "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f03", "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f04"];
     
+    log::info!("Messages: {:?}", msgs);
+
     log::info!("Keypair Generation");
     let issuer_keypair = KeyPair::<CL03<S::Ciphersuite>>::generate();
     
@@ -63,10 +67,27 @@ fn main() {
     dotenv::dotenv().ok();
     env_logger::init();
 
-    println!("\nRunnig CL03 signature algorithm...\n");
 
-    println!("\n");
-    log::info!("Ciphersuite: CL03-SHA-256");
+    let args: Vec<String> = env::args().collect();
 
-    cl03_main::<CL03_CL1024_SHA256>();
+    if args.len() != 2 {
+        println!("Usage: {} <cipher_suite>", args[0]);
+        return;
+    }
+
+    let cipher_suite = &args[1];
+
+    match cipher_suite.as_str() {
+        "CL1024-SHA-256" => {
+            println!("\n");
+            log::info!("Ciphersuite: CL1024-SHA-256");
+            cl03_main::<CL03_CL1024_SHA256>();
+        }
+        _ => {
+            println!("Unknown cipher suite: {}", cipher_suite);
+            // Handle other cipher suites or raise an error if necessary
+        }
+    }
+
+
 }
