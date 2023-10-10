@@ -1,8 +1,18 @@
-// SPDX-FileCopyrightText: 2023 Fondazione LINKS
-//
-// SPDX-License-Identifier: APACHE-2.0
+// Copyright 2023 Fondazione LINKS
 
-use bls12_381_plus::{G1Projective};
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+
+//     http://www.apache.org/licenses/LICENSE-2.0
+
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+use bls12_381_plus::G1Projective;
 
 use elliptic_curve::group::Curve;
 use elliptic_curve::hash2curve::{ExpandMsg, Expander};
@@ -13,11 +23,7 @@ use std::io::{BufWriter, Write};
 use serde::ser::{Serializer, SerializeStruct};
 
 use crate::keys::bbsplus_key::BBSplusPublicKey;
-// use crate::keys::bbsplus_key::BBSplusKeyPair;
-use crate::keys::pair::{KeyPair};
-use crate::schemes::algorithms::BBSplus;
-
-use super::ciphersuites::{BbsCiphersuite, Bls12381Sha256};
+use super::ciphersuites::BbsCiphersuite;
 
 #[derive(Clone, PartialEq, Eq, Debug, Deserialize)]
 pub struct Generators {
