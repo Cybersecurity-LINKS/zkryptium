@@ -203,7 +203,7 @@ where
     let generators = global_generators(get_generators_fn, msg_scalars.len() + 2);
 
     //Sign the message
-    let signature = Signature::<BBSplus<S::Ciphersuite>>::sign(Some(&msg_scalars), &SK, &PK, &generators, Some(&header));
+    let signature = Signature::<BBSplus<S::Ciphersuite>>::sign(Some(&msg_scalars), &SK, &PK, Some(&generators), Some(&header));
 
     let result0 = hex::encode(signature.to_bytes()) == SIGNATURE_expected;
 
@@ -220,7 +220,7 @@ where
     //Verify the signature
 
     let signature_expected = Signature::<BBSplus<S::Ciphersuite>>::from_bytes(&hex::decode(SIGNATURE_expected).unwrap().try_into().unwrap()).unwrap();
-    let result2 = signature_expected.verify(&PK, Some(&msg_scalars), &generators, Some(&header));
+    let result2 = signature_expected.verify(&PK, Some(&msg_scalars), Some(&generators), Some(&header));
     let result3 = result2 == RESULT_expected;
 
     if !result3 {
@@ -392,7 +392,7 @@ where
     let get_generators_fn = make_generators::<S::Ciphersuite>;
     let generators = global_generators(get_generators_fn, L + 2);
 
-    let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(bbs_signature, &PK, Some(&msg_scalars), &generators, Some(&revealed_message_indexes), Some(&header), Some(&ph), Some(&hex::decode(SEED).unwrap()));
+    let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(bbs_signature, &PK, Some(&msg_scalars), Some(&generators), Some(&revealed_message_indexes), Some(&header), Some(&ph), Some(&hex::decode(SEED).unwrap()));
 
     let result0 = hex::encode(proof.to_bytes()) == proof_expected;
     let result1 = result0 == result_expected; 
@@ -407,7 +407,7 @@ where
     let disclosed_messages = get_messages(&msg_scalars, &revealed_message_indexes);
 
     let PROOF = PoKSignature::<BBSplus<S::Ciphersuite>>::from_bytes(&hex::decode(proof_expected).unwrap());
-    let result2 = PROOF.proof_verify(&PK, Some(&disclosed_messages), &generators, Some(&revealed_message_indexes), Some(&header), Some(&ph));
+    let result2 = PROOF.proof_verify(&PK, Some(&disclosed_messages), Some(&generators), Some(&revealed_message_indexes), Some(&header), Some(&ph));
     let result3 = result2 == result_expected;
     if !result3 {
         eprintln!("  proofVerify: {}", result3);
@@ -589,7 +589,7 @@ where
 
     let zkpok = ZKPoK::<BBSplus<S::Ciphersuite>>::generate_proof(&unrevealed_msgs, commitment.bbsPlusCommitment(), &generators, &unrevealed_message_indexes, &nonce);
 
-    let blind_signature = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(&revealed_msgs, commitment.bbsPlusCommitment(), &zkpok, sk, pk, &generators, &revealed_message_indexes, &unrevealed_message_indexes, &nonce, Some(&header));
+    let blind_signature = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(&revealed_msgs, commitment.bbsPlusCommitment(), &zkpok, sk, pk, Some(&generators), &revealed_message_indexes, &unrevealed_message_indexes, &nonce, Some(&header));
 
     if let Err(e) = &blind_signature {
         println!("Error: {}", e);
@@ -598,17 +598,17 @@ where
     assert!(blind_signature.is_ok(), "Blind Signature Error");
 
     let wrong_zkpok = ZKPoK::<BBSplus<S::Ciphersuite>>::generate_proof(&unrevealed_msgs_wrong, commitment_wrong.bbsPlusCommitment(), &generators, &unrevealed_message_indexes, &nonce);
-    let blind_signature_wrong = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(&revealed_msgs, commitment.bbsPlusCommitment(), &wrong_zkpok, sk, pk, &generators, &revealed_message_indexes, &unrevealed_message_indexes, &nonce, Some(&header));
+    let blind_signature_wrong = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(&revealed_msgs, commitment.bbsPlusCommitment(), &wrong_zkpok, sk, pk, Some(&generators), &revealed_message_indexes, &unrevealed_message_indexes, &nonce, Some(&header));
     
     assert!(blind_signature_wrong.is_err(), "Blind Signature generation MUST fail");
 
     let unblind_signature = blind_signature.unwrap().unblind_sign(commitment.bbsPlusCommitment());
 
-    let verify = unblind_signature.verify(pk, Some(&msgs_scalars), &generators, Some(&header));
+    let verify = unblind_signature.verify(pk, Some(&msgs_scalars), Some(&generators), Some(&header));
 
     assert!(verify, "Unblinded Signature NOT VALID!");
 
-    let verify_wrong = unblind_signature.verify(pk, Some(&msgs_scalars_wrong), &generators, Some(&header));
+    let verify_wrong = unblind_signature.verify(pk, Some(&msgs_scalars_wrong), Some(&generators), Some(&header));
 
     assert!(!verify_wrong, "Unblinded Signature MUST be INVALID!");
 
@@ -671,7 +671,7 @@ where
 
     let zkpok = ZKPoK::<BBSplus<S::Ciphersuite>>::generate_proof(&unrevealed_msgs, commitment.bbsPlusCommitment(), &generators, &unrevealed_message_indexes, &nonce);
 
-    let blind_signature_result = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(&revealed_msgs, commitment.bbsPlusCommitment(), &zkpok, sk, pk, &generators, &revealed_message_indexes, &unrevealed_message_indexes, &nonce, Some(&header));
+    let blind_signature_result = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(&revealed_msgs, commitment.bbsPlusCommitment(), &zkpok, sk, pk, Some(&generators), &revealed_message_indexes, &unrevealed_message_indexes, &nonce, Some(&header));
 
     if let Err(e) = &blind_signature_result {
         println!("Error: {}", e);
@@ -682,7 +682,7 @@ where
 
     let unblind_signature = blind_signature.unblind_sign(commitment.bbsPlusCommitment());
 
-    let verify = unblind_signature.verify(pk, Some(&msgs_scalars), &generators, Some(&header));
+    let verify = unblind_signature.verify(pk, Some(&msgs_scalars), Some(&generators), Some(&header));
 
     assert!(verify, "Unblinded Signature NOT VALID!");
 
@@ -696,7 +696,7 @@ where
 
     let updated_signature = blind_signature.update_signature(sk, &generators, &revealed_msgs, &new_message_scalar, update_index);
     let unblind_updated_signature: Signature<BBSplus<<S as Scheme>::Ciphersuite>> = Signature::BBSplus(BBSplusSignature { a: updated_signature.a(), e: unblind_signature.e(), s: unblind_signature.s()});
-    let verify = unblind_updated_signature.verify(pk, Some(&new_msgs_scalars), &generators, Some(&header));
+    let verify = unblind_updated_signature.verify(pk, Some(&new_msgs_scalars), Some(&generators), Some(&header));
 
     assert!(verify, "Unblinded Signature NOT VALID!");
 

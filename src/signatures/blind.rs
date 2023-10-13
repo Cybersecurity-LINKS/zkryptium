@@ -21,7 +21,7 @@ use elliptic_curve::{group::Curve, subtle::{CtOption, Choice}, hash2curve::Expan
 use rug::{Integer, ops::Pow};
 use serde::{Deserialize, Serialize};
 
-use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, utils::message::{BBSplusMessage, CL03Message}, bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, cl03::{ciphersuites::CLCiphersuite, bases::Bases}, keys::{cl03_key::{CL03PublicKey, CL03SecretKey, CL03CommitmentPublicKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, utils::{random::{random_prime, random_bits}, util::{calculate_domain, ScalarExt, hash_to_scalar_old}}, errors::BlindSignError};
+use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, utils::message::{BBSplusMessage, CL03Message}, bbsplus::{ciphersuites::BbsCiphersuite, generators::{Generators, make_generators, signer_specific_generators}}, cl03::{ciphersuites::CLCiphersuite, bases::Bases}, keys::{cl03_key::{CL03PublicKey, CL03SecretKey, CL03CommitmentPublicKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}, utils::{random::{random_prime, random_bits}, util::{calculate_domain, ScalarExt, hash_to_scalar_old}}, errors::BlindSignError};
 
 use super::{commitment::{CL03Commitment, Commitment, BBSplusCommitment}, signature::{CL03Signature, BBSplusSignature, Signature}, proof::ZKPoK};
 
@@ -49,7 +49,7 @@ pub enum BlindSignature<S: Scheme> {
 
 impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
 
-    pub fn blind_sign(revealed_messages: &[BBSplusMessage], commitment: &BBSplusCommitment, zkpok: &ZKPoK<BBSplus<CS>>, sk: &BBSplusSecretKey, pk: &BBSplusPublicKey, generators: &Generators, revealed_message_indexes: &[usize], unrevealed_message_indexes: &[usize], nonce: &[u8], header: Option<&[u8]>) -> Result<Self, Box<BlindSignError>>
+    pub fn blind_sign(revealed_messages: &[BBSplusMessage], commitment: &BBSplusCommitment, zkpok: &ZKPoK<BBSplus<CS>>, sk: &BBSplusSecretKey, pk: &BBSplusPublicKey, generators: Option<&Generators>, revealed_message_indexes: &[usize], unrevealed_message_indexes: &[usize], nonce: &[u8], header: Option<&[u8]>) -> Result<Self, Box<BlindSignError>>
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
@@ -65,6 +65,16 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
             let U = unrevealed_message_indexes.len();
             let L = K + U;
 
+            let generators = match generators {
+                Some(gens) => gens.clone(),
+                None => {
+                    let get_generators_fn = make_generators::<CS>;
+                    let gens = signer_specific_generators(pk, get_generators_fn, L+2);
+                    gens
+                }
+                
+            };
+
             let domain = calculate_domain::<CS>(pk, generators.q1, generators.q2, &generators.message_generators[0..L], Some(header));
             
             let mut e_s_for_hash: Vec<u8> = Vec::new();
@@ -78,7 +88,7 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
             let s_second = e_s[1];
 
             // if BlindMessagesProofVerify(commitment, nizk, CGIdxs, nonce) is INVALID abort
-            if !zkpok.verify_proof(commitment, generators, unrevealed_message_indexes, nonce){
+            if !zkpok.verify_proof(commitment, &generators, unrevealed_message_indexes, nonce){
                 return Err(Box::new(BlindSignError(
                     "Knowledge of committed secrets not verified".to_string(),
                 )));

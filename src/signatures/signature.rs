@@ -19,7 +19,7 @@ use ff::Field;
 use rug::{Integer, ops::Pow, integer::Order};
 use serde::{Deserialize, Serialize};
 
-use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, utils::message::{CL03Message, BBSplusMessage}, bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, cl03::{ciphersuites::CLCiphersuite, bases::Bases}, utils::{random::{random_prime, random_bits}, util::{calculate_domain, serialize, hash_to_scalar_old}}, keys::{cl03_key::{CL03PublicKey, CL03SecretKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}};
+use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, utils::message::{CL03Message, BBSplusMessage}, bbsplus::{ciphersuites::BbsCiphersuite, generators::{Generators, self, signer_specific_generators, make_generators}}, cl03::{ciphersuites::CLCiphersuite, bases::Bases}, utils::{random::{random_prime, random_bits}, util::{calculate_domain, serialize, hash_to_scalar_old}}, keys::{cl03_key::{CL03PublicKey, CL03SecretKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}}};
 
 use elliptic_curve::{hash2curve::ExpandMsg, group::Curve, subtle::{CtOption, Choice}};
 
@@ -70,7 +70,7 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         }
     }
 
-    pub fn sign(messages: Option<&[BBSplusMessage]>, sk: &BBSplusSecretKey, pk: &BBSplusPublicKey, generators: &Generators, header: Option<&[u8]>) -> Self 
+    pub fn sign(messages: Option<&[BBSplusMessage]>, sk: &BBSplusSecretKey, pk: &BBSplusPublicKey, generators: Option<&Generators>, header: Option<&[u8]>) -> Self 
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
@@ -79,6 +79,16 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         let messages = messages.unwrap_or(&[]);
 
         let L = messages.len();
+
+        let generators = match generators {
+            Some(gens) => gens.clone(),
+            None => {
+                let get_generators_fn = make_generators::<CS>;
+                let gens = signer_specific_generators(pk, get_generators_fn, L+2);
+                gens
+            }
+            
+        };
 
         if generators.message_generators.len() < L {
             panic!("not enough generators!");
@@ -133,7 +143,7 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         Self::BBSplus(signature)
     }
 
-    pub fn verify(&self, pk: &BBSplusPublicKey, messages: Option<&[BBSplusMessage]>, generators: &Generators, header: Option<&[u8]>) -> bool 
+    pub fn verify(&self, pk: &BBSplusPublicKey, messages: Option<&[BBSplusMessage]>, generators: Option<&Generators>, header: Option<&[u8]>) -> bool 
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
@@ -142,6 +152,16 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         let signature = self.bbsPlusSignature();
 
         let L = messages.len();
+
+        let generators = match generators {
+            Some(gens) => gens.clone(),
+            None => {
+                let get_generators_fn = make_generators::<CS>;
+                let gens = signer_specific_generators(pk, get_generators_fn, L+2);
+                gens
+            }
+            
+        };
 
         if generators.message_generators.len() < L {
             panic!("not enough generators!");

@@ -16,7 +16,7 @@ use std::env;
 
 use elliptic_curve::hash2curve::ExpandMsg;
 
-use zkryptium::{utils::{message::BBSplusMessage, random::generate_nonce}, keys::pair::KeyPair, bbsplus::{generators::{make_generators, global_generators}, ciphersuites::BbsCiphersuite}, schemes::algorithms::{BBSplus, Scheme, BBS_BLS12381_SHAKE256, BBS_BLS12381_SHA256}, signatures::{commitment::Commitment, blind::BlindSignature, proof::{PoKSignature, ZKPoK}}};
+use zkryptium::{utils::{message::BBSplusMessage, random::generate_nonce}, keys::pair::KeyPair, bbsplus::{generators::{make_generators, global_generators, signer_specific_generators}, ciphersuites::BbsCiphersuite}, schemes::algorithms::{BBSplus, Scheme, BBS_BLS12381_SHAKE256, BBS_BLS12381_SHA256}, signatures::{commitment::Commitment, blind::BlindSignature, proof::{PoKSignature, ZKPoK}}};
 
 
 
@@ -53,8 +53,8 @@ where
 
     log::info!("Computing Generators");
     let get_generators_fn = make_generators::<<S as Scheme>::Ciphersuite>;
-    let generators = global_generators(get_generators_fn, msgs.len() + 2);
-    
+    // let generators = global_generators(get_generators_fn, msgs.len() + 2);
+    let generators = signer_specific_generators(issuer_pk, get_generators_fn, msgs.len()+2);
     //Map Messages to Scalars
 
     let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst))).collect();
@@ -86,7 +86,7 @@ where
 
     //Issuer compute blind signature
     log::info!("Verification of the Zero-Knowledge proof and computation of a blind signature");
-    let blind_signature = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(&revealed_msgs, commitment.bbsPlusCommitment(), &zkpok, issuer_sk, issuer_pk, &generators, &revealed_message_indexes, &unrevealed_message_indexes, &nonce, Some(&header));
+    let blind_signature = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(&revealed_msgs, commitment.bbsPlusCommitment(), &zkpok, issuer_sk, issuer_pk, Some(&generators), &revealed_message_indexes, &unrevealed_message_indexes, &nonce, Some(&header));
 
     if let Err(e) = &blind_signature {
         println!("Error: {}", e);
@@ -98,18 +98,18 @@ where
     log::info!("Signature unblinding and verification...");
     let unblind_signature = blind_signature.unwrap().unblind_sign(commitment.bbsPlusCommitment());
 
-    let verify = unblind_signature.verify(issuer_pk, Some(&msgs_scalars), &generators, Some(&header));
+    let verify = unblind_signature.verify(issuer_pk, Some(&msgs_scalars), Some(&generators), Some(&header));
 
     assert!(verify, "Unblinded Signature NOT VALID!");
     log::info!("Signature is VALID!");
 
     //Holder generates SPoK
     log::info!("Computation of a Zero-Knowledge proof-of-knowledge of a signature");
-    let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(unblind_signature.bbsPlusSignature(), &issuer_pk, Some(&msgs_scalars), &generators, Some(&revealed_message_indexes), Some(&header), Some(&nonce), None);
+    let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(unblind_signature.bbsPlusSignature(), &issuer_pk, Some(&msgs_scalars), Some(&generators), Some(&revealed_message_indexes), Some(&header), Some(&nonce), None);
 
     //Verifier verifies SPok
     log::info!("Signature Proof of Knowledge verification...");
-    let proof_result = proof.proof_verify(&issuer_pk, Some(&revealed_msgs), &generators, Some(&revealed_message_indexes), Some(&header), Some(&nonce));
+    let proof_result = proof.proof_verify(&issuer_pk, Some(&revealed_msgs), Some(&generators), Some(&revealed_message_indexes), Some(&header), Some(&nonce));
     assert!(proof_result, "Signature Proof of Knowledge Verification Failed!");
     log::info!("Signature Proof of Knowledge is VALID!");
 
@@ -122,7 +122,10 @@ fn main() {
     let args: Vec<String> = env::args().collect();
 
     if args.len() != 2 {
-        println!("Usage: {} <cipher_suite>", args[0]);
+        println!("Usage: {} <cipher_suite>
+                Ciphersuites:
+                    - BLS12-381-SHA-256
+                    - BLS12-381-SHAKE-256", args[0]);
         return;
     }
 

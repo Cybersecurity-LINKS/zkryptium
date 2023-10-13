@@ -20,7 +20,7 @@ use elliptic_curve::{hash2curve::ExpandMsg, group::Curve};
 use rug::{Integer, ops::Pow};
 use serde::{Serialize, Deserialize};
 
-use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, utils::message::{BBSplusMessage, CL03Message}, bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, cl03::{ciphersuites::CLCiphersuite, sigma_protocols::{NISPSecrets, NISP2Commitments, NISPMultiSecrets, NISPSignaturePoK}, range_proof::{Boudot2000RangeProof, RangeProof}, bases::Bases}, keys::{bbsplus_key::BBSplusPublicKey, cl03_key::{CL03CommitmentPublicKey, CL03PublicKey}}, utils::util::{get_remaining_indexes, get_messages, calculate_domain, calculate_random_scalars, ScalarExt, hash_to_scalar_old}};
+use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, utils::message::{BBSplusMessage, CL03Message}, bbsplus::{ciphersuites::BbsCiphersuite, generators::{Generators, make_generators, signer_specific_generators}}, cl03::{ciphersuites::CLCiphersuite, sigma_protocols::{NISPSecrets, NISP2Commitments, NISPMultiSecrets, NISPSignaturePoK}, range_proof::{Boudot2000RangeProof, RangeProof}, bases::Bases}, keys::{bbsplus_key::BBSplusPublicKey, cl03_key::{CL03CommitmentPublicKey, CL03PublicKey}}, utils::util::{get_remaining_indexes, get_messages, calculate_domain, calculate_random_scalars, ScalarExt, hash_to_scalar_old}};
 
 use super::{signature::{BBSplusSignature, CL03Signature}, commitment::{Commitment, CL03Commitment, BBSplusCommitment}};
 
@@ -93,7 +93,7 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         challenge[0]
     }
 
-    pub fn proof_gen(signature: &BBSplusSignature, pk: &BBSplusPublicKey, messages: Option<&[BBSplusMessage]>, generators: &Generators, revealed_message_indexes: Option<&[usize]>, header: Option<&[u8]>, ph: Option<&[u8]>, seed: Option<&[u8]>) -> Self
+    pub fn proof_gen(signature: &BBSplusSignature, pk: &BBSplusPublicKey, messages: Option<&[BBSplusMessage]>, generators: Option<&Generators>, revealed_message_indexes: Option<&[usize]>, header: Option<&[u8]>, ph: Option<&[u8]>, seed: Option<&[u8]>) -> Self
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
@@ -112,6 +112,16 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         let revealed_messages = get_messages(messages, revealed_message_indexes);
         let unrevealed_messages = get_messages(messages, &unrevealed_message_indexes);
 
+        let generators = match generators {
+            Some(gens) => gens.clone(),
+            None => {
+                let get_generators_fn = make_generators::<CS>;
+                let gens = signer_specific_generators(pk, get_generators_fn, L+2);
+                gens
+            }
+            
+        };
+        
         if generators.message_generators.len() < L {
             panic!("not enough message generators!");
         }
@@ -181,7 +191,7 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         proof
     }
 
-    pub fn proof_verify(&self, pk: &BBSplusPublicKey, revealed_messages: Option<&[BBSplusMessage]>, generators: &Generators, revealed_message_indexes: Option<&[usize]>, header: Option<&[u8]>, ph: Option<&[u8]>) -> bool 
+    pub fn proof_verify(&self, pk: &BBSplusPublicKey, revealed_messages: Option<&[BBSplusMessage]>, generators: Option<&Generators>, revealed_message_indexes: Option<&[usize]>, header: Option<&[u8]>, ph: Option<&[u8]>) -> bool 
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
@@ -207,6 +217,17 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         if revealed_messages.len() != R {
             panic!("len(revealed_messages) != R");
         }
+
+
+        let generators = match generators {
+            Some(gens) => gens.clone(),
+            None => {
+                let get_generators_fn = make_generators::<CS>;
+                let gens = signer_specific_generators(pk, get_generators_fn, L+2);
+                gens
+            }
+            
+        };
 
         if generators.message_generators.len() < L {
             panic!("len(generators) < (L)");
