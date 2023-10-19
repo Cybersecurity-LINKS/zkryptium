@@ -219,7 +219,7 @@ where
 
     //Verify the signature
 
-    let signature_expected = Signature::<BBSplus<S::Ciphersuite>>::from_bytes(&hex::decode(SIGNATURE_expected).unwrap().try_into().unwrap()).unwrap();
+    let signature_expected = Signature::<BBSplus<S::Ciphersuite>>::from_bytes(&hex::decode(SIGNATURE_expected).unwrap().try_into().unwrap());
     let result2 = signature_expected.verify(&PK, Some(&msg_scalars), Some(&generators), Some(&header));
     let result3 = result2 == RESULT_expected;
 
@@ -361,7 +361,7 @@ where
     let msgs_hex: Vec<&str> = sign_json["messages"].as_array().unwrap().iter().filter_map(|m| m.as_str()).collect();
     let signature_expected = sign_json["signature"].as_str().unwrap();
 
-    let signature = Signature::<BBSplus<S::Ciphersuite>>::from_bytes(hex::decode(signature_expected).unwrap().as_slice().try_into().unwrap()).unwrap();
+    let signature = Signature::<BBSplus<S::Ciphersuite>>::from_bytes(hex::decode(signature_expected).unwrap().as_slice().try_into().unwrap());
     let bbs_signature = signature.bbsPlusSignature();
     
     let header = hex::decode(header_hex).unwrap();

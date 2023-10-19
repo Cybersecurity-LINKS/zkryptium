@@ -32,6 +32,36 @@ pub struct BBSplusSignature {
     pub(crate) s: Scalar,
 }
 
+impl BBSplusSignature {
+    
+    pub fn to_bytes(&self) -> [u8; 112] {
+        let mut bytes = [0u8; 112];
+        bytes[0..48].copy_from_slice(&self.a.to_affine().to_compressed());
+        let e = self.e.to_be_bytes();
+        // e.reverse();
+        bytes[48..80].copy_from_slice(&e[..]);
+        let s = self.s.to_be_bytes();
+        // s.reverse();
+        bytes[80..112].copy_from_slice(&s[..]);
+        bytes
+    }
+
+    pub fn from_bytes(data: &[u8; 112]) -> CtOption<Self> {
+        let aa = G1Affine::from_compressed(&<[u8; 48]>::try_from(&data[0..48]).unwrap())
+            .map(G1Projective::from);
+        let e_bytes = <[u8; 32]>::try_from(&data[48..80]).unwrap();
+        // e_bytes.reverse();
+        let ee = Scalar::from_be_bytes(&e_bytes);
+        let s_bytes = <[u8; 32]>::try_from(&data[80..112]).unwrap();
+        // s_bytes.reverse();
+        let ss = Scalar::from_be_bytes(&s_bytes);
+
+        aa.and_then(|a| {
+            ee.and_then(|e| ss.and_then(|s| CtOption::new(Self{ a, e, s }, Choice::from(1))))
+        })
+    }
+}
+
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct CL03Signature {
@@ -197,30 +227,34 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
     }
 
     pub fn to_bytes(&self) -> [u8; 112] {
-        let mut bytes = [0u8; 112];
-        bytes[0..48].copy_from_slice(&self.a().to_affine().to_compressed());
-        let e = self.e().to_be_bytes();
-        // e.reverse();
-        bytes[48..80].copy_from_slice(&e[..]);
-        let s = self.s().to_be_bytes();
-        // s.reverse();
-        bytes[80..112].copy_from_slice(&s[..]);
-        bytes
+        // let mut bytes = [0u8; 112];
+        // bytes[0..48].copy_from_slice(&self.a().to_affine().to_compressed());
+        // let e = self.e().to_be_bytes();
+        // // e.reverse();
+        // bytes[48..80].copy_from_slice(&e[..]);
+        // let s = self.s().to_be_bytes();
+        // // s.reverse();
+        // bytes[80..112].copy_from_slice(&s[..]);
+        // bytes
+
+        self.bbsPlusSignature().to_bytes()
     }
 
-    pub fn from_bytes(data: &[u8; 112]) -> CtOption<Self> {
-        let aa = G1Affine::from_compressed(&<[u8; 48]>::try_from(&data[0..48]).unwrap())
-            .map(G1Projective::from);
-        let e_bytes = <[u8; 32]>::try_from(&data[48..80]).unwrap();
-        // e_bytes.reverse();
-        let ee = Scalar::from_be_bytes(&e_bytes);
-        let s_bytes = <[u8; 32]>::try_from(&data[80..112]).unwrap();
-        // s_bytes.reverse();
-        let ss = Scalar::from_be_bytes(&s_bytes);
+    pub fn from_bytes(data: &[u8; 112]) -> Self {
+        // let aa = G1Affine::from_compressed(&<[u8; 48]>::try_from(&data[0..48]).unwrap())
+        //     .map(G1Projective::from);
+        // let e_bytes = <[u8; 32]>::try_from(&data[48..80]).unwrap();
+        // // e_bytes.reverse();
+        // let ee = Scalar::from_be_bytes(&e_bytes);
+        // let s_bytes = <[u8; 32]>::try_from(&data[80..112]).unwrap();
+        // // s_bytes.reverse();
+        // let ss = Scalar::from_be_bytes(&s_bytes);
 
-        aa.and_then(|a| {
-            ee.and_then(|e| ss.and_then(|s| CtOption::new(Self::BBSplus(BBSplusSignature{ a, e, s }), Choice::from(1))))
-        })
+        // aa.and_then(|a| {
+        //     ee.and_then(|e| ss.and_then(|s| CtOption::new(Self::BBSplus(BBSplusSignature{ a, e, s }), Choice::from(1))))
+        // })
+
+        Self::BBSplus(BBSplusSignature::from_bytes(data).unwrap())
     }
 }
 
