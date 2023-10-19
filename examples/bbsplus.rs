@@ -37,9 +37,7 @@ where
     let header = hex::decode(header_hex).unwrap();
     let unrevealed_message_indexes = [1usize];
     let revealed_message_indexes = [0usize, 2usize];
-    let nonce = generate_nonce();
-    log::info!("Generate Nonce...");
-    log::info!("Nonce: {}", hex::encode(&nonce));
+    
 
     log::info!("Keypair Generation");
     let issuer_keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
@@ -80,13 +78,19 @@ where
     }).collect();
 
 
+    //Holder receive nonce from Issuer
+    let nonce_issuer = generate_nonce();
+    log::info!("Generate Nonce...");
+    log::info!("Nonce: {}", hex::encode(&nonce_issuer));
+
+
     log::info!("Computation of a Zero-Knowledge proof-of-knowledge of committed messages");
-    let zkpok = ZKPoK::<BBSplus<S::Ciphersuite>>::generate_proof(&unrevealed_msgs, commitment.bbsPlusCommitment(), &generators, &unrevealed_message_indexes, &nonce);
+    let zkpok = ZKPoK::<BBSplus<S::Ciphersuite>>::generate_proof(&unrevealed_msgs, commitment.bbsPlusCommitment(), &generators, &unrevealed_message_indexes, &nonce_issuer);
 
 
     //Issuer compute blind signature
     log::info!("Verification of the Zero-Knowledge proof and computation of a blind signature");
-    let blind_signature = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(&revealed_msgs, commitment.bbsPlusCommitment(), &zkpok, issuer_sk, issuer_pk, Some(&generators), &revealed_message_indexes, &unrevealed_message_indexes, &nonce, Some(&header));
+    let blind_signature = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(&revealed_msgs, commitment.bbsPlusCommitment(), &zkpok, issuer_sk, issuer_pk, Some(&generators), &revealed_message_indexes, &unrevealed_message_indexes, &nonce_issuer, Some(&header));
 
     if let Err(e) = &blind_signature {
         println!("Error: {}", e);
@@ -103,13 +107,18 @@ where
     assert!(verify, "Unblinded Signature NOT VALID!");
     log::info!("Signature is VALID!");
 
+    //Holder receive nonce from Verifier
+    let nonce_verifier = generate_nonce();
+    log::info!("Generate Nonce...");
+    log::info!("Nonce: {}", hex::encode(&nonce_verifier));
+
     //Holder generates SPoK
     log::info!("Computation of a Zero-Knowledge proof-of-knowledge of a signature");
-    let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(unblind_signature.bbsPlusSignature(), &issuer_pk, Some(&msgs_scalars), Some(&generators), Some(&revealed_message_indexes), Some(&header), Some(&nonce), None);
+    let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(unblind_signature.bbsPlusSignature(), &issuer_pk, Some(&msgs_scalars), Some(&generators), Some(&revealed_message_indexes), Some(&header), Some(&nonce_verifier), None);
 
     //Verifier verifies SPok
     log::info!("Signature Proof of Knowledge verification...");
-    let proof_result = proof.proof_verify(&issuer_pk, Some(&revealed_msgs), Some(&generators), Some(&revealed_message_indexes), Some(&header), Some(&nonce));
+    let proof_result = proof.proof_verify(&issuer_pk, Some(&revealed_msgs), Some(&generators), Some(&revealed_message_indexes), Some(&header), Some(&nonce_verifier));
     assert!(proof_result, "Signature Proof of Knowledge Verification Failed!");
     log::info!("Signature Proof of Knowledge is VALID!");
 
