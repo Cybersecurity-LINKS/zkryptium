@@ -17,3 +17,8 @@ pub mod tests;
 pub mod sigma_protocols;
 pub mod range_proof;
 pub mod bases;
+pub mod keys;
+pub mod blind;
+pub mod commitment;
+pub mod signature;
+pub mod proof;

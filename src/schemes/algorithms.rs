@@ -17,7 +17,7 @@ use serde::{Serialize, Deserialize, de::DeserializeOwned};
 use sha2::Sha256;
 use sha3::Shake256;
 use std::marker::PhantomData;
-use crate::{keys::{key::{PrivateKey, PublicKey}, bbsplus_key::{BBSplusSecretKey, BBSplusPublicKey}, cl03_key::{CL03SecretKey, CL03PublicKey}}, bbsplus::ciphersuites::{BbsCiphersuite, Bls12381Shake256, Bls12381Sha256}, cl03::ciphersuites::{CLCiphersuite, CL1024Sha256}};
+use crate::{keys::{traits::{PrivateKey, PublicKey}}, bbsplus::{ciphersuites::{BbsCiphersuite, Bls12381Shake256, Bls12381Sha256}, keys::{BBSplusSecretKey, BBSplusPublicKey}}, cl03::{ciphersuites::{CLCiphersuite, CL1024Sha256}, keys::{CL03SecretKey, CL03PublicKey}}};
 
 pub type BBS_BLS12381_SHAKE256 = BBSplus<Bls12381Shake256>;
 pub type BBS_BLS12381_SHA256 = BBSplus<Bls12381Sha256>;

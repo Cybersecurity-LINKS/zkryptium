@@ -15,7 +15,7 @@
 use std::env;
 
 use digest::Digest;
-use zkryptium::{schemes::algorithms::{CL03, Scheme, CL03_CL1024_SHA256, Ciphersuite}, signatures::{commitment::Commitment, blind::BlindSignature, proof::{PoKSignature, ZKPoK}}, cl03::{ciphersuites::CLCiphersuite, bases::Bases}, keys::{pair::KeyPair, cl03_key::CL03CommitmentPublicKey}, utils::message::CL03Message};
+use zkryptium::{schemes::algorithms::{CL03, Scheme, CL03_CL1024_SHA256, Ciphersuite}, schemes::generics::{Commitment, BlindSignature, PoKSignature, ZKPoK}, cl03::{ciphersuites::CLCiphersuite, bases::Bases, keys::CL03CommitmentPublicKey}, keys::pair::KeyPair, utils::message::CL03Message};
 
 
 fn cl03_main<S: Scheme>() 
@@ -81,7 +81,9 @@ fn main() {
     let args: Vec<String> = env::args().collect();
 
     if args.len() != 2 {
-        println!("Usage: {} <cipher_suite>", args[0]);
+        println!("Usage: {} <cipher_suite>
+                Ciphersuites:
+                    - CL1024-SHA-256", args[0]);
         return;
     }
 

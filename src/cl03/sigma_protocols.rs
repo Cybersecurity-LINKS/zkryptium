@@ -16,9 +16,9 @@ use digest::Digest;
 use rug::{Integer, integer::Order, Complete};
 use serde::{Deserialize, Serialize};
 
-use crate::{utils::{message::CL03Message, random::random_bits, util::divm}, signatures::{commitment::{CL03Commitment, Commitment}, signature::CL03Signature}, keys::cl03_key::{CL03PublicKey, CL03CommitmentPublicKey}, schemes::algorithms::CL03};
+use crate::{utils::{message::CL03Message, random::random_bits, util::divm}, schemes::algorithms::CL03, schemes::generics::Commitment};
 
-use super::{ciphersuites::CLCiphersuite, bases::Bases};
+use super::{ciphersuites::CLCiphersuite, bases::Bases, keys::{CL03PublicKey, CL03CommitmentPublicKey}, commitment::CL03Commitment, signature::CL03Signature};
 
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]

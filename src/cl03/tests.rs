@@ -14,7 +14,7 @@
 
 use digest::Digest;
 
-use crate::{keys::{pair::KeyPair, cl03_key::CL03CommitmentPublicKey}, schemes::algorithms::{Scheme, CL03, Ciphersuite}, utils::message::CL03Message, signatures::{signature::Signature, commitment::Commitment, proof::{ZKPoK, PoKSignature}, blind::BlindSignature}, cl03::bases::Bases};
+use crate::{keys::pair::KeyPair, schemes::algorithms::{Scheme, CL03, Ciphersuite}, utils::message::CL03Message, schemes::generics::{Signature, Commitment, ZKPoK, PoKSignature, BlindSignature}, cl03::{bases::Bases, keys::CL03CommitmentPublicKey}};
 
 use super::ciphersuites::CLCiphersuite;
 

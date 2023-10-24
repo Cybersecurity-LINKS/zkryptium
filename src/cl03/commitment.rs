@@ -17,7 +17,9 @@ use elliptic_curve::hash2curve::ExpandMsg;
 use rug::Integer;
 use serde::{Deserialize, Serialize};
 
-use crate::{utils::message::{Message, BBSplusMessage, CL03Message}, bbsplus::{ciphersuites::BbsCiphersuite, generators::{Generators, make_generators, global_generators}}, schemes::algorithms::{Scheme, BBSplus, CL03}, cl03::{ciphersuites::CLCiphersuite, bases::Bases}, utils::{util::{calculate_random_scalars, subgroup_check_g1}, random::random_bits}, keys::cl03_key::{CL03PublicKey, CL03CommitmentPublicKey}};
+use crate::{utils::message::{Message, BBSplusMessage, CL03Message}, bbsplus::{ciphersuites::BbsCiphersuite, generators::{Generators, make_generators, global_generators}}, schemes::algorithms::{Scheme, BBSplus, CL03}, cl03::{ciphersuites::CLCiphersuite, bases::Bases}, utils::{util::{calculate_random_scalars, subgroup_check_g1}, random::random_bits}, schemes::generics::Commitment};
+
+use super::keys::{CL03CommitmentPublicKey, CL03PublicKey};
 
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -26,94 +28,6 @@ pub struct CL03Commitment {
     pub randomness: Integer
 }
 
-
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub struct BBSplusCommitment {
-    pub value: G1Projective,
-    pub s_prime: Scalar
-}
-
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub enum Commitment<S: Scheme> {
-    BBSplus(BBSplusCommitment),
-    CL03(CL03Commitment),
-    _Unreachable(std::marker::PhantomData<S>)
-}
-
-impl <CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
-
-    pub fn commit(messages: &[BBSplusMessage], generators: Option<&Generators>, unrevealed_message_indexes: &[usize]) -> Self
-    where
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
-
-        let s_prime = calculate_random_scalars::<CS>(1, None);
-
-        if unrevealed_message_indexes.is_empty() {
-                        panic!("Unrevealed message indexes empty");
-                    }
-
-        let get_generators_fn = make_generators::<CS>;
-
-        let gens: Generators;
-        if generators.is_none() {
-            gens = global_generators(get_generators_fn, unrevealed_message_indexes.iter().max().unwrap()+3).to_owned().clone();
-        }
-        else {
-            gens = generators.unwrap().clone();
-        }
-
-
-        if unrevealed_message_indexes.iter().max().unwrap() >= &gens.message_generators.len() {
-            panic!("Non enought generators!");
-        }
-
-        if subgroup_check_g1(gens.g1_base_point) == false {
-            panic!("Failed subgroup check");
-        }
-
-        for i in unrevealed_message_indexes {
-            if subgroup_check_g1(gens.message_generators[*i]) == false {
-                panic!("Failed subgroup check");
-            }
-        }
-
-        let mut commitment = gens.q1 * s_prime[0];
-
-        // let mut index: usize = 0;
-
-        for i in unrevealed_message_indexes {
-            // commitment = commitment + (gens.message_generators[*i] * Scalar::from_bytes(&messages[index].to_bytes()).unwrap());
-            commitment += gens.message_generators.get(*i).expect("index overflow") * &messages.get(*i).expect("Index overflow").get_value();
-        
-            // index = index + 1;
-        }
-        
-        Self::BBSplus(BBSplusCommitment{value: commitment, s_prime: s_prime[0]})
-
-    }
-
-    pub fn value(&self) -> &G1Projective {
-        match self {
-            Self::BBSplus(inner) => &inner.value,
-            _ => panic!("Cannot happen!")
-        }
-    }
-
-    pub fn bbsPlusCommitment(&self) -> &BBSplusCommitment {
-        match self {
-            Self::BBSplus(inner) => &inner,
-            _ => panic!("Cannot happen!"),
-        }
-    }
-
-    pub fn s_prime(&self) -> &Scalar {
-        match self {
-            Self::BBSplus(inner) => &inner.s_prime,
-            _ => panic!("Cannot happen!")
-        }
-    }
-}
 
 
 impl <CS: CLCiphersuite> Commitment<CL03<CS>> {

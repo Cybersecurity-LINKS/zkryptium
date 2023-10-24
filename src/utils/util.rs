@@ -21,7 +21,9 @@ use elliptic_curve::{hash2curve::{ExpandMsg, Expander}, group::Curve};
 use rand::RngCore;
 use rug::{Integer, integer::Order};
 use super::message::BBSplusMessage;
-use crate::{bbsplus::ciphersuites::BbsCiphersuite, keys::bbsplus_key::BBSplusPublicKey};
+use crate::{bbsplus::ciphersuites::BbsCiphersuite, bbsplus::keys::BBSplusPublicKey};
+
+
 
 pub fn hash_to_scalar<C: BbsCiphersuite>(msg_octects: &[u8], dst: Option<&[u8]>) -> Scalar 
 where

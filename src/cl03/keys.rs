@@ -15,7 +15,7 @@
 
 use rug::{Integer, integer::{IsPrime, Order}};
 use serde::{Serialize, Deserialize};
-use crate::{utils::random::{random_prime, random_qr, random_number}, cl03::ciphersuites::CLCiphersuite, schemes::algorithms::Scheme};
+use crate::{utils::random::{random_prime, random_qr, random_number}, cl03::ciphersuites::CLCiphersuite, schemes::algorithms::{Scheme, CL03}, keys::{traits::{PublicKey, PrivateKey}, pair::KeyPair}};
 
 
 #[derive(Clone, PartialEq, PartialOrd, Eq, Hash, Debug, Ord, Serialize, Deserialize)]
@@ -116,6 +116,84 @@ impl CL03SecretKey{
 }
 
 
+
+
+impl PublicKey for CL03PublicKey{
+    type Output = [u8; 512];
+    // type Params = (Integer, Integer, Integer, Vec<(Integer, bool)>);
+    fn encode(&self) -> String {
+        todo!()
+    }
+
+    fn to_bytes(&self) -> Self::Output {
+        todo!()
+    }
+
+    // fn get_params(&self) -> (Integer, Integer, Integer, Vec<(Integer, bool)>) {
+    //     (self.N.clone(), self.b.clone(), self.c.clone(), self.a_bases.clone())
+    // }
+}
+
+impl PrivateKey for CL03SecretKey{
+    type Output = [u8; 512];
+    fn encode(&self) -> String {
+        todo!()
+    }
+
+    fn to_bytes(&self) -> Self::Output {
+        todo!()
+    }
+}
+
+
+
+
+impl <CS: CLCiphersuite> KeyPair<CL03<CS>>{
+
+    pub fn generate() -> Self {
+        let n = CS::SECPARAM;
+        let mut pprime = random_prime(n);
+        let mut p = Integer::from(2) * pprime.clone() + Integer::from(1);
+        loop{
+            if p.is_probably_prime(50) !=IsPrime::No {
+                break;
+            }
+            pprime = random_prime(n);
+            p = Integer::from(2) * pprime + Integer::from(1);
+        }
+
+        let mut qprime = random_prime(n);
+        let mut q = Integer::from(2) * qprime.clone() + Integer::from(1);
+        loop{
+            if p != q && q.is_probably_prime(100) !=IsPrime::No {
+                break;
+            }
+            qprime = random_prime(n);
+            q = Integer::from(2) * qprime + Integer::from(1);
+        }
+
+        let N = p.clone() * q.clone();
+    
+        // let mut a_bases: Vec<Integer> = Vec::new();
+
+        // let n_attr = n_attributes.unwrap_or(1);
+        // for _i in 0..n_attr {
+        //     let a = random_qr(&N);
+        //     a_bases.push(a);
+        // }
+
+        let b = random_qr(&N);
+        let c = random_qr(&N);
+
+        let pk = CL03PublicKey::new(N, b, c);
+        let sk = CL03SecretKey::new(p, q);
+
+        Self{public: pk, private: sk}
+    }
+}
+
+
+
 pub struct CL03CommitmentPublicKey {
     pub N: Integer,
     pub h: Integer,
@@ -185,3 +263,4 @@ impl CL03CommitmentPublicKey {
         CL03CommitmentPublicKey{N: N, h: h, g_bases: g_bases}
     }
 }
+

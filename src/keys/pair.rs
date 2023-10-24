@@ -35,17 +35,17 @@ use crate::schemes::algorithms::CL03;
 use crate::schemes::algorithms::Scheme;
 use crate::utils::random::random_prime;
 use crate::utils::random::random_qr;
-use super::bbsplus_key::BBSplusPublicKey;
-use super::bbsplus_key::BBSplusSecretKey;
-use super::cl03_key::CL03PublicKey;
-use super::cl03_key::CL03SecretKey;
+use crate::bbsplus::keys::BBSplusPublicKey;
+use crate::bbsplus::keys::BBSplusSecretKey;
+use crate::cl03::keys::CL03PublicKey;
+use crate::cl03::keys::CL03SecretKey;
 use sha2::Digest;
 
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct KeyPair<S: Scheme>{
-    public: S::PubKey,
-    private: S::PrivKey,
+    pub(crate) public: S::PubKey,
+    pub(crate) private: S::PrivKey,
 }
 
 impl <S> KeyPair<S> 
@@ -88,121 +88,6 @@ where S: Scheme
 }
 
 
-impl <CS: CLCiphersuite> KeyPair<CL03<CS>>{
-
-    pub fn generate() -> Self {
-        let n = CS::SECPARAM;
-        let mut pprime = random_prime(n);
-        let mut p = Integer::from(2) * pprime.clone() + Integer::from(1);
-        loop{
-            if p.is_probably_prime(50) !=IsPrime::No {
-                break;
-            }
-            pprime = random_prime(n);
-            p = Integer::from(2) * pprime + Integer::from(1);
-        }
-
-        let mut qprime = random_prime(n);
-        let mut q = Integer::from(2) * qprime.clone() + Integer::from(1);
-        loop{
-            if p != q && q.is_probably_prime(100) !=IsPrime::No {
-                break;
-            }
-            qprime = random_prime(n);
-            q = Integer::from(2) * qprime + Integer::from(1);
-        }
-
-        let N = p.clone() * q.clone();
-    
-        // let mut a_bases: Vec<Integer> = Vec::new();
-
-        // let n_attr = n_attributes.unwrap_or(1);
-        // for _i in 0..n_attr {
-        //     let a = random_qr(&N);
-        //     a_bases.push(a);
-        // }
-
-        let b = random_qr(&N);
-        let c = random_qr(&N);
-
-        let pk = CL03PublicKey::new(N, b, c);
-        let sk = CL03SecretKey::new(p, q);
-
-        Self{public: pk, private: sk}
-    }
-}
-
-impl <CS: BbsCiphersuite> KeyPair<BBSplus<CS>>{ 
-     
-    pub fn generate_rng<R: RngCore>(rng: &mut R) -> Self {
-        let sk = Scalar::random(rng);
-        let pk: G2Projective = G2Affine::generator() * sk;
-
-        Self{public: BBSplusPublicKey(pk), private: BBSplusSecretKey(sk)}
-    }
-    
-    pub fn generate(ikm: Option<&[u8]>, key_info: Option<&[u8]>) -> Self
-    {
-
-        let ikm = if let Some(ikm_data) = ikm {
-            ikm_data.to_vec()
-        } else {
-            let mut rng = rand::thread_rng();
-            (0..CS::IKM_LEN).map(|_| rng.gen()).collect()
-        };
-
-        let ikm = ikm.as_ref();
-        
-
-        let key_info = key_info.unwrap_or(&[]);
-        let init_salt = "BBS-SIG-KEYGEN-SALT-".as_bytes();
-    
-        // if ikm.len() < 32 {
-        //     return Err(BadParams { 
-        //         cause: format!("Invalid ikm length. Needs to be at least 32 bytes long. Got {}", ikm.len())
-        //     })
-        // }
-    
-        // L = ceil((3 * ceil(log2(r))) / 16)
-        const L: usize = 48;
-        const L_BYTES: [u8; 2] = (L as u16).to_be_bytes();
-    
-        // salt = H(salt)
-        let mut hasher = Sha256::new();
-        hasher.update(init_salt);
-        let salt = hasher.finalize();
-    
-        // PRK = HKDF-Extract(salt, IKM || I2OSP(0, 1))
-        let prk = Hkdf::<Sha256>::new(
-            Some(&salt),
-            &[ikm, &[0u8; 1][..]].concat()
-        );
-    
-        // OKM = HKDF-Expand(PRK, key_info || I2OSP(L, 2), L)
-        let mut okm = [0u8; 64];
-    
-        prk.expand(
-            &[&key_info, &L_BYTES[..]].concat(),
-            &mut okm[(64-L)..]
-        ).expect(
-            &format!("The HKDF-expand output cannot be more than {} bytes long", 255 * Sha256::output_size())
-        );
-    
-        okm.reverse(); // okm is in be format
-        let sk = Scalar::from_bytes_wide(&okm);
-        let pk: G2Projective = G2Affine::generator() * sk;
-        // let pk_affine = pk.to_affine();
-    
-        // // transform secret key from le to be
-        // let mut sk_bytes = sk.to_bytes();
-        // sk_bytes.reverse();
-
-        // BBSplusKeyPair::new(BBSplusSecretKey(sk), BBSplusPublicKey(pk))
-
-        Self{public: BBSplusPublicKey(pk), private: BBSplusSecretKey(sk)}
-    }
-
-}
 
 
 

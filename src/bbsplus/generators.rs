@@ -22,7 +22,7 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 use serde::ser::{Serializer, SerializeStruct};
 
-use crate::keys::bbsplus_key::BBSplusPublicKey;
+use crate::bbsplus::keys::BBSplusPublicKey;
 use super::ciphersuites::BbsCiphersuite;
 
 #[derive(Clone, PartialEq, Eq, Debug, Deserialize)]

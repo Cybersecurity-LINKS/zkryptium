@@ -48,3 +48,5 @@ path = "examples/bbsplus.rs"
 name = "cl03"
 path = "examples/cl03.rs"
 
+[features]
+cl03 = []
