@@ -137,14 +137,11 @@ impl <CS: BbsCiphersuite> KeyPair<BBSplus<CS>>{
     pub fn generate_rng<R: RngCore>(rng: &mut R) -> Self {
         let sk = Scalar::random(rng);
         let pk: G2Projective = G2Affine::generator() * sk;
-        // BBSplusKeyPair::new(BBSplusSecretKey(sk), BBSplusPublicKey(pk))
 
         Self{public: BBSplusPublicKey(pk), private: BBSplusSecretKey(sk)}
     }
     
     pub fn generate(ikm: Option<&[u8]>, key_info: Option<&[u8]>) -> Self
-    // where
-    //     T: AsRef<[u8]>
     {
 
         let ikm = if let Some(ikm_data) = ikm {
