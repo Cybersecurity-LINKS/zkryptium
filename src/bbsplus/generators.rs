@@ -27,10 +27,10 @@ use super::ciphersuites::BbsCiphersuite;
 
 #[derive(Clone, PartialEq, Eq, Debug, Deserialize)]
 pub struct Generators {
-    pub(crate) g1_base_point: G1Projective,
-    pub(crate) q1: G1Projective,
-    pub(crate) q2: G1Projective,
-    pub(crate) message_generators: Vec<G1Projective>
+    pub g1_base_point: G1Projective,
+    pub q1: G1Projective,
+    pub q2: G1Projective,
+    pub message_generators: Vec<G1Projective>
 }
 
 impl Serialize for Generators {

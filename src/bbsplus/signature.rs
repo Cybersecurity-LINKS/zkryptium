@@ -29,9 +29,9 @@ use super::keys::{BBSplusPublicKey, BBSplusSecretKey};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusSignature {
-    pub(crate) a: G1Projective,
-    pub(crate) e: Scalar,
-    pub(crate) s: Scalar,
+    pub a: G1Projective,
+    pub e: Scalar,
+    pub s: Scalar,
 }
 
 impl BBSplusSignature {

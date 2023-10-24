@@ -14,9 +14,51 @@
 
 use digest::Digest;
 
-use crate::{keys::pair::KeyPair, schemes::algorithms::{Scheme, CL03, Ciphersuite}, utils::message::CL03Message, schemes::generics::{Signature, Commitment, ZKPoK, PoKSignature, BlindSignature}, cl03::{bases::Bases, keys::CL03CommitmentPublicKey}};
+use zkryptium::{keys::pair::KeyPair, schemes::algorithms::{Scheme, CL03, Ciphersuite}, utils::message::CL03Message, schemes::generics::{Signature, Commitment, ZKPoK, PoKSignature, BlindSignature}, cl03::{bases::Bases, keys::CL03CommitmentPublicKey}};
 
-use super::ciphersuites::CLCiphersuite;
+use zkryptium::cl03::ciphersuites::CLCiphersuite;
+
+
+#[cfg(test)]
+mod cl03_tests {
+    use zkryptium::schemes::algorithms::CL03_CL1024_SHA256;
+    use super::{signature, zkpok, blind_sign, spok, update_signature};
+
+    
+    //Signature (sign) - CL1024-SHA256
+    #[test]
+    fn signature_cl1024_sha256() {
+        signature::<CL03_CL1024_SHA256>();
+    }
+
+
+    //Proof of knowledge of secrets (ZKPoK) - CL1024-SHA256
+    #[test]
+    fn zkpok_cl1024_sha256() {
+        zkpok::<CL03_CL1024_SHA256>();
+    }
+
+
+    //Blind signature - CL1024-SHA256
+    #[test]
+    fn blind_sign_cl1024_sha256() {
+        blind_sign::<CL03_CL1024_SHA256>();
+    }
+
+
+    //Signature Proof of Knowledge - CL1024-SHA256
+    #[test]
+    fn spok_cl1024_sha256() {
+        spok::<CL03_CL1024_SHA256>();
+    }
+
+    //Signature update - CL1024-SHA256
+    #[test]
+    fn update_signature_cl1024_sha256() {
+        update_signature::<CL03_CL1024_SHA256>();
+    }
+
+}
 
 
 
