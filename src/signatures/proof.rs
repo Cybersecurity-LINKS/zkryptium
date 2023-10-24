@@ -37,6 +37,67 @@ pub struct BBSplusPoKSignature{
     m_cap: Vec<Scalar>
 }
 
+impl BBSplusPoKSignature {
+
+    pub fn to_bytes(&self) -> Vec<u8>{
+        let signature = self;
+        let mut bytes: Vec<u8> = Vec::new();
+
+        bytes.extend_from_slice(&signature.A_prime.to_affine().to_compressed());
+        bytes.extend_from_slice(&signature.A_bar.to_affine().to_compressed());
+        bytes.extend_from_slice(&signature.D.to_affine().to_compressed());
+        bytes.extend_from_slice(&signature.c.to_bytes_be());
+        bytes.extend_from_slice(&signature.e_cap.to_bytes_be());
+        bytes.extend_from_slice(&signature.r2_cap.to_bytes_be());
+        bytes.extend_from_slice(&signature.r3_cap.to_bytes_be());
+        bytes.extend_from_slice(&signature.s_cap.to_bytes_be());
+        signature.m_cap.iter().for_each(|v| bytes.extend_from_slice(&v.to_bytes_be()));
+        
+        bytes
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Self {
+        
+        let len = bytes.len();
+        if len < 304 || (len - 304) % 32 != 0 {
+            panic!("Invalid number of bytes submitted!");
+        }
+
+        let A_prime =  G1Affine::from_compressed(&<[u8; 48]>::try_from(&bytes[0..48]).unwrap())
+        .map(G1Projective::from).unwrap();
+        let A_bar = G1Affine::from_compressed(&<[u8; 48]>::try_from(&bytes[48..96]).unwrap())
+        .map(G1Projective::from).unwrap();
+        let D = G1Affine::from_compressed(&<[u8; 48]>::try_from(&bytes[96..144]).unwrap())
+        .map(G1Projective::from).unwrap();
+
+
+        let c = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[144..176]).unwrap());
+
+        let e_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[176..208]).unwrap());
+        let r2_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[208..240]).unwrap());
+        let r3_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[240..272]).unwrap());
+        let s_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[272..304]).unwrap());
+        let mut start = 304;
+        let mut end = start + 32;
+        let mut m_cap: Vec<Scalar> = Vec::new();
+
+
+        while end <= len {
+            let b = <[u8; 32]>::try_from(&bytes[start..end]);
+            if b.is_err() {
+                panic!("bytes not valid");
+            } else {
+                m_cap.push(Scalar::from_bytes_be(&b.unwrap()));
+            }
+            start = end;
+            end += 32;
+        }
+
+        BBSplusPoKSignature { A_prime, A_bar, D, c, e_cap, r2_cap, r3_cap, s_cap, m_cap }
+        
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 struct ProofOfValue {
     value: NISPSecrets,
@@ -291,63 +352,12 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         // r3_cap: Scalar, //32
         // s_cap: Scalar, //32
         // m_cap: Vec<Scalar> //32 * len(m_cap)
-    pub fn to_bytes(&self) -> Vec<u8>{
-        let signature = self.to_bbsplus_proof();
-        let mut bytes: Vec<u8> = Vec::new();
-
-        bytes.extend_from_slice(&signature.A_prime.to_affine().to_compressed());
-        bytes.extend_from_slice(&signature.A_bar.to_affine().to_compressed());
-        bytes.extend_from_slice(&signature.D.to_affine().to_compressed());
-        bytes.extend_from_slice(&signature.c.to_bytes_be());
-        bytes.extend_from_slice(&signature.e_cap.to_bytes_be());
-        bytes.extend_from_slice(&signature.r2_cap.to_bytes_be());
-        bytes.extend_from_slice(&signature.r3_cap.to_bytes_be());
-        bytes.extend_from_slice(&signature.s_cap.to_bytes_be());
-        signature.m_cap.iter().for_each(|v| bytes.extend_from_slice(&v.to_bytes_be()));
-        
-        bytes
+    pub fn to_bytes(&self) -> Vec<u8> {
+        self.to_bbsplus_proof().to_bytes()
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> Self{
-        
-        let len = bytes.len();
-        if len < 304 || (len - 304) % 32 != 0 {
-            panic!("Invalid number of bytes submitted!");
-        }
-
-        let A_prime =  G1Affine::from_compressed(&<[u8; 48]>::try_from(&bytes[0..48]).unwrap())
-        .map(G1Projective::from).unwrap();
-        let A_bar = G1Affine::from_compressed(&<[u8; 48]>::try_from(&bytes[48..96]).unwrap())
-        .map(G1Projective::from).unwrap();
-        let D = G1Affine::from_compressed(&<[u8; 48]>::try_from(&bytes[96..144]).unwrap())
-        .map(G1Projective::from).unwrap();
-
-
-        let c = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[144..176]).unwrap());
-
-        let e_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[176..208]).unwrap());
-        let r2_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[208..240]).unwrap());
-        let r3_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[240..272]).unwrap());
-        let s_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[272..304]).unwrap());
-        let mut start = 304;
-        let mut end = start + 32;
-        let mut m_cap: Vec<Scalar> = Vec::new();
-
-
-        while end <= len {
-            let b = <[u8; 32]>::try_from(&bytes[start..end]);
-            if b.is_err() {
-                panic!("bytes not valid");
-            } else {
-                m_cap.push(Scalar::from_bytes_be(&b.unwrap()));
-            }
-            start = end;
-            end += 32;
-        }
-
-        Self::BBSplus(BBSplusPoKSignature { A_prime, A_bar, D, c, e_cap, r2_cap, r3_cap, s_cap, m_cap })
-        
-        
+    pub fn from_bytes(bytes: &[u8]) -> Self {
+        Self::BBSplus(BBSplusPoKSignature::from_bytes(bytes))  
     }
 
     pub fn to_bbsplus_proof(&self) ->  &BBSplusPoKSignature {
