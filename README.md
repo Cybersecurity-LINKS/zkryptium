@@ -1,8 +1,8 @@
 # ZKryptium
 
 ![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
-[![](https://img.shields.io/crates/v/zkryptium?style=flat-square)](https://crates.io/crates/iota-crypto)
-[![](https://img.shields.io/docsrs/zkryptium?style=flat-square)](https://docs.rs/iota-crypto/)
+[![](https://img.shields.io/crates/v/zkryptium?style=flat-square)](https://crates.io/crates/zkryptium)
+[![](https://img.shields.io/docsrs/zkryptium?style=flat-square)](https://docs.rs/zkryptium/)
 
 ## Description
 
