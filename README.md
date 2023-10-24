@@ -33,6 +33,29 @@ This library has been designed to expose cryptographic primitives, facilitating 
 
 ### Usage
 
+Add this to your Cargo.toml:
+
+```
+zkryptium = "0.1.1"
+```
+
+Only BBS+:
+
+```
+[dependencies]
+zkryptium = { version = "0.1.1", default-features = false, features = ["bbsplus"] }
+
+```
+
+Only CL2003:
+```
+[dependencies]
+zkryptium = { version = "0.1.1", default-features = false, features = ["cl03"] }
+
+```
+
+### Examples
+
 <!-- Provide instructions and examples for use. Include screenshots as needed. -->
 
 Take a look at the [examples](https://github.com/Cybersecurity-LINKS/ZKryptium/tree/main/examples).
