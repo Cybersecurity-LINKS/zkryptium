@@ -36,6 +36,7 @@ This library has been designed to expose cryptographic primitives, facilitating 
 Add this to your Cargo.toml:
 
 ```
+[dependencies]
 zkryptium = "0.1.1"
 ```
 
