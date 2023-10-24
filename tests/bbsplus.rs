@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::fs;
+#![allow(non_snake_case)]
+#![allow(non_upper_case_globals)]
+#![allow(non_camel_case_types)]
 
+use std::fs;
 use bbsplus::ciphersuites::BbsCiphersuite;
 use elliptic_curve::{hash2curve::ExpandMsg, group::Curve};
 use schemes::algorithms::Scheme;
-
 use zkryptium::{utils::message::BBSplusMessage, bbsplus::{self, generators::{make_generators, global_generators}, keys::{BBSplusSecretKey, BBSplusPublicKey}, signature::BBSplusSignature}, schemes::{self, algorithms::BBSplus}, schemes::generics::{Signature, PoKSignature, ZKPoK, Commitment, BlindSignature}, keys::pair::KeyPair, utils::{util::{hash_to_scalar_old, ScalarExt, calculate_random_scalars, get_messages}, message::Message}};
-
 
 
 

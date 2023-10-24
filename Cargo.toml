@@ -40,6 +40,9 @@ dotenv = "0.15.0"
 name = "zkryptium"
 path = "src/lib.rs"
 
+
+
+
 [[example]]
 name = "bbsplus"
 path = "examples/bbsplus.rs"

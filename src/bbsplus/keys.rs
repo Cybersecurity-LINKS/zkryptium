@@ -20,10 +20,10 @@ use rand::{RngCore, Rng};
 use serde::{Serialize, Deserialize};
 use sha2::Sha256;
 use digest::Digest;
-
 use crate::{keys::{traits::{PublicKey, PrivateKey}, pair::KeyPair}, schemes::algorithms::BBSplus};
-
 use super::ciphersuites::BbsCiphersuite;
+
+
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusPublicKey(pub G2Projective);

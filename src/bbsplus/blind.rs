@@ -14,16 +14,13 @@
 
 
 use std::panic;
-
 use bls12_381_plus::{G1Projective, Scalar, G1Affine};
-use digest::Digest;
 use elliptic_curve::{group::Curve, subtle::{CtOption, Choice}, hash2curve::ExpandMsg};
-use rug::{Integer, ops::Pow};
 use serde::{Deserialize, Serialize};
-
-use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, utils::message::{BBSplusMessage, CL03Message}, bbsplus::{ciphersuites::BbsCiphersuite, generators::{Generators, make_generators, signer_specific_generators}}, cl03::{ciphersuites::CLCiphersuite, bases::Bases}, utils::{random::{random_prime, random_bits}, util::{calculate_domain, ScalarExt, hash_to_scalar_old}}, errors::BlindSignError, schemes::generics::{BlindSignature, Signature, ZKPoK}};
-
+use crate::{schemes::algorithms::BBSplus, utils::message::BBSplusMessage, bbsplus::{ciphersuites::BbsCiphersuite, generators::{Generators, make_generators, signer_specific_generators}}, utils::util::{calculate_domain, ScalarExt, hash_to_scalar_old}, errors::BlindSignError, schemes::generics::{BlindSignature, Signature, ZKPoK}};
 use super::{commitment::BBSplusCommitment, keys::{BBSplusSecretKey, BBSplusPublicKey}, signature::BBSplusSignature};
+
+
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusBlindSignature {
@@ -31,7 +28,6 @@ pub struct BBSplusBlindSignature {
     pub(crate) e: Scalar,
     pub(crate) s_second: Scalar,
 }
-
 
 
 impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {

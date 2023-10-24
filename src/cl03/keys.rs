@@ -18,6 +18,7 @@ use serde::{Serialize, Deserialize};
 use crate::{utils::random::{random_prime, random_qr, random_number}, cl03::ciphersuites::CLCiphersuite, schemes::algorithms::{Scheme, CL03}, keys::{traits::{PublicKey, PrivateKey}, pair::KeyPair}};
 
 
+
 #[derive(Clone, PartialEq, PartialOrd, Eq, Hash, Debug, Ord, Serialize, Deserialize)]
 pub struct CL03PublicKey{
     pub N: Integer,

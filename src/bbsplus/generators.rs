@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use bls12_381_plus::G1Projective;
-
 use elliptic_curve::group::Curve;
 use elliptic_curve::hash2curve::{ExpandMsg, Expander};
 use serde::{Serialize, Deserialize};
@@ -21,9 +20,11 @@ use std::env;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use serde::ser::{Serializer, SerializeStruct};
-
 use crate::bbsplus::keys::BBSplusPublicKey;
 use super::ciphersuites::BbsCiphersuite;
+
+
+
 
 #[derive(Clone, PartialEq, Eq, Debug, Deserialize)]
 pub struct Generators {

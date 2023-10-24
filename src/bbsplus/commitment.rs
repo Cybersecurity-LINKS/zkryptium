@@ -14,10 +14,8 @@
 
 use bls12_381_plus::{Scalar, G1Projective};
 use elliptic_curve::hash2curve::ExpandMsg;
-use rug::Integer;
 use serde::{Deserialize, Serialize};
-
-use crate::{utils::message::{Message, BBSplusMessage, CL03Message}, bbsplus::{ciphersuites::BbsCiphersuite, generators::{Generators, make_generators, global_generators}}, schemes::algorithms::{Scheme, BBSplus, CL03}, cl03::{ciphersuites::CLCiphersuite, bases::Bases}, utils::{util::{calculate_random_scalars, subgroup_check_g1}, random::random_bits}, schemes::generics::Commitment};
+use crate::{utils::message::{Message, BBSplusMessage}, bbsplus::{ciphersuites::BbsCiphersuite, generators::{Generators, make_generators, global_generators}}, schemes::algorithms::BBSplus, utils::util::{calculate_random_scalars, subgroup_check_g1}, schemes::generics::Commitment};
 
 
 

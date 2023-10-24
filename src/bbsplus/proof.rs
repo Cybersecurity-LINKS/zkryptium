@@ -12,17 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::marker::PhantomData;
+
 
 use bls12_381_plus::{G1Projective, Scalar, G2Projective, G2Prepared, Gt, multi_miller_loop, G1Affine};
-use digest::Digest;
 use elliptic_curve::{hash2curve::ExpandMsg, group::Curve};
-use rug::{Integer, ops::Pow};
 use serde::{Serialize, Deserialize};
-
-use crate::{schemes::algorithms::{Scheme, BBSplus, CL03}, utils::message::{BBSplusMessage, CL03Message}, bbsplus::{ciphersuites::BbsCiphersuite, generators::{Generators, make_generators, signer_specific_generators}}, cl03::{ciphersuites::CLCiphersuite, sigma_protocols::{NISPSecrets, NISP2Commitments, NISPMultiSecrets, NISPSignaturePoK}, range_proof::{Boudot2000RangeProof, RangeProof}, bases::Bases}, utils::util::{get_remaining_indexes, get_messages, calculate_domain, calculate_random_scalars, ScalarExt, hash_to_scalar_old}, schemes::generics::{ZKPoK, PoKSignature}};
-
+use crate::{schemes::algorithms::BBSplus, utils::message::BBSplusMessage, bbsplus::{ciphersuites::BbsCiphersuite, generators::{Generators, make_generators, signer_specific_generators}}, utils::util::{get_remaining_indexes, get_messages, calculate_domain, calculate_random_scalars, ScalarExt, hash_to_scalar_old}, schemes::generics::{ZKPoK, PoKSignature}};
 use super::{signature::BBSplusSignature, keys::BBSplusPublicKey, commitment::BBSplusCommitment};
+
+
+
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusPoKSignature{

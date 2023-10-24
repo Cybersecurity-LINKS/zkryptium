@@ -14,32 +14,9 @@
 
 
 use std::env;
-use bls12_381_plus::G2Affine;
-use bls12_381_plus::G2Projective;
-use bls12_381_plus::Scalar;
-use ff::Field;
-use hkdf::Hkdf;
-use rand::Rng;
-use rand::RngCore;
-use rug::Integer;
-use rug::integer::IsPrime;
 use serde::Deserialize;
 use serde::Serialize;
-use sha2::Sha256;
-
-use crate::bbsplus::ciphersuites::BbsCiphersuite;
-use crate::cl03::ciphersuites::CLCiphersuite;
-
-use crate::schemes::algorithms::BBSplus;
-use crate::schemes::algorithms::CL03;
 use crate::schemes::algorithms::Scheme;
-use crate::utils::random::random_prime;
-use crate::utils::random::random_qr;
-use crate::bbsplus::keys::BBSplusPublicKey;
-use crate::bbsplus::keys::BBSplusSecretKey;
-use crate::cl03::keys::CL03PublicKey;
-use crate::cl03::keys::CL03SecretKey;
-use sha2::Digest;
 
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]

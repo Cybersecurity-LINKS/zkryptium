@@ -12,11 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+
+#![allow(non_snake_case)]
+#![allow(non_upper_case_globals)]
+#![allow(non_camel_case_types)]
+
 use digest::Digest;
-
 use zkryptium::{keys::pair::KeyPair, schemes::algorithms::{Scheme, CL03, Ciphersuite}, utils::message::CL03Message, schemes::generics::{Signature, Commitment, ZKPoK, PoKSignature, BlindSignature}, cl03::{bases::Bases, keys::CL03CommitmentPublicKey}};
-
 use zkryptium::cl03::ciphersuites::CLCiphersuite;
+
 
 
 #[cfg(test)]
@@ -59,6 +63,7 @@ mod cl03_tests {
     }
 
 }
+
 
 
 
