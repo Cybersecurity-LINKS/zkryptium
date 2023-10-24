@@ -14,4 +14,8 @@
 
 pub mod generators;
 pub mod ciphersuites;
-pub mod tests;
+pub mod keys;
+pub mod blind;
+pub mod commitment;
+pub mod signature;
+pub mod proof;

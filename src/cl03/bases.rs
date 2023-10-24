@@ -15,8 +15,10 @@
 
 use rug::Integer;
 use serde::{Serialize, Deserialize};
+use crate::utils::random::random_qr;
+use super::keys::CL03PublicKey;
 
-use crate::{keys::cl03_key::CL03PublicKey, utils::random::random_qr};
+
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Bases(pub Vec<Integer>);

@@ -15,8 +15,10 @@
 use digest::Digest;
 use rug::{Integer, integer::Order, ops::Pow, Complete};
 use serde::{Serialize, Deserialize};
+use crate::utils::{random::rand_int, util::divm};
+use super::commitment::CL03Commitment;
 
-use crate::{utils::{random::rand_int, util::divm}, signatures::commitment::CL03Commitment};
+
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum RangeProof{
