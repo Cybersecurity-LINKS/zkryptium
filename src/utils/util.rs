@@ -20,11 +20,14 @@ use bls12_381_plus::{Scalar, G1Projective, G2Projective};
 use elliptic_curve::{hash2curve::{ExpandMsg, Expander}, group::Curve};
 use rand::RngCore;
 use rug::{Integer, integer::Order};
+
+#[cfg(feature = "bbsplus")]
 use super::message::BBSplusMessage;
+#[cfg(feature = "bbsplus")]
 use crate::{bbsplus::ciphersuites::BbsCiphersuite, bbsplus::keys::BBSplusPublicKey};
 
 
-
+#[cfg(feature = "bbsplus")]
 pub fn hash_to_scalar<C: BbsCiphersuite>(msg_octects: &[u8], dst: Option<&[u8]>) -> Scalar 
 where
     C::Expander: for<'a> ExpandMsg<'a>,
@@ -53,6 +56,7 @@ where
     hashed_scalar
 }
 
+#[cfg(feature = "bbsplus")]
 pub fn hash_to_scalar_old<C: BbsCiphersuite>(msg_octects: &[u8], count: usize, dst: Option<&[u8]>) -> Vec<Scalar> 
 where
     C::Expander: for<'a> ExpandMsg<'a>,
@@ -103,6 +107,8 @@ where
 
 // }
 
+
+#[cfg(feature = "bbsplus")]
 pub fn subgroup_check_g1(p: G1Projective) -> bool {
     if p.is_on_curve().into() /*&& p.is_identity().into()*/ {
         true
@@ -112,6 +118,8 @@ pub fn subgroup_check_g1(p: G1Projective) -> bool {
     }
 }
 
+
+#[cfg(feature = "bbsplus")]
 pub(crate) fn calculate_domain<CS: BbsCiphersuite>(pk: &BBSplusPublicKey, q1: G1Projective, q2: G1Projective, h_points: &[G1Projective], header: Option<&[u8]>) -> Scalar
 where
     CS::Expander: for<'a> ExpandMsg<'a>,
@@ -232,6 +240,8 @@ pub fn get_remaining_indexes(length: usize, indexes: &[usize]) -> Vec<usize>{
     remaining
 }
 
+
+#[cfg(feature = "bbsplus")]
 pub fn get_messages(messages: &[BBSplusMessage], indexes: &[usize]) -> Vec<BBSplusMessage> {
     let mut out: Vec<BBSplusMessage> = Vec::new();
     for i in indexes {
@@ -242,6 +252,8 @@ pub fn get_messages(messages: &[BBSplusMessage], indexes: &[usize]) -> Vec<BBSpl
 
 }
 
+
+#[cfg(feature = "bbsplus")]
 pub fn calculate_random_scalars<CS>(count: usize, seed: Option<&[u8]>) -> Vec<Scalar> 
 where
     CS: BbsCiphersuite,

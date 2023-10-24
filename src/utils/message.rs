@@ -20,7 +20,18 @@ use rug::{Integer, integer::Order};
 use bls12_381_plus::Scalar;
 use serde::{Serialize, Deserialize};
 
-use crate::{utils::util::hash_to_scalar_old, cl03::ciphersuites::CLCiphersuite, bbsplus::ciphersuites::BbsCiphersuite};
+
+
+#[cfg(feature = "cl03")]
+use crate::cl03::ciphersuites::CLCiphersuite;
+
+#[cfg(feature = "bbsplus")]
+use crate::bbsplus::ciphersuites::BbsCiphersuite;
+#[cfg(feature = "bbsplus")]
+use crate::utils::util::hash_to_scalar_old;
+
+
+
 
 pub const BBS_MESSAGE_LENGTH: usize = usize::MAX;
 
@@ -33,11 +44,13 @@ pub trait Message {
     fn get_value(&self) -> Self::Value;
 }
 
+#[cfg(feature = "bbsplus")]
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusMessage{
     pub value: Scalar
 }
 
+#[cfg(feature = "bbsplus")]
 impl BBSplusMessage {
 
     pub fn new(msg: Scalar) -> Self{
@@ -64,11 +77,12 @@ impl BBSplusMessage {
 
 }
 
+#[cfg(feature = "cl03")]
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct CL03Message{
     pub value: Integer
 }
-
+#[cfg(feature = "cl03")]
 impl CL03Message {
 
     pub fn new(msg: Integer) -> Self {
@@ -87,6 +101,7 @@ impl CL03Message {
 
 }
 
+#[cfg(feature = "bbsplus")]
 impl Message for BBSplusMessage {
 
     type Value = Scalar;
@@ -112,6 +127,7 @@ impl Message for BBSplusMessage {
     }
 }
 
+#[cfg(feature = "cl03")]
 impl Message for CL03Message {
     type Value = Integer;
 

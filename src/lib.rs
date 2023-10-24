@@ -20,6 +20,10 @@
 pub mod utils;
 pub mod keys;
 pub mod schemes;
-pub mod bbsplus;
-pub mod cl03;
 pub mod errors;
+
+#[cfg(feature = "bbsplus")]
+pub mod bbsplus;
+#[cfg(feature = "cl03")]
+pub mod cl03;
+
