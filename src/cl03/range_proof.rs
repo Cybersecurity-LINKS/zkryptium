@@ -15,7 +15,7 @@
 use digest::Digest;
 use rug::{Integer, integer::Order, ops::Pow, Complete};
 use serde::{Serialize, Deserialize};
-use crate::utils::{random::rand_int, util::divm};
+use crate::utils::{random::rand_int, util::cl03_utils::divm};
 use super::commitment::CL03Commitment;
 
 

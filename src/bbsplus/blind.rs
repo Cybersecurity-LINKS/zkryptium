@@ -17,7 +17,7 @@ use std::panic;
 use bls12_381_plus::{G1Projective, Scalar, G1Affine};
 use elliptic_curve::{group::Curve, subtle::{CtOption, Choice}, hash2curve::ExpandMsg};
 use serde::{Deserialize, Serialize};
-use crate::{schemes::algorithms::BBSplus, utils::message::BBSplusMessage, bbsplus::{ciphersuites::BbsCiphersuite, generators::{Generators, make_generators, signer_specific_generators}}, utils::util::{calculate_domain, ScalarExt, hash_to_scalar_old}, errors::BlindSignError, schemes::generics::{BlindSignature, Signature, ZKPoK}};
+use crate::{schemes::algorithms::BBSplus, utils::message::BBSplusMessage, bbsplus::{ciphersuites::BbsCiphersuite, generators::{Generators, make_generators, signer_specific_generators}}, utils::util::bbsplus_utils::{calculate_domain, ScalarExt, hash_to_scalar_old}, errors::BlindSignError, schemes::generics::{BlindSignature, Signature, ZKPoK}};
 use super::{commitment::BBSplusCommitment, keys::{BBSplusSecretKey, BBSplusPublicKey}, signature::BBSplusSignature};
 
 

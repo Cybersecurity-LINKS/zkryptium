@@ -16,19 +16,23 @@ use digest::Digest;
 use elliptic_curve::hash2curve::ExpandMsg;
 use ff::Field;
 use rand::RngCore;
-use rug::{Integer, integer::Order};
-use bls12_381_plus::Scalar;
 use serde::{Serialize, Deserialize};
 
 
 
 #[cfg(feature = "cl03")]
 use crate::cl03::ciphersuites::CLCiphersuite;
+#[cfg(feature = "cl03")]
+use rug::{Integer, integer::Order};
 
+
+
+#[cfg(feature = "bbsplus")]
+use bls12_381_plus::Scalar;
 #[cfg(feature = "bbsplus")]
 use crate::bbsplus::ciphersuites::BbsCiphersuite;
 #[cfg(feature = "bbsplus")]
-use crate::utils::util::hash_to_scalar_old;
+use crate::utils::util::bbsplus_utils::hash_to_scalar_old;
 
 
 

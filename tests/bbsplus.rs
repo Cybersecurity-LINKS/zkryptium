@@ -25,7 +25,7 @@ mod bbsplus_tests {
     use bbsplus::ciphersuites::BbsCiphersuite;
     use elliptic_curve::{hash2curve::ExpandMsg, group::Curve};
     use schemes::algorithms::Scheme;
-    use zkryptium::{utils::message::BBSplusMessage, bbsplus::{self, generators::{make_generators, global_generators}, keys::{BBSplusSecretKey, BBSplusPublicKey}, signature::BBSplusSignature}, schemes::{self, algorithms::BBSplus}, schemes::generics::{Signature, PoKSignature, ZKPoK, Commitment, BlindSignature}, keys::pair::KeyPair, utils::{util::{hash_to_scalar_old, ScalarExt, calculate_random_scalars, get_messages}, message::Message}};
+    use zkryptium::{utils::message::BBSplusMessage, bbsplus::{self, generators::{make_generators, global_generators}, keys::{BBSplusSecretKey, BBSplusPublicKey}, signature::BBSplusSignature}, schemes::{self, algorithms::BBSplus}, schemes::generics::{Signature, PoKSignature, ZKPoK, Commitment, BlindSignature}, keys::pair::KeyPair, utils::{util::bbsplus_utils::{hash_to_scalar_old, ScalarExt, calculate_random_scalars, get_messages}, message::Message}};
     use zkryptium::schemes::algorithms::{BBS_BLS12381_SHA256, BBS_BLS12381_SHAKE256};
     
     

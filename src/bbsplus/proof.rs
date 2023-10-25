@@ -17,7 +17,7 @@
 use bls12_381_plus::{G1Projective, Scalar, G2Projective, G2Prepared, Gt, multi_miller_loop, G1Affine};
 use elliptic_curve::{hash2curve::ExpandMsg, group::Curve};
 use serde::{Serialize, Deserialize};
-use crate::{schemes::algorithms::BBSplus, utils::message::BBSplusMessage, bbsplus::{ciphersuites::BbsCiphersuite, generators::{Generators, make_generators, signer_specific_generators}}, utils::util::{get_remaining_indexes, get_messages, calculate_domain, calculate_random_scalars, ScalarExt, hash_to_scalar_old}, schemes::generics::{ZKPoK, PoKSignature}};
+use crate::{schemes::algorithms::BBSplus, utils::message::BBSplusMessage, bbsplus::{ciphersuites::BbsCiphersuite, generators::{Generators, make_generators, signer_specific_generators}}, utils::util::{bbsplus_utils::{get_messages, calculate_domain, calculate_random_scalars, ScalarExt, hash_to_scalar_old}, get_remaining_indexes}, schemes::generics::{ZKPoK, PoKSignature}};
 use super::{signature::BBSplusSignature, keys::BBSplusPublicKey, commitment::BBSplusCommitment};
 
 

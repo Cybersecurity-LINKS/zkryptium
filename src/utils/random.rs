@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use std::cmp::Ordering;
-use rug::integer::Order;
 use rug::{Integer, Complete};
 use rug::rand::RandState;
 use rand::Rng;
