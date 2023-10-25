@@ -65,9 +65,3 @@ pub fn rand_int(a: Integer, b: Integer) -> Integer {
     // NOTE: return a random integer in the range [a, b], including both end points.
     return a + range.random_below(&mut rand)
 }
-
-
-pub fn generate_nonce() -> Vec<u8>{
-    let rand = random_bits(128);
-    rand.to_digits(Order::MsfBe)
-}

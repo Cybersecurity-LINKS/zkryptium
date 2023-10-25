@@ -19,12 +19,24 @@ use std::any::{TypeId, Any};
 use bls12_381_plus::{Scalar, G1Projective, G2Projective};
 use elliptic_curve::{hash2curve::{ExpandMsg, Expander}, group::Curve};
 use rand::RngCore;
+use rand::rngs::OsRng;
 use rug::{Integer, integer::Order};
 
 #[cfg(feature = "bbsplus")]
 use super::message::BBSplusMessage;
 #[cfg(feature = "bbsplus")]
 use crate::{bbsplus::ciphersuites::BbsCiphersuite, bbsplus::keys::BBSplusPublicKey};
+
+
+const NONCE_LENGTH: usize = 16;
+
+pub fn generate_nonce() -> Vec<u8> {
+    let mut rng = OsRng::default();
+    let mut nonce = vec![0; NONCE_LENGTH];
+    rng.fill_bytes(&mut nonce);
+
+    nonce
+}
 
 
 #[cfg(feature = "bbsplus")]
