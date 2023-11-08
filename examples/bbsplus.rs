@@ -16,7 +16,7 @@ use std::env;
 
 use elliptic_curve::hash2curve::ExpandMsg;
 
-use zkryptium::{utils::{message::BBSplusMessage, util::bbsplus_utils::generate_nonce}, keys::pair::KeyPair, bbsplus::{generators::{make_generators, signer_specific_generators}, ciphersuites::BbsCiphersuite}, schemes::algorithms::{BBSplus, Scheme, BBS_BLS12381_SHAKE256, BBS_BLS12381_SHA256}, schemes::generics::{Commitment, BlindSignature, PoKSignature, ZKPoK}};
+use zkryptium::{utils::{message::BBSplusMessage, util::bbsplus_utils::generate_nonce}, keys::pair::KeyPair, bbsplus::{generators::{make_generators, signer_specific_generators}, ciphersuites::BbsCiphersuite, keys::BBSplusPublicKey}, schemes::algorithms::{BBSplus, Scheme, BBS_BLS12381_SHAKE256, BBS_BLS12381_SHA256}, schemes::generics::{Commitment, BlindSignature, PoKSignature, ZKPoK}};
 
 
 

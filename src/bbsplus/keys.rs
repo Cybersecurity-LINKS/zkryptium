@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use bls12_381_plus::{Scalar, G2Projective, G2Affine};
-use elliptic_curve::group::Curve;
+use elliptic_curve::{group::Curve, point::AffineCoordinates};
 use ff::Field;
 use hkdf::Hkdf;
 use rand::{RngCore, Rng};
@@ -24,12 +24,42 @@ use crate::{keys::{traits::{PublicKey, PrivateKey}, pair::KeyPair}, schemes::alg
 use super::ciphersuites::BbsCiphersuite;
 
 
-
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusPublicKey(pub G2Projective);
 
 impl BBSplusPublicKey{
-    pub fn to_bytes(&self) -> [u8; 96] {
+
+    pub const COORDINATE_LEN: usize = G2Affine::UNCOMPRESSED_BYTES / 2;
+
+    /// Get (x, y) coordinates
+    pub fn to_coordinates(&self) -> ([u8; Self::COORDINATE_LEN], [u8; Self::COORDINATE_LEN]) {
+        let uncompressed: [u8; G2Affine::UNCOMPRESSED_BYTES] = self.to_bytes_uncompressed();
+        let mut x = [0u8; G2Affine::UNCOMPRESSED_BYTES / 2];
+        let mut y = [0u8; G2Affine::UNCOMPRESSED_BYTES / 2];
+        let mid_index = G2Affine::UNCOMPRESSED_BYTES / 2;
+        let (first, second) = uncompressed.split_at(mid_index).try_into().unwrap();
+        x.copy_from_slice(first);
+        y.copy_from_slice(second);
+        (x, y)
+    }
+
+    pub fn from_coordinates(x: &[u8; Self::COORDINATE_LEN], y: &[u8; Self::COORDINATE_LEN]) -> Self {
+        let mut uncompressed = [0u8; G2Affine::UNCOMPRESSED_BYTES];
+        uncompressed[..Self::COORDINATE_LEN].copy_from_slice(x);
+        uncompressed[Self::COORDINATE_LEN..].copy_from_slice(y);
+        Self::from_bytes_uncompressed(&uncompressed)
+    }
+
+    fn to_bytes_uncompressed(&self) -> [u8; G2Affine::UNCOMPRESSED_BYTES] {
+        self.0.to_affine().to_uncompressed()
+    }
+
+    fn from_bytes_uncompressed(bytes: &[u8; G2Affine::UNCOMPRESSED_BYTES]) -> Self {
+        let g2 = G2Projective::from(G2Affine::from_uncompressed(&bytes).unwrap());
+        Self(g2)
+    }
+
+    pub fn to_bytes(&self) -> [u8; G2Affine::COMPRESSED_BYTES] {
         self.0.to_affine().to_compressed()
     }
 
@@ -39,7 +69,7 @@ impl BBSplusPublicKey{
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Self{
-        let bytes: [u8; 96] = bytes.try_into().expect("Invalid number of bytes to be coverted into a BBSplus public key! (max 96 bytes)");
+        let bytes: [u8; G2Affine::COMPRESSED_BYTES] = bytes.try_into().expect("Invalid number of bytes to be coverted into a BBSplus public key! (max 96 bytes)");
         let g2 = G2Projective::from(G2Affine::from_compressed(&bytes).unwrap());
         Self(g2)
     }
@@ -51,7 +81,7 @@ pub struct BBSplusSecretKey(pub Scalar);
 
 impl BBSplusSecretKey{
     //in BE order
-    pub fn to_bytes(&self) -> [u8; 32] {
+    pub fn to_bytes(&self) -> [u8; Scalar::BYTES] {
         let bytes = self.0.to_be_bytes();
         // bytes.reverse();
         bytes
@@ -63,7 +93,7 @@ impl BBSplusSecretKey{
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Self {
-        let bytes: [u8; 32] = bytes.try_into().expect("Invalid number of bytes to be coverted into a BBSplus private key! (max 32 bytes)");
+        let bytes: [u8; Scalar::BYTES] = bytes.try_into().expect("Invalid number of bytes to be coverted into a BBSplus private key! (max 32 bytes)");
         // bytes.reverse();
         let s = Scalar::from_be_bytes(&bytes).unwrap();
 
