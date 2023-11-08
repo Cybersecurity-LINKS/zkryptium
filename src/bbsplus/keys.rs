@@ -83,8 +83,19 @@ impl BBSplusSecretKey{
     //in BE order
     pub fn to_bytes(&self) -> [u8; Scalar::BYTES] {
         let bytes = self.0.to_be_bytes();
-        // bytes.reverse();
         bytes
+    }
+
+    pub fn to_bytes_le(&self) -> [u8; Scalar::BYTES] {
+        let bytes = self.0.to_le_bytes();
+        bytes
+    }
+
+    pub fn from_bytes_le(bytes: &[u8]) -> Self {
+        let bytes: [u8; Scalar::BYTES] = bytes.try_into().expect("Invalid number of bytes to be coverted into a BBSplus private key! (max 32 bytes)");
+        let s = Scalar::from_le_bytes(&bytes).unwrap();
+
+        Self(s)
     }
 
     pub fn encode(&self) -> String {
@@ -94,7 +105,6 @@ impl BBSplusSecretKey{
 
     pub fn from_bytes(bytes: &[u8]) -> Self {
         let bytes: [u8; Scalar::BYTES] = bytes.try_into().expect("Invalid number of bytes to be coverted into a BBSplus private key! (max 32 bytes)");
-        // bytes.reverse();
         let s = Scalar::from_be_bytes(&bytes).unwrap();
 
         Self(s)
