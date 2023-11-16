@@ -37,21 +37,21 @@ Add this to your Cargo.toml:
 
 ```
 [dependencies]
-zkryptium = "0.1.5"
+zkryptium = "0.1.6"
 ```
 
 Only BBS+:
 
 ```
 [dependencies]
-zkryptium = { version = "0.1.5", default-features = false, features = ["bbsplus"] }
+zkryptium = { version = "0.1.6", default-features = false, features = ["bbsplus"] }
 
 ```
 
 Only CL2003:
 ```
 [dependencies]
-zkryptium = { version = "0.1.5", default-features = false, features = ["cl03"] }
+zkryptium = { version = "0.1.6", default-features = false, features = ["cl03"] }
 
 ```
 
