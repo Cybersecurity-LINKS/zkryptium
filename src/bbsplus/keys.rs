@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use bls12_381_plus::{Scalar, G2Projective, G2Affine};
-use elliptic_curve::{group::Curve, point::AffineCoordinates};
+use elliptic_curve::group::Curve;
 use ff::Field;
 use hkdf::Hkdf;
 use rand::{RngCore, Rng};

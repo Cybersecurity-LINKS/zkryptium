@@ -25,7 +25,7 @@ mod bbsplus_tests {
     use bbsplus::ciphersuites::BbsCiphersuite;
     use elliptic_curve::{hash2curve::ExpandMsg, group::Curve};
     use schemes::algorithms::Scheme;
-    use zkryptium::{utils::message::BBSplusMessage, bbsplus::{self, generators::{make_generators, global_generators}, keys::{BBSplusSecretKey, BBSplusPublicKey}, signature::BBSplusSignature}, schemes::{self, algorithms::BBSplus}, schemes::generics::{Signature, PoKSignature, ZKPoK, Commitment, BlindSignature}, keys::pair::KeyPair, utils::{util::bbsplus_utils::{hash_to_scalar_old, ScalarExt, calculate_random_scalars, get_messages}, message::Message}};
+    use zkryptium::{utils::message::BBSplusMessage, bbsplus::{self, generators::Generators, keys::{BBSplusSecretKey, BBSplusPublicKey}, signature::BBSplusSignature}, schemes::{self, algorithms::BBSplus}, schemes::{generics::{Signature, PoKSignature, ZKPoK, Commitment, BlindSignature}, algorithms::Ciphersuite}, keys::pair::KeyPair, utils::{util::bbsplus_utils::{hash_to_scalar_old, ScalarExt, calculate_random_scalars, get_messages}, message::Message}};
     use zkryptium::schemes::algorithms::{BBS_BLS12381_SHA256, BBS_BLS12381_SHAKE256};
     
     
@@ -421,8 +421,7 @@ mod bbsplus_tests {
             generators_expected.push(g.as_str().unwrap());
         }
 
-        let get_generators_fn = make_generators::<S::Ciphersuite>;
-        let generators = global_generators(get_generators_fn, generators_expected.len() + 2);
+        let generators = Generators::create::<S::Ciphersuite>(None, generators_expected.len() + 2);
         // print_generators(&generators);
 
         let expected_BP = res["BP"].as_str().unwrap();
@@ -509,8 +508,7 @@ mod bbsplus_tests {
         let msg_scalars: Vec<BBSplusMessage> = msgs_hex.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst))).collect();
         
         //Precompute generators 
-        let get_generators_fn = make_generators::<S::Ciphersuite>;
-        let generators = global_generators(get_generators_fn, msg_scalars.len() + 2);
+        let generators = Generators::create::<S::Ciphersuite>(None, msg_scalars.len() + 2);
 
         //Sign the message
         let signature = Signature::<BBSplus<S::Ciphersuite>>::sign(Some(&msg_scalars), &SK, &PK, Some(&generators), Some(&header));
@@ -699,8 +697,7 @@ mod bbsplus_tests {
         //Precompute generators
         let L = msg_scalars.len() + 1;
         // NOTE: one extra generator, for additional test vectors with one extra message
-        let get_generators_fn = make_generators::<S::Ciphersuite>;
-        let generators = global_generators(get_generators_fn, L + 2);
+        let generators = Generators::create::<S::Ciphersuite>(None, L + 2);
 
         let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(bbs_signature, &PK, Some(&msg_scalars), Some(&generators), Some(&revealed_message_indexes), Some(&header), Some(&ph), Some(&hex::decode(seed).unwrap()));
 
@@ -749,10 +746,7 @@ mod bbsplus_tests {
         const KEY_INFO: &str = "746869732d49532d736f6d652d6b65792d6d657461646174612d746f2d62652d757365642d696e2d746573742d6b65792d67656e";
         const msgs: [&str; 3] = ["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02", "87a8bd656d49ee07b8110e1d8fd4f1dcef6fb9bc368c492d9bc8c4f98a739ac6", "96012096adda3f13dd4adbe4eea481a4c4b5717932b73b00e31807d3c5894b90"];
         const msgs_wrong: [&str; 3] = ["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f03", "87a8bd656d49ee07b8110e1d8fd4f1dcef6fb9bc368c492d9bc8c4f98a739ac7", "96012096adda3f13dd4adbe4eea481a4c4b5717932b73b00e31807d3c5894b91"];
-        const header_hex: &str = "11223344556677889900aabbccddeeff";
-        let header = hex::decode(header_hex).unwrap();
         let unrevealed_message_indexes = [1usize];
-        let revealed_message_indexes = [0usize, 2usize];
         // let nonce = generate_nonce();
         let nonce = b"aaaa".as_slice();
 
@@ -761,12 +755,9 @@ mod bbsplus_tests {
             Some(&hex::decode(&KEY_INFO).unwrap())
         );
 
-        let sk = keypair.private_key();
         let pk = keypair.public_key();
 
-
-        let get_generators_fn = make_generators::<<S as Scheme>::Ciphersuite>;
-        let generators = global_generators(get_generators_fn, msgs.len() + 2);
+        let generators = Generators::create::<S::Ciphersuite>(None, msgs.len() + 2);
 
         //Map Messages to Scalars
         let data_scalars = fs::read_to_string([pathname, "MapMessageToScalarAsHash.json"].concat()).expect("Unable to read file");
@@ -776,8 +767,8 @@ mod bbsplus_tests {
         let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst))).collect();
         let msgs_scalars_wrong: Vec<BBSplusMessage> = msgs_wrong.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst))).collect();
 
-        let commitment = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars, Some(&generators), &unrevealed_message_indexes);
-        let commitment_wrong = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars_wrong, Some(&generators), &unrevealed_message_indexes);
+        let commitment = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars, Some(&generators), &pk, &unrevealed_message_indexes);
+        let commitment_wrong = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars_wrong, Some(&generators), &pk, &unrevealed_message_indexes);
 
         
         let unrevealed_msgs: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
@@ -788,24 +779,8 @@ mod bbsplus_tests {
             }
         }).collect();
 
-        let revealed_msgs: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
-            if !unrevealed_message_indexes.contains(&i) {
-                Some(*m)
-            } else {
-                None
-            }
-        }).collect();
-
         let unrevealed_msgs_wrong: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
             if unrevealed_message_indexes.contains(&i) {
-                Some(*m)
-            } else {
-                None
-            }
-        }).collect();
-
-        let revealed_msgs_wrong: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
-            if !unrevealed_message_indexes.contains(&i) {
                 Some(*m)
             } else {
                 None
@@ -850,8 +825,7 @@ mod bbsplus_tests {
         let sk = keypair.private_key();
         let pk = keypair.public_key();
 
-        let get_generators_fn = make_generators::<<S as Scheme>::Ciphersuite>;
-        let generators = global_generators(get_generators_fn, msgs.len() + 2);
+        let generators = Generators::create::<S::Ciphersuite>(None, msgs.len() + 2);
 
         //Map Messages to Scalars
         let data_scalars = fs::read_to_string([pathname, "MapMessageToScalarAsHash.json"].concat()).expect("Unable to read file");
@@ -861,8 +835,8 @@ mod bbsplus_tests {
         let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst))).collect();
         let msgs_scalars_wrong: Vec<BBSplusMessage> = msgs_wrong.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst))).collect();
 
-        let commitment = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars, Some(&generators), &unrevealed_message_indexes);
-        let commitment_wrong = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars_wrong, Some(&generators), &unrevealed_message_indexes);
+        let commitment = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars, Some(&generators), pk, &unrevealed_message_indexes);
+        let commitment_wrong = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars_wrong, Some(&generators), pk, &unrevealed_message_indexes);
 
         
         let unrevealed_msgs: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
@@ -950,8 +924,7 @@ mod bbsplus_tests {
         let sk = keypair.private_key();
         let pk = keypair.public_key();
 
-        let get_generators_fn = make_generators::<<S as Scheme>::Ciphersuite>;
-        let generators = global_generators(get_generators_fn, msgs.len() + 2);
+        let generators = Generators::create::<S::Ciphersuite>(None, msgs.len() + 2);
 
         //Map Messages to Scalars
         let data_scalars = fs::read_to_string([pathname, "MapMessageToScalarAsHash.json"].concat()).expect("Unable to read file");
@@ -960,7 +933,7 @@ mod bbsplus_tests {
 
         let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst))).collect();
         
-        let commitment = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars, Some(&generators), &unrevealed_message_indexes);
+        let commitment = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars, Some(&generators), pk, &unrevealed_message_indexes);
         
         
         let unrevealed_msgs: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {

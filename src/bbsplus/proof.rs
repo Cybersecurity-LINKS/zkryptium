@@ -17,7 +17,7 @@
 use bls12_381_plus::{G1Projective, Scalar, G2Projective, G2Prepared, Gt, multi_miller_loop, G1Affine};
 use elliptic_curve::{hash2curve::ExpandMsg, group::Curve};
 use serde::{Serialize, Deserialize};
-use crate::{schemes::algorithms::BBSplus, utils::message::BBSplusMessage, bbsplus::{ciphersuites::BbsCiphersuite, generators::{Generators, make_generators, signer_specific_generators}}, utils::util::{bbsplus_utils::{get_messages, calculate_domain, calculate_random_scalars, ScalarExt, hash_to_scalar_old}, get_remaining_indexes}, schemes::generics::{ZKPoK, PoKSignature}};
+use crate::{schemes::algorithms::BBSplus, utils::message::BBSplusMessage, bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, utils::util::{bbsplus_utils::{get_messages, calculate_domain, calculate_random_scalars, ScalarExt, hash_to_scalar_old}, get_remaining_indexes}, schemes::generics::{ZKPoK, PoKSignature}};
 use super::{signature::BBSplusSignature, keys::BBSplusPublicKey, commitment::BBSplusCommitment};
 
 
@@ -156,8 +156,7 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         let generators = match generators {
             Some(gens) => gens.clone(),
             None => {
-                let get_generators_fn = make_generators::<CS>;
-                let gens = signer_specific_generators(pk, get_generators_fn, L+2);
+                let gens = Generators::create::<CS>(Some(pk), L+2);
                 gens
             }
             
@@ -263,8 +262,7 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         let generators = match generators {
             Some(gens) => gens.clone(),
             None => {
-                let get_generators_fn = make_generators::<CS>;
-                let gens = signer_specific_generators(pk, get_generators_fn, L+2);
+                let gens = Generators::create::<CS>(Some(pk), L+2);
                 gens
             }
             

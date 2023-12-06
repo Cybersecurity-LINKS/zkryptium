@@ -1,6 +1,6 @@
 [package]
 name = "zkryptium"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2021"
 license = "Apache-2.0"
 authors = ["LINKS Foundation"]
@@ -39,10 +39,17 @@ env_logger = "0.10.0"
 dotenv = "0.15.0"
 
 
+
 [lib]
 name = "zkryptium"
 path = "src/lib.rs"
 features = ["cl03"]
+
+[features]
+default = ["bbsplus", "cl03"]
+cl03 = ["dep:rug"]
+bbsplus = ["dep:bls12_381_plus"]
+
 
 
 [[example]]
@@ -54,8 +61,3 @@ features = ["bbsplus"]
 name = "cl03"
 path = "examples/cl03.rs"
 features = ["cl03"]
-
-[features]
-cl03 = ["dep:rug"]
-bbsplus = ["dep:bls12_381_plus"]
-default = ["cl03", "bbsplus"]

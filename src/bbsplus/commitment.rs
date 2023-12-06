@@ -15,7 +15,8 @@
 use bls12_381_plus::{Scalar, G1Projective};
 use elliptic_curve::hash2curve::ExpandMsg;
 use serde::{Deserialize, Serialize};
-use crate::{utils::message::{Message, BBSplusMessage}, bbsplus::{ciphersuites::BbsCiphersuite, generators::{Generators, make_generators, global_generators}}, schemes::algorithms::BBSplus, utils::util::bbsplus_utils::{calculate_random_scalars, subgroup_check_g1}, schemes::generics::Commitment};
+use crate::{utils::message::{Message, BBSplusMessage}, bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, schemes::algorithms::BBSplus, utils::util::bbsplus_utils::{calculate_random_scalars, subgroup_check_g1}, schemes::generics::Commitment};
+use super::keys::BBSplusPublicKey;
 
 
 
@@ -29,49 +30,49 @@ pub struct BBSplusCommitment {
 
 impl <CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
 
-    pub fn commit(messages: &[BBSplusMessage], generators: Option<&Generators>, unrevealed_message_indexes: &[usize]) -> Self
+    pub fn commit(messages: &[BBSplusMessage], generators: Option<&Generators>, pk: &BBSplusPublicKey, unrevealed_message_indexes: &[usize]) -> Self
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
+        let L = messages.len();
 
         let s_prime = calculate_random_scalars::<CS>(1, None);
 
         if unrevealed_message_indexes.is_empty() {
-                        panic!("Unrevealed message indexes empty");
-                    }
-
-        let get_generators_fn = make_generators::<CS>;
-
-        let gens: Generators;
-        if generators.is_none() {
-            gens = global_generators(get_generators_fn, unrevealed_message_indexes.iter().max().unwrap()+3).to_owned().clone();
-        }
-        else {
-            gens = generators.unwrap().clone();
+            panic!("Unrevealed message indexes empty");
         }
 
+        let generators = match generators {
+            Some(gens) => gens.clone(),
+            None => {
+                let gens = Generators::create::<CS>(Some(pk), L+2);
+                gens
+            }
+            
+        };
 
-        if unrevealed_message_indexes.iter().max().unwrap() >= &gens.message_generators.len() {
+
+        if unrevealed_message_indexes.iter().max().unwrap() >= &generators.message_generators.len() {
             panic!("Non enought generators!");
         }
 
-        if subgroup_check_g1(gens.g1_base_point) == false {
+        if subgroup_check_g1(generators.g1_base_point) == false {
             panic!("Failed subgroup check");
         }
 
         for i in unrevealed_message_indexes {
-            if subgroup_check_g1(gens.message_generators[*i]) == false {
+            if subgroup_check_g1(generators.message_generators[*i]) == false {
                 panic!("Failed subgroup check");
             }
         }
 
-        let mut commitment = gens.q1 * s_prime[0];
+        let mut commitment = generators.q1 * s_prime[0];
 
         // let mut index: usize = 0;
 
         for i in unrevealed_message_indexes {
             // commitment = commitment + (gens.message_generators[*i] * Scalar::from_bytes(&messages[index].to_bytes()).unwrap());
-            commitment += gens.message_generators.get(*i).expect("index overflow") * &messages.get(*i).expect("Index overflow").get_value();
+            commitment += generators.message_generators.get(*i).expect("index overflow") * &messages.get(*i).expect("Index overflow").get_value();
         
             // index = index + 1;
         }

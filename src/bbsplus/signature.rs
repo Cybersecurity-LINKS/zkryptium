@@ -17,7 +17,7 @@
 use bls12_381_plus::{G1Projective, Scalar, G1Affine, G2Projective, Gt, multi_miller_loop, G2Prepared};
 use ff::Field;
 use serde::{Deserialize, Serialize};
-use crate::{schemes::algorithms::BBSplus, utils::message::BBSplusMessage, bbsplus::{ciphersuites::BbsCiphersuite, generators::{Generators, signer_specific_generators, make_generators}}, utils::util::bbsplus_utils::{calculate_domain, serialize, hash_to_scalar_old}, schemes::generics::Signature};
+use crate::{schemes::algorithms::BBSplus, utils::message::BBSplusMessage, bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, utils::util::bbsplus_utils::{calculate_domain, serialize, hash_to_scalar_old}, schemes::generics::Signature};
 use elliptic_curve::{hash2curve::ExpandMsg, group::Curve, subtle::{CtOption, Choice}};
 use super::keys::{BBSplusPublicKey, BBSplusSecretKey};
 
@@ -97,8 +97,7 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         let generators = match generators {
             Some(gens) => gens.clone(),
             None => {
-                let get_generators_fn = make_generators::<CS>;
-                let gens = signer_specific_generators(pk, get_generators_fn, L+2);
+                let gens = Generators::create::<CS>(Some(pk), L+2);
                 gens
             }
             
@@ -170,8 +169,7 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         let generators = match generators {
             Some(gens) => gens.clone(),
             None => {
-                let get_generators_fn = make_generators::<CS>;
-                let gens = signer_specific_generators(pk, get_generators_fn, L+2);
+                let gens = Generators::create::<CS>(Some(pk), L+2);
                 gens
             }
             
