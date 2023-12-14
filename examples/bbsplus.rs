@@ -16,7 +16,7 @@
 #[cfg(feature = "bbsplus")]
 mod bbsplus_example {
     use elliptic_curve::hash2curve::ExpandMsg;
-    use zkryptium::{utils::{message::BBSplusMessage, util::bbsplus_utils::generate_nonce}, keys::pair::KeyPair, bbsplus::{generators::Generators, ciphersuites::BbsCiphersuite}, schemes::algorithms::{BBSplus, Scheme}, schemes::generics::{Commitment, BlindSignature, PoKSignature, ZKPoK}};
+    use zkryptium::{utils::{message::BBSplusMessage, util::bbsplus_utils::generate_nonce}, keys::pair::KeyPair, bbsplus::{generators::Generators, ciphersuites::BbsCiphersuite}, schemes::algorithms::{BBSplus, Scheme, Ciphersuite}, schemes::generics::{Commitment, BlindSignature, PoKSignature, ZKPoK}};
 
 
 

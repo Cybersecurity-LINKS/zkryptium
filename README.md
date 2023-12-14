@@ -37,7 +37,7 @@ This library has been designed to expose cryptographic primitives, facilitating 
 
 ```toml
 [dependencies]
-zkryptium = { version = "0.1.7", default-features = false, features = ["bbsplus"] }
+zkryptium = { version = "0.1.8", default-features = false, features = ["bbsplus"] }
 ```
 
 ##### CL2003:
@@ -45,7 +45,7 @@ zkryptium = { version = "0.1.7", default-features = false, features = ["bbsplus"
 
 ```toml
 [dependencies]
-zkryptium = { version = "0.1.7", default-features = false, features = ["cl03"] }
+zkryptium = { version = "0.1.8", default-features = false, features = ["cl03"] }
 ```
 
 ### Examples

@@ -1,12 +1,14 @@
 [package]
 name = "zkryptium"
-version = "0.1.7"
+version = "0.1.8"
 edition = "2021"
 license = "Apache-2.0"
 authors = ["LINKS Foundation"]
 description = "Rust crypto library for zero-knowledge proofs"
 repository = "https://github.com/Cybersecurity-LINKS/zkryptium"
 rust-version = "1.65"
+keywords = [ "crypto", "signatures", "zero-knowledge", "bbs" ]
+categories = [ "cryptography", "authentication" ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
