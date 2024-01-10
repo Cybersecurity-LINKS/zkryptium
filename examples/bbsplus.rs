@@ -16,6 +16,7 @@
 #[cfg(feature = "bbsplus")]
 mod bbsplus_example {
     use elliptic_curve::hash2curve::ExpandMsg;
+    use rand::Rng;
     use zkryptium::{utils::{message::BBSplusMessage, util::bbsplus_utils::generate_nonce}, keys::pair::KeyPair, bbsplus::{generators::Generators, ciphersuites::BbsCiphersuite}, schemes::algorithms::{BBSplus, Scheme, Ciphersuite}, schemes::generics::{Commitment, BlindSignature, PoKSignature, ZKPoK}, errors::Error};
 
 
@@ -35,10 +36,12 @@ mod bbsplus_example {
         let unrevealed_message_indexes = [1usize];
         let revealed_message_indexes = [0usize, 2usize];
         
+        let mut rng = rand::thread_rng();
+        let key_material: Vec<u8> = (0..S::Ciphersuite::IKM_LEN).map(|_| rng.gen()).collect();
 
         log::info!("Keypair Generation");
         let issuer_keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
-            None,
+            &key_material,
             None,
             None
         )?;

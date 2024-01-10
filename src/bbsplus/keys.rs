@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+
 use bls12_381_plus::{Scalar, G2Projective, G2Affine};
 use elliptic_curve::{group::Curve, hash2curve::ExpandMsg};
-use rand::Rng;
 use serde::{Serialize, Deserialize};
 use crate::{keys::{traits::{PublicKey, PrivateKey}, pair::KeyPair}, schemes::algorithms::BBSplus, errors::Error, utils::util::bbsplus_utils::{i2osp, hash_to_scalar_new}};
 use super::ciphersuites::BbsCiphersuite;
@@ -145,44 +145,76 @@ impl PrivateKey for BBSplusSecretKey{
 
 impl <CS: BbsCiphersuite> KeyPair<BBSplus<CS>>{ 
     
-    pub fn generate(key_material: Option<&[u8]>, key_info: Option<&[u8]>, key_dst: Option<&[u8]>) -> Result<Self, Error>
+    pub fn generate(key_material: &[u8], key_info: Option<&[u8]>, key_dst: Option<&[u8]>) -> Result<Self, Error>
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
 
-        let key_material = if let Some(km) = key_material {
-            km.to_vec()
-        } else {
-            let mut rng = rand::thread_rng();
-            (0..CS::IKM_LEN).map(|_| rng.gen()).collect()
-        };
+        let sk = key_gen::<CS>(key_material, key_info, key_dst)?;
 
-        let key_material: &[u8] = key_material.as_ref();
-
-        // if length(key_material) < 32, return INVALID
-        if key_material.len() < CS::IKM_LEN {
-            return Err(Error::KeyGenError("length(key_material) < 32".to_owned()));
-        }
-        
-        let key_info = key_info.unwrap_or(&[]);
-
-        // if length(key_info) > 65535, return INVALID
-        if key_info.len() > 65535 {
-            return Err(Error::KeyGenError("length(key_info) > 65535".to_owned()))
-        }
-
-        let key_dst = key_dst.unwrap_or(CS::KEY_DST);
-
-        // derive_input = key_material || I2OSP(length(key_info), 2) || key_info
-        let derive_input = [key_material, &i2osp(key_info.len(), 2), key_info].concat();
-
-        // SK = hash_to_scalar(derive_input, key_dst)
-        let sk = hash_to_scalar_new::<CS>(&derive_input, key_dst)?;
-
-        // W = SK * BP2
-        let pk: G2Projective = G2Affine::generator() * sk;
+        let pk = sk_to_pk(sk);
 
         Ok(Self{public: BBSplusPublicKey(pk), private: BBSplusSecretKey(sk)})
     }
 
+}
+
+
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-secret-key -> SK = KeyGen(key_material, key_info, key_dst)
+/// 
+/// # Description
+/// This operation generates a secret key (SK) deterministically from a secret octet string (key_material)
+/// 
+/// # Inputs:
+/// * `key_material` (REQUIRED), a secret octet string. See requirements
+/// above.
+/// * `key_info` (OPTIONAL), an octet string. Defaults to an empty string if
+/// not supplied.
+/// * `key_dst` (OPTIONAL), an octet string representing the domain separation
+/// tag. Defaults to the octet string
+/// ciphersuite_id || "KEYGEN_DST_" if not supplied.
+///  
+pub(crate) fn key_gen<CS>(key_material: &[u8], key_info: Option<&[u8]>, key_dst: Option<&[u8]>) -> Result<Scalar, Error>
+where
+    CS: BbsCiphersuite,
+    CS::Expander: for<'a> ExpandMsg<'a>,
+{
+    
+    // if length(key_material) < 32, return INVALID
+    if key_material.len() < CS::IKM_LEN {
+        return Err(Error::KeyGenError("length(key_material) < 32".to_owned()));
+    }
+    
+    let key_info = key_info.unwrap_or(&[]);
+
+    // if length(key_info) > 65535, return INVALID
+    if key_info.len() > 65535 {
+        return Err(Error::KeyGenError("length(key_info) > 65535".to_owned()))
+    }
+
+    let key_dst_default = CS::keygen_dst();
+    let key_dst = key_dst.unwrap_or(&key_dst_default);
+
+
+    // derive_input = key_material || I2OSP(length(key_info), 2) || key_info
+    let derive_input = [key_material, &i2osp(key_info.len(), 2), key_info].concat();
+
+    // SK = hash_to_scalar(derive_input, key_dst)
+    let sk = hash_to_scalar_new::<CS>(&derive_input, key_dst)?;
+    Ok(sk)
+}
+
+
+/// https://identity.foundation/bbs-signature/draft-irtf-cfrg-bbs-signatures.html#name-public-key -> PK = SkToPk(SK)
+/// 
+/// # Description
+/// This operation takes a secret key (SK) and outputs a corresponding public key (PK).
+/// 
+/// # Inputs:
+/// * `sk` (REQUIRED), a secret integer such that 0 < SK < r.
+///  
+pub(crate) fn sk_to_pk(sk: Scalar) -> G2Projective {
+    // W = SK * BP2
+    let pk = G2Affine::generator() * sk;
+    pk
 }
