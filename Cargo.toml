@@ -18,6 +18,7 @@ zeroize = { version = "1.5" }
 serde = { version = "1.0.25", default_feature = false, features = ["derive", "serde_derive"] }
 serde_json = "1.0.59"
 hex = "0.4.3"
+thiserror = "1.0.30"
 
 # cl03
 rug = { version = "1.19.2", features = ["serde"], optional = true }

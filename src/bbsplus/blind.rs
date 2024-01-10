@@ -17,7 +17,7 @@ use std::panic;
 use bls12_381_plus::{G1Projective, Scalar, G1Affine};
 use elliptic_curve::{group::Curve, subtle::{CtOption, Choice}, hash2curve::ExpandMsg};
 use serde::{Deserialize, Serialize};
-use crate::{schemes::algorithms::BBSplus, utils::message::BBSplusMessage, bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, utils::util::bbsplus_utils::{calculate_domain, ScalarExt, hash_to_scalar_old}, errors::BlindSignError, schemes::generics::{BlindSignature, Signature, ZKPoK}};
+use crate::{schemes::algorithms::BBSplus, utils::message::BBSplusMessage, bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, utils::util::bbsplus_utils::{calculate_domain, ScalarExt, hash_to_scalar_old}, schemes::generics::{BlindSignature, Signature, ZKPoK}, errors::Error};
 use super::{commitment::BBSplusCommitment, keys::{BBSplusSecretKey, BBSplusPublicKey}, signature::BBSplusSignature};
 
 
@@ -32,15 +32,15 @@ pub struct BBSplusBlindSignature {
 
 impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
 
-    pub fn blind_sign(revealed_messages: &[BBSplusMessage], commitment: &BBSplusCommitment, zkpok: &ZKPoK<BBSplus<CS>>, sk: &BBSplusSecretKey, pk: &BBSplusPublicKey, generators: Option<&Generators>, revealed_message_indexes: &[usize], unrevealed_message_indexes: &[usize], nonce: &[u8], header: Option<&[u8]>) -> Result<Self, Box<BlindSignError>>
+    pub fn blind_sign(revealed_messages: &[BBSplusMessage], commitment: &BBSplusCommitment, zkpok: &ZKPoK<BBSplus<CS>>, sk: &BBSplusSecretKey, pk: &BBSplusPublicKey, generators: Option<&Generators>, revealed_message_indexes: &[usize], unrevealed_message_indexes: &[usize], nonce: &[u8], header: Option<&[u8]>) -> Result<Self, Error>
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
             let K = revealed_message_indexes.len();
             if revealed_messages.len() != K {
-                return Err(Box::new(BlindSignError(
+                return Err(Error::BlindSignError(
                     "len(known_messages) != len(revealed_message_indexes)".to_string(),
-                )));
+                ));
             }
 
             let header = header.unwrap_or(b"");
@@ -71,16 +71,16 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
 
             // if BlindMessagesProofVerify(commitment, nizk, CGIdxs, nonce) is INVALID abort
             if !zkpok.verify_proof(commitment, &generators, unrevealed_message_indexes, nonce){
-                return Err(Box::new(BlindSignError(
+                return Err(Error::BlindSignError(
                     "Knowledge of committed secrets not verified".to_string(),
-                )));
+                ));
             }
 
             for i in revealed_message_indexes {
                 if unrevealed_message_indexes.contains(i) {
-                    return Err(Box::new(BlindSignError(
+                    return Err(Error::BlindSignError(
                         "revealed_message_indexes in unrevealed_message_indexes".to_string(),
-                    )));
+                    ));
                 }
             }
 
@@ -96,7 +96,7 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
             let A = B * SK_plus_e.invert().unwrap();
 
             if A == G1Projective::IDENTITY{
-                return Err(Box::new(BlindSignError("A == IDENTITY G1".to_string())));
+                return Err(Error::BlindSignError("A == IDENTITY G1".to_string()));
             }
             Ok(Self::BBSplus(BBSplusBlindSignature{a: A, e, s_second}))
 

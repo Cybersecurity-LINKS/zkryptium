@@ -29,11 +29,18 @@ mod bbsplus_tests {
     use zkryptium::schemes::algorithms::{BBS_BLS12381_SHA256, BBS_BLS12381_SHAKE256};
     
     
-    //KEYPAIR
+    //KEYPAIR - SHA256
     
     #[test]
-    fn keypair() {
-        key_pair_gen::<BBS_BLS12381_SHA256>("./fixture_data/keyPair.json");
+    fn keypair_sha256() { //UPDATED!
+        key_pair_gen::<BBS_BLS12381_SHA256>("./fixtures/bls12-381-sha-256/keyPair.json");
+    }
+
+    //KEYPAIR - SHAKE256
+
+    #[test]
+    fn keypair_shake256() { //UPDATED!
+        key_pair_gen::<BBS_BLS12381_SHAKE256>("./fixtures/bls12-381-shake-256/keyPair.json");
     }
 
 
@@ -339,10 +346,16 @@ mod bbsplus_tests {
         let data_json: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
         let IKM         = data_json["ikm"].as_str().unwrap();
         let KEY_INFO    = data_json["keyInfo"].as_str().unwrap();
+        let KEY_DST = data_json["keyDst"].as_str().unwrap();
         let SK_expected = data_json["keyPair"]["secretKey"].as_str().unwrap();                  
         let PK_expected = data_json["keyPair"]["publicKey"].as_str().unwrap();  
 
-        let keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(Some(&hex::decode(IKM).unwrap()), Some(&hex::decode(KEY_INFO).unwrap()));
+        let keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
+            Some(&hex::decode(IKM).unwrap()), 
+            Some(&hex::decode(KEY_INFO).unwrap()), 
+            Some(&hex::decode(KEY_DST).unwrap())
+        ).unwrap();
+        
         let sk = keypair.private_key().encode();
         let pk = keypair.public_key().encode();
 
@@ -752,8 +765,9 @@ mod bbsplus_tests {
 
         let keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
             Some(&hex::decode(&IKM).unwrap()),
-            Some(&hex::decode(&KEY_INFO).unwrap())
-        );
+            Some(&hex::decode(&KEY_INFO).unwrap()),
+            None
+        ).unwrap();
 
         let pk = keypair.public_key();
 
@@ -819,8 +833,9 @@ mod bbsplus_tests {
 
         let keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
             Some(&hex::decode(&IKM).unwrap()),
-            Some(&hex::decode(&KEY_INFO).unwrap())
-        );
+            Some(&hex::decode(&KEY_INFO).unwrap()),
+            None
+        ).unwrap();
 
         let sk = keypair.private_key();
         let pk = keypair.public_key();
@@ -918,8 +933,9 @@ mod bbsplus_tests {
 
         let keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
             Some(&hex::decode(&IKM).unwrap()),
-            Some(&hex::decode(&KEY_INFO).unwrap())
-        );
+            Some(&hex::decode(&KEY_INFO).unwrap()),
+            None
+        ).unwrap();
 
         let sk = keypair.private_key();
         let pk = keypair.public_key();

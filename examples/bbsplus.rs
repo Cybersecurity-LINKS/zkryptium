@@ -16,18 +16,15 @@
 #[cfg(feature = "bbsplus")]
 mod bbsplus_example {
     use elliptic_curve::hash2curve::ExpandMsg;
-    use zkryptium::{utils::{message::BBSplusMessage, util::bbsplus_utils::generate_nonce}, keys::pair::KeyPair, bbsplus::{generators::Generators, ciphersuites::BbsCiphersuite}, schemes::algorithms::{BBSplus, Scheme, Ciphersuite}, schemes::generics::{Commitment, BlindSignature, PoKSignature, ZKPoK}};
+    use zkryptium::{utils::{message::BBSplusMessage, util::bbsplus_utils::generate_nonce}, keys::pair::KeyPair, bbsplus::{generators::Generators, ciphersuites::BbsCiphersuite}, schemes::algorithms::{BBSplus, Scheme, Ciphersuite}, schemes::generics::{Commitment, BlindSignature, PoKSignature, ZKPoK}, errors::Error};
 
 
 
-    pub(crate) fn bbsplus_main<S: Scheme>() 
+    pub(crate) fn bbsplus_main<S: Scheme>() -> Result<(), Error>
     where
         S::Ciphersuite: BbsCiphersuite,
         <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
-
-        const IKM: &str = "746869732d49532d6a7573742d616e2d546573742d494b4d2d746f2d67656e65726174652d246528724074232d6b6579";
-        const KEY_INFO: &str = "746869732d49532d736f6d652d6b65792d6d657461646174612d746f2d62652d757365642d696e2d746573742d6b65792d67656e";
         const msgs: [&str; 3] = ["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02", "87a8bd656d49ee07b8110e1d8fd4f1dcef6fb9bc368c492d9bc8c4f98a739ac6", "96012096adda3f13dd4adbe4eea481a4c4b5717932b73b00e31807d3c5894b90"];
         
         log::info!("Messages: {:?}", msgs);
@@ -42,12 +39,15 @@ mod bbsplus_example {
         log::info!("Keypair Generation");
         let issuer_keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
             None,
-            Some(&hex::decode(&KEY_INFO).unwrap())
-        );
+            None,
+            None
+        )?;
 
 
         let issuer_sk = issuer_keypair.private_key();
+        log::info!("SK: {}", hex::encode(issuer_sk.to_bytes()));
         let issuer_pk = issuer_keypair.public_key();
+        log::info!("PK: {}", hex::encode(issuer_pk.to_bytes()));
 
         log::info!("Computing Generators");
 
@@ -121,6 +121,7 @@ mod bbsplus_example {
         assert!(proof_result, "Signature Proof of Knowledge Verification Failed!");
         log::info!("Signature Proof of Knowledge is VALID!");
 
+        Ok(())
     }
 
 }

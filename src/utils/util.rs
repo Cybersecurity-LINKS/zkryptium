@@ -16,12 +16,12 @@
 
 #[cfg(feature = "bbsplus")]
 pub mod bbsplus_utils {
-    use std::any::{TypeId, Any};
+    use std::{any::{TypeId, Any}, borrow::Borrow};
     use rand::RngCore;
     use rand::rngs::OsRng;
     use bls12_381_plus::{Scalar, G1Projective, G2Projective};
     use elliptic_curve::{hash2curve::{ExpandMsg, Expander}, group::Curve};
-    use crate::utils::message::BBSplusMessage;
+    use crate::{utils::message::BBSplusMessage, errors::Error};
     use crate::{bbsplus::ciphersuites::BbsCiphersuite, bbsplus::keys::BBSplusPublicKey};
 
     const NONCE_LENGTH: usize = 16;
@@ -32,6 +32,43 @@ pub mod bbsplus_utils {
         rng.fill_bytes(&mut nonce);
 
         nonce
+    }
+
+
+    pub fn i2osp(x: usize, x_len: usize) -> Vec<u8> {
+        let mut result = Vec::new();
+    
+        let mut x_copy = x;
+    
+        for _ in 0..x_len {
+            result.push((x_copy % 256) as u8);
+            x_copy /= 256;
+        }
+    
+        result.reverse(); // Since the most significant byte is at the end
+        result
+    }
+    
+
+    pub fn hash_to_scalar_new<CS: BbsCiphersuite>(msg_octects: &[u8], dst: &[u8]) -> Result<Scalar, Error>
+    where
+        CS::Expander: for<'a> ExpandMsg<'a>,
+    {
+        if dst.len() > 255 {
+            return Err(Error::HashToScalarError)
+        }
+        let mut uniform_bytes = vec!(0u8; CS::EXPAND_LEN);
+        let dsts = [dst];
+
+        // uniform_bytes = expand_message(msg_octets, dst, expand_len)
+        CS::Expander::expand_message(&[msg_octects], &dsts, CS::EXPAND_LEN).map_err(|_| Error::HashToScalarError)?
+            .fill_bytes(&mut uniform_bytes);
+
+        // OS2IP(uniform_bytes) mod r
+        Ok(Scalar::from_okm(uniform_bytes.as_slice().try_into().map_err(|_| Error::HashToScalarError)?))
+
+        
+
     }
 
 

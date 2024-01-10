@@ -12,27 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::error::Error;
-use std::fmt;
 
+use thiserror::Error;
 
-#[derive(Debug)]
-pub struct BlindSignError(pub String);
-
-impl fmt::Display for BlindSignError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("Error during keypair generation")]
+    KeyGenError(String),
+    #[error("Error during computation of a Blind Signature")]
+    BlindSignError(String),
+    #[error("Error during hash to scalar computation")]
+    HashToScalarError
 }
 
-#[derive(Debug)]
-pub struct ZKPoKError(pub String);
-
-impl fmt::Display for ZKPoKError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl Error for BlindSignError {}
-impl Error for ZKPoKError{}

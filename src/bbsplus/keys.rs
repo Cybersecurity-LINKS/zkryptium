@@ -13,14 +13,10 @@
 // limitations under the License.
 
 use bls12_381_plus::{Scalar, G2Projective, G2Affine};
-use elliptic_curve::group::Curve;
-use ff::Field;
-use hkdf::Hkdf;
-use rand::{RngCore, Rng};
+use elliptic_curve::{group::Curve, hash2curve::ExpandMsg};
+use rand::Rng;
 use serde::{Serialize, Deserialize};
-use sha2::Sha256;
-use digest::Digest;
-use crate::{keys::{traits::{PublicKey, PrivateKey}, pair::KeyPair}, schemes::algorithms::BBSplus};
+use crate::{keys::{traits::{PublicKey, PrivateKey}, pair::KeyPair}, schemes::algorithms::BBSplus, errors::Error, utils::util::bbsplus_utils::{i2osp, hash_to_scalar_new}};
 use super::ciphersuites::BbsCiphersuite;
 
 
@@ -148,73 +144,45 @@ impl PrivateKey for BBSplusSecretKey{
 
 
 impl <CS: BbsCiphersuite> KeyPair<BBSplus<CS>>{ 
-     
-    pub fn generate_rng<R: RngCore>(rng: &mut R) -> Self {
-        let sk = Scalar::random(rng);
-        let pk: G2Projective = (G2Affine::generator() * sk).into();
-
-        Self{public: BBSplusPublicKey(pk), private: BBSplusSecretKey(sk)}
-    }
     
-    pub fn generate(ikm: Option<&[u8]>, key_info: Option<&[u8]>) -> Self
+    pub fn generate(key_material: Option<&[u8]>, key_info: Option<&[u8]>, key_dst: Option<&[u8]>) -> Result<Self, Error>
+    where
+        CS::Expander: for<'a> ExpandMsg<'a>,
     {
 
-        let ikm = if let Some(ikm_data) = ikm {
-            ikm_data.to_vec()
+        let key_material = if let Some(km) = key_material {
+            km.to_vec()
         } else {
             let mut rng = rand::thread_rng();
             (0..CS::IKM_LEN).map(|_| rng.gen()).collect()
         };
 
-        let ikm = ikm.as_ref();
+        let key_material: &[u8] = key_material.as_ref();
+
+        // if length(key_material) < 32, return INVALID
+        if key_material.len() < CS::IKM_LEN {
+            return Err(Error::KeyGenError("length(key_material) < 32".to_owned()));
+        }
         
-
         let key_info = key_info.unwrap_or(&[]);
-        let init_salt = "BBS-SIG-KEYGEN-SALT-".as_bytes();
-    
-        // if ikm.len() < 32 {
-        //     return Err(BadParams { 
-        //         cause: format!("Invalid ikm length. Needs to be at least 32 bytes long. Got {}", ikm.len())
-        //     })
-        // }
-    
-        // L = ceil((3 * ceil(log2(r))) / 16)
-        const L: usize = 48;
-        const L_BYTES: [u8; 2] = (L as u16).to_be_bytes();
-    
-        // salt = H(salt)
-        let mut hasher = Sha256::new();
-        hasher.update(init_salt);
-        let salt = hasher.finalize();
-    
-        // PRK = HKDF-Extract(salt, IKM || I2OSP(0, 1))
-        let prk = Hkdf::<Sha256>::new(
-            Some(&salt),
-            &[ikm, &[0u8; 1][..]].concat()
-        );
-    
-        // OKM = HKDF-Expand(PRK, key_info || I2OSP(L, 2), L)
-        let mut okm = [0u8; 64];
-    
-        prk.expand(
-            &[&key_info, &L_BYTES[..]].concat(),
-            &mut okm[(64-L)..]
-        ).expect(
-            &format!("The HKDF-expand output cannot be more than {} bytes long", 255 * Sha256::output_size())
-        );
-    
-        okm.reverse(); // okm is in be format
-        let sk = Scalar::from_bytes_wide(&okm);
+
+        // if length(key_info) > 65535, return INVALID
+        if key_info.len() > 65535 {
+            return Err(Error::KeyGenError("length(key_info) > 65535".to_owned()))
+        }
+
+        let key_dst = key_dst.unwrap_or(CS::KEY_DST);
+
+        // derive_input = key_material || I2OSP(length(key_info), 2) || key_info
+        let derive_input = [key_material, &i2osp(key_info.len(), 2), key_info].concat();
+
+        // SK = hash_to_scalar(derive_input, key_dst)
+        let sk = hash_to_scalar_new::<CS>(&derive_input, key_dst)?;
+
+        // W = SK * BP2
         let pk: G2Projective = G2Affine::generator() * sk;
-        // let pk_affine = pk.to_affine();
-    
-        // // transform secret key from le to be
-        // let mut sk_bytes = sk.to_bytes();
-        // sk_bytes.reverse();
 
-        // BBSplusKeyPair::new(BBSplusSecretKey(sk), BBSplusPublicKey(pk))
-
-        Self{public: BBSplusPublicKey(pk), private: BBSplusSecretKey(sk)}
+        Ok(Self{public: BBSplusPublicKey(pk), private: BBSplusSecretKey(sk)})
     }
 
 }
