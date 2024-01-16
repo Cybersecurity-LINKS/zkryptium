@@ -108,15 +108,15 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         Signature::<BBSplus<CS>>::BBSplus(BBSplusSignature{ a: self.a(), e: self.e(), s: s })
     }
 
-    pub fn update_signature(&self, sk: &BBSplusSecretKey, generators: &Generators, old_messages: &[BBSplusMessage], new_message: &BBSplusMessage, update_index: usize) -> Self {
+    pub fn update_signature(&self, sk: &BBSplusSecretKey, generators: &Generators, old_message: &BBSplusMessage, new_message: &BBSplusMessage, update_index: usize) -> Self {
 
-        if generators.message_generators.len() <= update_index  && old_messages.len() <= update_index{
+        if generators.message_generators.len() <= update_index {
             panic!("len(generators) <= update_index");
         }
         let H_i = generators.message_generators.get(update_index).expect("index overflow");
         let SK_plus_e = sk.0 + self.e();
         let mut B = self.a() * SK_plus_e;
-        B = B + (-H_i * old_messages.get(update_index).expect("index overflow").value);
+        B = B + (-H_i * old_message.value);
         B = B + (H_i * new_message.value);
         let A = B * SK_plus_e.invert().unwrap();
 

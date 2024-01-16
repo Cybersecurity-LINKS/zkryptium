@@ -319,11 +319,24 @@ mod bbsplus_tests {
 
     //Update Blinded Signature - SHA256
     #[test]
+    fn update_blind_signature_sha256() {
+        update_blind_signature::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/");
+    }
+
+    //Update Blinded Signature - SHAKE256
+    #[test]
+    fn update_blind_signature_shake256() {
+        update_blind_signature::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/");
+    }
+
+
+    //Update Signature - SHA256
+    #[test]
     fn update_signature_sha256() {
         update_signature::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/");
     }
 
-    //Update Blinded Signature - SHAKE256
+    //Update Signature - SHAKE256
     #[test]
     fn update_signature_shake256() {
         update_signature::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/");
@@ -901,7 +914,7 @@ mod bbsplus_tests {
 
 
 
-    pub(crate) fn update_signature<S: Scheme>(pathname: &str)
+    pub(crate) fn update_blind_signature<S: Scheme>(pathname: &str)
     where
         S::Ciphersuite: BbsCiphersuite,
         <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
@@ -973,15 +986,70 @@ mod bbsplus_tests {
         const new_message: &str = "8872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02";
         const update_index: usize = 0usize;
         let new_message_scalar = BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(new_message).unwrap(), Some(&dst));
+        let old_message_scalar = msgs_scalars.get(update_index).unwrap();
 
         let mut new_msgs_scalars = msgs_scalars.clone();
         new_msgs_scalars[update_index] = new_message_scalar;
 
-        let updated_signature = blind_signature.update_signature(sk, &generators, &revealed_msgs, &new_message_scalar, update_index);
+        let updated_signature = blind_signature.update_signature(sk, &generators, &old_message_scalar, &new_message_scalar, update_index);
         let unblind_updated_signature: Signature<BBSplus<<S as Scheme>::Ciphersuite>> = Signature::BBSplus(BBSplusSignature { a: updated_signature.a(), e: unblind_signature.e(), s: unblind_signature.s()});
         let verify = unblind_updated_signature.verify(pk, Some(&new_msgs_scalars), Some(&generators), Some(&header));
 
         assert!(verify, "Unblinded Signature NOT VALID!");
+
+    }
+
+
+    pub(crate) fn update_signature<S: Scheme>(pathname: &str)
+    where
+        S::Ciphersuite: BbsCiphersuite,
+        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
+    {
+        const IKM: &str = "746869732d49532d6a7573742d616e2d546573742d494b4d2d746f2d67656e65726174652d246528724074232d6b6579";
+        const KEY_INFO: &str = "746869732d49532d736f6d652d6b65792d6d657461646174612d746f2d62652d757365642d696e2d746573742d6b65792d67656e";
+        const msgs: [&str; 3] = ["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02", "87a8bd656d49ee07b8110e1d8fd4f1dcef6fb9bc368c492d9bc8c4f98a739ac6", "96012096adda3f13dd4adbe4eea481a4c4b5717932b73b00e31807d3c5894b90"];
+        const header_hex: &str = "11223344556677889900aabbccddeeff";
+        let header = hex::decode(header_hex).unwrap();
+
+        let keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
+            Some(&hex::decode(&IKM).unwrap()),
+            Some(&hex::decode(&KEY_INFO).unwrap())
+        );
+
+        let sk = keypair.private_key();
+        let pk = keypair.public_key();
+
+        let generators = Generators::create::<S::Ciphersuite>(None, msgs.len() + 2);
+
+        //Map Messages to Scalars
+        let data_scalars = fs::read_to_string([pathname, "MapMessageToScalarAsHash.json"].concat()).expect("Unable to read file");
+        let scalars_json: serde_json::Value = serde_json::from_str(&data_scalars).expect("Unable to parse");
+        let dst = hex::decode(scalars_json["dst"].as_str().unwrap()).unwrap();
+
+        let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst))).collect();
+        
+
+        let signature = Signature::<BBSplus<S::Ciphersuite>>::sign(Some(&msgs_scalars), sk, pk, Some(&generators), Some(&header));
+
+
+        let verify = signature.verify(pk, Some(&msgs_scalars), Some(&generators), Some(&header));
+
+        assert!(verify, "Signature NOT VALID!");
+
+
+        const new_message: &str = "8872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02";
+        const update_index: usize = 0usize;
+        let new_message_scalar = BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(new_message).unwrap(), Some(&dst));
+        let old_message_scalar = msgs_scalars.get(update_index).unwrap();
+
+        let updated_signature = signature.update_signature(sk, &generators, &old_message_scalar, &new_message_scalar, update_index);
+
+        let mut new_msgs_scalars = msgs_scalars.clone();
+        new_msgs_scalars[update_index] = new_message_scalar;
+
+        let verify = updated_signature.verify(pk, Some(&new_msgs_scalars), Some(&generators), Some(&header));
+
+        assert!(verify, "Signature NOT VALID!");
 
     }
 }
