@@ -22,6 +22,8 @@ pub enum Error {
     #[error("Error during computation of a Blind Signature")]
     BlindSignError(String),
     #[error("Error during hash to scalar computation")]
-    HashToScalarError
+    HashToScalarError,
+    #[error("Error mapping a message to scalar")]
+    MapMessageToScalarError
 }
 

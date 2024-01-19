@@ -173,6 +173,8 @@ impl <CS: BbsCiphersuite> KeyPair<BBSplus<CS>>{
 /// * `key_dst` (OPTIONAL), an octet string representing the domain separation
 /// tag. Defaults to the octet string
 /// ciphersuite_id || "KEYGEN_DST_" if not supplied.
+/// # Output:
+/// * SK, a [`Scalar`]
 ///  
 pub(crate) fn key_gen<CS>(key_material: &[u8], key_info: Option<&[u8]>, key_dst: Option<&[u8]>) -> Result<Scalar, Error>
 where
@@ -212,7 +214,9 @@ where
 /// 
 /// # Inputs:
 /// * `sk` (REQUIRED), a secret integer such that 0 < SK < r.
-///  
+/// # Output:
+/// * PK, a [`G2Projective`]
+/// 
 pub(crate) fn sk_to_pk(sk: Scalar) -> G2Projective {
     // W = SK * BP2
     let pk = G2Affine::generator() * sk;

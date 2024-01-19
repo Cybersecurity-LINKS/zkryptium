@@ -57,7 +57,7 @@ mod bbsplus_example {
         let generators = Generators::create::<S::Ciphersuite>(Some(issuer_pk), msgs.len()+2);
         //Map Messages to Scalars
 
-        let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst))).collect();
+        let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst)).unwrap()).collect();
         
         log::info!("Computing pedersen commitment on messages");
         let commitment = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars, None, &issuer_pk, &unrevealed_message_indexes);

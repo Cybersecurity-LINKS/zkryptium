@@ -35,6 +35,10 @@ pub trait BbsCiphersuite: Eq + 'static + Ciphersuite{
     fn keygen_dst() -> Vec<u8> {
         [Self::API_ID, b"KEYGEN_DST_"].concat()
     }
+
+    fn map_msg_to_scalar_as_hash_dst() -> Vec<u8> {
+        [Self::API_ID, b"MAP_MSG_TO_SCALAR_AS_HASH_"].concat()
+    }
 }
 
 

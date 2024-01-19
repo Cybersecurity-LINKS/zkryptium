@@ -50,6 +50,19 @@ pub mod bbsplus_utils {
     }
     
 
+    // UPDATE
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-hash-to-scalar -> hashed_scalar = hash_to_scalar(msg_octets, dst)
+    /// 
+    /// # Description
+    /// This operation describes how to hash an arbitrary octet string to a scalar values in the multiplicative group of integers mod r
+    /// 
+    /// # Inputs:
+    /// * `msg_octets` (REQUIRED), an octet string. The message to be hashed.
+    /// * `dst` (REQUIRED), an octet string representing a domain separation tag.
+    /// 
+    /// # Output:
+    /// * a [`Scalar`].
+    /// 
     pub fn hash_to_scalar_new<CS: BbsCiphersuite>(msg_octects: &[u8], dst: &[u8]) -> Result<Scalar, Error>
     where
         CS::Expander: for<'a> ExpandMsg<'a>,

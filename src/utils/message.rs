@@ -22,6 +22,7 @@ use serde::{Serialize, Deserialize};
 
 #[cfg(feature = "cl03")]
 use crate::cl03::ciphersuites::CLCiphersuite;
+use crate::errors::Error;
 #[cfg(feature = "cl03")]
 use rug::{Integer, integer::Order};
 
@@ -33,6 +34,8 @@ use bls12_381_plus::Scalar;
 use crate::bbsplus::ciphersuites::BbsCiphersuite;
 #[cfg(feature = "bbsplus")]
 use crate::utils::util::bbsplus_utils::hash_to_scalar_old;
+
+use super::util::bbsplus_utils::hash_to_scalar_new;
 
 
 
@@ -61,21 +64,41 @@ impl BBSplusMessage {
         Self{value: msg}
     }
 
-    pub fn map_message_to_scalar_as_hash<C: BbsCiphersuite>(data: &[u8], dst: Option<&[u8]>) -> Self 
+    // pub fn map_message_to_scalar_as_hash<C: BbsCiphersuite>(data: &[u8], dst: Option<&[u8]>) -> Self 
+    // where
+    //     C::Expander: for<'a> ExpandMsg<'a>,
+    // {
+    //     let binding = [C::ID, "MAP_MSG_TO_SCALAR_AS_HASH_".as_bytes()].concat();
+    //     let default_dst = binding.as_slice();
+    //     let dst = dst.unwrap_or(default_dst);
+
+    //     if data.len() > BBS_MESSAGE_LENGTH-1 && dst.len() > 255 {
+    //         panic!("INVALID");
+    //     }
+
+    //     // let scalar = hash_to_scalar::<C>(data, Some(dst));
+    //     let scalar = hash_to_scalar_old::<C>(data, 1, Some(dst))[0];
+    //     Self { value: scalar }
+
+    // }
+
+
+    
+    pub fn map_message_to_scalar_as_hash<C: BbsCiphersuite>(data: &[u8], map_dst: Option<&[u8]>) -> Result<Self, Error> 
     where
         C::Expander: for<'a> ExpandMsg<'a>,
     {
-        let binding = [C::ID, "MAP_MSG_TO_SCALAR_AS_HASH_".as_bytes()].concat();
-        let default_dst = binding.as_slice();
-        let dst = dst.unwrap_or(default_dst);
 
-        if data.len() > BBS_MESSAGE_LENGTH-1 && dst.len() > 255 {
-            panic!("INVALID");
+        if data.len() > BBS_MESSAGE_LENGTH-1 {
+            return Err(Error::MapMessageToScalarError);
         }
-
-        // let scalar = hash_to_scalar::<C>(data, Some(dst));
-        let scalar = hash_to_scalar_old::<C>(data, 1, Some(dst))[0];
-        Self { value: scalar }
+        
+        let map_dst_default = C::map_msg_to_scalar_as_hash_dst();
+        let map_dst = map_dst.unwrap_or(&map_dst_default);
+        
+        let scalar = hash_to_scalar_new::<C>(data, &map_dst)?;
+        
+        Ok(Self { value: scalar })
 
     }
 
