@@ -51,13 +51,13 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
             let generators = match generators {
                 Some(gens) => gens.clone(),
                 None => {
-                    let gens = Generators::create::<CS>(Some(pk), L+2);
+                    let gens = Generators::create::<CS>(L);
                     gens
                 }
                 
             };
 
-            let domain = calculate_domain::<CS>(pk, generators.q1, generators.q2, &generators.message_generators[0..L], Some(header));
+            let domain = calculate_domain::<CS>(pk, generators.q1, generators.q1, &generators.message_generators[0..L], Some(header));
             
             let mut e_s_for_hash: Vec<u8> = Vec::new();
             e_s_for_hash.extend_from_slice(&sk.0.to_bytes_be());
@@ -85,7 +85,8 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
             }
 
             // b = commitment + P1 + h0 * s'' + h[j1] * msg[1] + ... + h[jK] * msg[K]
-            let mut B = commitment.value + generators.g1_base_point + generators.q1 * s_second + generators.q2 * domain;
+            let mut B = commitment.value + generators.g1_base_point + generators.q1 * s_second + generators.q1 * domain;
+
 
             for j in 0..K {
                 B += generators.message_generators.get(revealed_message_indexes[j]).expect("index overflow") * revealed_messages.get(j).expect("index overflow").value;

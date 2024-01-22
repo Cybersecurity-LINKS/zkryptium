@@ -12,12 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::VecDeque;
+
 use bls12_381_plus::G1Projective;
 use elliptic_curve::group::Curve;
 use elliptic_curve::hash2curve::{ExpandMsg, Expander};
 use serde::{Serialize, Deserialize};
 use serde::ser::{Serializer, SerializeStruct};
 use crate::bbsplus::keys::BBSplusPublicKey;
+use crate::utils::util::bbsplus_utils::i2osp;
 use super::ciphersuites::BbsCiphersuite;
 
 
@@ -27,7 +30,7 @@ use super::ciphersuites::BbsCiphersuite;
 pub struct Generators {
     pub g1_base_point: G1Projective,
     pub q1: G1Projective,
-    pub q2: G1Projective,
+    // pub q2: G1Projective,
     pub message_generators: Vec<G1Projective>
 }
 
@@ -45,8 +48,8 @@ impl Serialize for Generators {
 
         state.serialize_field("Q1",
             &hex::encode(self.q1.to_affine().to_compressed()))?;
-        state.serialize_field("Q2", 
-            &hex::encode(self.q2.to_affine().to_compressed()))?;
+        // state.serialize_field("Q2", 
+        //     &hex::encode(self.q2.to_affine().to_compressed()))?;
 
         state.serialize_field("MsgGenerators", &result)?;
         state.end()
@@ -55,74 +58,61 @@ impl Serialize for Generators {
 
 impl Generators {
 
-    pub fn create<CS>(pk: Option<&BBSplusPublicKey>, len: usize) -> Generators
+    pub fn create<CS>(count: usize) -> Generators
     where
         CS: BbsCiphersuite,
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
+        let generators = create_generators::<CS>(count, Some(CS::API_ID));
 
-        let mut len = len;
-        if len < 2 {
-            println!("len must be at least 2 -> default set to 2");
-            len = 2;
-        }
-        let seed = pk.and_then(|pk| Some(pk.to_bytes().to_vec()));
-
-        Self::create_generators::<CS>(seed.as_deref(), len)
-    }
-
-
-    fn create_generators<CS>(seed: Option<&[u8]>, len: usize) -> Generators
-    where
-        CS: BbsCiphersuite,
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
-        let default_seed = &CS::GENERATOR_SEED;
-        let seed = seed.unwrap_or(default_seed);
-
-        let base_point = Self::create_g1_base_point::<CS>();
-        let mut generators = Vec::new();
-
-        let mut v = vec!(0u8; CS::EXPAND_LEN);
-        let mut buffer = vec!(0u8; CS::EXPAND_LEN);
-
-        CS::Expander::expand_message(&[seed], &[CS::GENERATOR_SEED_DST], CS::EXPAND_LEN).unwrap().fill_bytes(&mut v);
-        let mut n = 1u32;
-        while generators.len() < len {
-            v.append(n.to_be_bytes().to_vec().as_mut());
-            CS::Expander::expand_message(&[&v], &[CS::GENERATOR_SEED_DST], CS::EXPAND_LEN).unwrap().fill_bytes(&mut buffer);
-            v = buffer.clone();
-            n += 1;
-            let candidate = G1Projective::hash::<CS::Expander>(&v, &CS::GENERATOR_DST);
-            if !generators.contains(&candidate) {
-                generators.push(candidate);
-            }
-        }
-
-        Generators {
-            g1_base_point: base_point,
-            q1: generators[0].clone(),
-            q2: generators[1].clone(),
-            message_generators: generators[2..].to_vec()
+        Self { 
+            g1_base_point: G1Projective::from_compressed_hex(CS::P1).unwrap(), 
+            q1: generators[0].clone(),  
+            message_generators: generators[1..].to_vec() 
         }
     }
 
-    fn create_g1_base_point<CS>() -> G1Projective
-    where
-        CS: BbsCiphersuite,
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
+}
 
-        let mut v = [0u8; 48];
-        CS::Expander::expand_message(&[CS::GENERATOR_SEED_BP], &[CS::GENERATOR_SEED_DST], CS::EXPAND_LEN).unwrap().fill_bytes(&mut v);
 
-        // TODO: implement a proper I2OSP
-        let extra = 1u32.to_be_bytes().to_vec();
-        let buffer = [v.as_ref(), &extra].concat();
 
-        CS::Expander::expand_message(&[&buffer], &[CS::GENERATOR_SEED_DST], CS::EXPAND_LEN).unwrap().fill_bytes(&mut v);
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-generators-calculation -> generators = create_generators(count, api_id)
+/// 
+/// # Description
+/// Generators creation
+/// 
+/// # Inputs:
+/// * `count` (REQUIRED), unsigned integer. Number of generators to create.
+/// * `api_id` (OPTIONAL), octet string. If not supplied it defaults to the empty octet string ("").
+/// # Output:
+/// * [`Vec<G1Projective>`], an array of generators
+///  
+pub(crate) fn create_generators<CS>(count: usize, api_id: Option<&[u8]>) -> Vec<G1Projective>
+where
+    CS: BbsCiphersuite,
+    CS::Expander: for<'a> ExpandMsg<'a>,
+{
+    let count = count + 1; // Q1, and generators
 
-        G1Projective::hash::<CS::Expander>(&v, &CS::GENERATOR_DST)
+    let api_id = api_id.unwrap_or(&[]);
+
+    let seed_dst = [api_id, CS::GENERATOR_SEED_DST].concat();
+    let generator_dst = [api_id, CS::GENERATOR_DST].concat();
+    let generator_seed = [api_id, CS::GENERATOR_SEED].concat();
+
+    let mut v = vec!(0u8; CS::EXPAND_LEN);
+    CS::Expander::expand_message(&[&generator_seed], &[&seed_dst], CS::EXPAND_LEN).unwrap().fill_bytes(&mut v);
+
+    let mut buffer = vec!(0u8; CS::EXPAND_LEN);
+    let mut generators = Vec::new();
+    for i in 1..count+1 {
+
+        v = [v, i2osp(i, 8)].concat();
+        CS::Expander::expand_message(&[&v], &[&seed_dst], CS::EXPAND_LEN).unwrap().fill_bytes(&mut buffer);
+        v = buffer.clone();
+        let generator = G1Projective::hash::<CS::Expander>(&v, &generator_dst);
+        generators.push(generator);
     }
-
+    
+    generators
 }

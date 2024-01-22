@@ -156,7 +156,7 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         let generators = match generators {
             Some(gens) => gens.clone(),
             None => {
-                let gens = Generators::create::<CS>(Some(pk), L+2);
+                let gens = Generators::create::<CS>(L);
                 gens
             }
             
@@ -172,7 +172,7 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
             H_j.push(*generators.message_generators.get(idx).expect("unrevealed_message_indexes not valid (overflow)"));
         }
 
-        let domain = calculate_domain::<CS>(pk, generators.q1, generators.q2, &generators.message_generators[0..L], Some(header));
+        let domain = calculate_domain::<CS>(pk, generators.q1, generators.q1, &generators.message_generators[0..L], Some(header));
 
         let random_scalars = calculate_random_scalars::<CS>(6+U, Some(seed));
 
@@ -185,7 +185,7 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
 
         let m_tilde = &random_scalars[6..(6+U)];
 
-        let mut B = generators.g1_base_point + generators.q1 * signature.s + generators.q2 * domain;
+        let mut B = generators.g1_base_point + generators.q1 * signature.s + generators.q1 * domain;
 
         for i in 0..L {
             B = B + generators.message_generators.get(i).expect("index overflow") * messages.get(i).expect("index overflow").value;
@@ -262,7 +262,7 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         let generators = match generators {
             Some(gens) => gens.clone(),
             None => {
-                let gens = Generators::create::<CS>(Some(pk), L+2);
+                let gens = Generators::create::<CS>(L);
                 gens
             }
             
@@ -284,11 +284,11 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
             H_j.push(*generators.message_generators.get(idx).expect("index overflow"));
         }
 
-        let domain = calculate_domain::<CS>(pk, generators.q1, generators.q2, &generators.message_generators[0..L], Some(header));
+        let domain = calculate_domain::<CS>(pk, generators.q1, generators.q1, &generators.message_generators[0..L], Some(header));
 
         let C1 = (proof.A_bar + (-proof.D)) * proof.c + proof.A_prime * proof.e_cap + generators.q1 * proof.r2_cap;
 		
-		let mut T = generators.g1_base_point + generators.q2 * domain;		
+		let mut T = generators.g1_base_point + generators.q1 * domain;		
 		for i in 0..R { 
 			T = T + H_i[i] * revealed_messages[i].value;
         }		

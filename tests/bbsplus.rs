@@ -61,14 +61,14 @@ mod bbsplus_tests {
 
     //GENERATORS - SHA256
     #[test]
-    fn message_generators_sha256() {
+    fn message_generators_sha256() { //UPDATED
         message_generators::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/generators.json");
     }
 
     //GENERATORS - SHAKE256
 
     #[test]
-    fn message_generators_shake256() {
+    fn message_generators_shake256() { //UPDATED
         message_generators::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/generators.json");
     }
 
@@ -442,10 +442,12 @@ mod bbsplus_tests {
             generators_expected.push(g.as_str().unwrap());
         }
 
-        let generators = Generators::create::<S::Ciphersuite>(None, generators_expected.len() + 2);
-        // print_generators(&generators);
+        println!("{}", generators_expected.len());
+        let generators = Generators::create::<S::Ciphersuite>(generators_expected.len());
+        println!("{}", generators.message_generators.len());
 
-        let expected_BP = res["BP"].as_str().unwrap();
+
+        let expected_BP = res["P1"].as_str().unwrap();
         // println!("{}", BP);
 
         //check BP
@@ -462,24 +464,13 @@ mod bbsplus_tests {
         }
 
         let expected_Q1 = res["Q1"].as_str().unwrap();
-        let Q1 = hex::encode(generators.q1.to_affine().to_compressed());
+        let Q1 = hex::encode(generators.q1.to_compressed());
 
         if expected_Q1 != Q1 {
             result = false;
             eprintln!("  GENERATOR Q1: {}", result);
             eprintln!("  Expected: {}", expected_Q1);
             eprintln!("  Computed: {}", Q1);
-        }
-
-
-        let expected_Q2 = res["Q2"].as_str().unwrap();
-        let Q2 = hex::encode(generators.q2.to_affine().to_compressed());
-
-        if expected_Q2 != Q2 {
-            result = false;
-            eprintln!("  GENERATOR Q2: {}", result);
-            eprintln!("  Expected: {}", expected_Q2);
-            eprintln!("  Computed: {}", Q2);
         }
 
 
@@ -529,7 +520,7 @@ mod bbsplus_tests {
         let msg_scalars: Vec<BBSplusMessage> = msgs_hex.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst)).unwrap()).collect();
         
         //Precompute generators 
-        let generators = Generators::create::<S::Ciphersuite>(None, msg_scalars.len() + 2);
+        let generators = Generators::create::<S::Ciphersuite>(msg_scalars.len());
 
         //Sign the message
         let signature = Signature::<BBSplus<S::Ciphersuite>>::sign(Some(&msg_scalars), &SK, &PK, Some(&generators), Some(&header));
@@ -718,7 +709,7 @@ mod bbsplus_tests {
         //Precompute generators
         let L = msg_scalars.len() + 1;
         // NOTE: one extra generator, for additional test vectors with one extra message
-        let generators = Generators::create::<S::Ciphersuite>(None, L + 2);
+        let generators = Generators::create::<S::Ciphersuite>(L);
 
         let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(bbs_signature, &PK, Some(&msg_scalars), Some(&generators), Some(&revealed_message_indexes), Some(&header), Some(&ph), Some(&hex::decode(seed).unwrap()));
 
@@ -779,7 +770,7 @@ mod bbsplus_tests {
 
         let pk = keypair.public_key();
 
-        let generators = Generators::create::<S::Ciphersuite>(None, msgs.len() + 2);
+        let generators = Generators::create::<S::Ciphersuite>(msgs.len());
 
         //Map Messages to Scalars
         let data_scalars = fs::read_to_string([pathname, "MapMessageToScalarAsHash.json"].concat()).expect("Unable to read file");
@@ -848,7 +839,7 @@ mod bbsplus_tests {
         let sk = keypair.private_key();
         let pk = keypair.public_key();
 
-        let generators = Generators::create::<S::Ciphersuite>(None, msgs.len() + 2);
+        let generators = Generators::create::<S::Ciphersuite>(msgs.len());
 
         //Map Messages to Scalars
         let data_scalars = fs::read_to_string([pathname, "MapMessageToScalarAsHash.json"].concat()).expect("Unable to read file");
@@ -948,7 +939,7 @@ mod bbsplus_tests {
         let sk = keypair.private_key();
         let pk = keypair.public_key();
 
-        let generators = Generators::create::<S::Ciphersuite>(None, msgs.len() + 2);
+        let generators = Generators::create::<S::Ciphersuite>(msgs.len());
 
         //Map Messages to Scalars
         let data_scalars = fs::read_to_string([pathname, "MapMessageToScalarAsHash.json"].concat()).expect("Unable to read file");
@@ -1031,7 +1022,7 @@ mod bbsplus_tests {
         let sk = keypair.private_key();
         let pk = keypair.public_key();
 
-        let generators = Generators::create::<S::Ciphersuite>(None, msgs.len() + 2);
+        let generators = Generators::create::<S::Ciphersuite>(msgs.len());
 
         //Map Messages to Scalars
         let data_scalars = fs::read_to_string([pathname, "MapMessageToScalarAsHash.json"].concat()).expect("Unable to read file");

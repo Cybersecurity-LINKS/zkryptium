@@ -54,7 +54,7 @@ mod bbsplus_example {
 
         log::info!("Computing Generators");
 
-        let generators = Generators::create::<S::Ciphersuite>(Some(issuer_pk), msgs.len()+2);
+        let generators = Generators::create::<S::Ciphersuite>(msgs.len());
         //Map Messages to Scalars
 
         let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst)).unwrap()).collect();

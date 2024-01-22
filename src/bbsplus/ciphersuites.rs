@@ -22,15 +22,17 @@ use crate::schemes::algorithms::Ciphersuite;
 pub trait BbsCiphersuite: Eq + 'static + Ciphersuite{
     const ID: &'static [u8];
     const API_ID: &'static [u8]; // ciphersuite_id || "H2G_HM2S_"
-    const GENERATOR_SEED: &'static [u8];
-    const GENERATOR_SEED_BP: &'static [u8];
-    const GENERATOR_SEED_DST: &'static [u8];
-    const GENERATOR_DST: &'static [u8];
+    const GENERATOR_SEED: &'static [u8] = b"MESSAGE_GENERATOR_SEED";
+    const GENERATOR_SEED_DST: &'static [u8] = b"SIG_GENERATOR_SEED_";
+    const GENERATOR_DST: &'static [u8] = b"SIG_GENERATOR_DST_";
+
+    const P1: &'static str;
     const GENERATOR_SIG_DST: &'static [u8];
     type Expander: for<'a> ExpandMsg<'a>;
     const EXPAND_LEN: usize = 48;
     const OCTECT_SCALAR_LEN: usize = 32;
     const IKM_LEN: usize = 32;
+
 
     fn keygen_dst() -> Vec<u8> {
         [Self::API_ID, b"KEYGEN_DST_"].concat()
@@ -38,6 +40,18 @@ pub trait BbsCiphersuite: Eq + 'static + Ciphersuite{
 
     fn map_msg_to_scalar_as_hash_dst() -> Vec<u8> {
         [Self::API_ID, b"MAP_MSG_TO_SCALAR_AS_HASH_"].concat()
+    }
+
+    fn generator_seed() -> Vec<u8> {
+        [Self::API_ID, b"MESSAGE_GENERATOR_SEED"].concat()
+    }
+
+    fn generator_seed_dst() -> Vec<u8> {
+        [Self::API_ID, b"SIG_GENERATOR_SEED_"].concat()
+    }
+
+    fn generator_dst() -> Vec<u8> {
+        [Self::API_ID, b"SIG_GENERATOR_DST_"].concat()
     }
 }
 
@@ -51,12 +65,12 @@ pub struct Bls12381Sha256 {}
 impl BbsCiphersuite for Bls12381Shake256 {
     const ID: &'static [u8] = b"BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_";
     const API_ID: &'static [u8] =  b"BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_H2G_HM2S_";
-    const GENERATOR_SEED: &'static [u8] =  b"BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_MESSAGE_GENERATOR_SEED";
-    const GENERATOR_SEED_BP: &'static [u8] = b"BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_BP_MESSAGE_GENERATOR_SEED";
-    const GENERATOR_SEED_DST: &'static [u8] = b"BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_SIG_GENERATOR_SEED_";
-    const GENERATOR_DST: &'static [u8] = b"BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_SIG_GENERATOR_DST_";
     const GENERATOR_SIG_DST: &'static [u8] = b"BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_SIG_DET_DST_";
     type Expander= ExpandMsgXof<Shake256>;
+
+
+    const P1: &'static str = "8929dfbc7e6642c4ed9cba0856e493f8b9d7d5fcb0c31ef8fdcd34d50648a56c795e106e9eada6e0bda386b414150755";
+
 
 }
 
@@ -64,11 +78,9 @@ impl BbsCiphersuite for Bls12381Shake256 {
 impl BbsCiphersuite for Bls12381Sha256 {
     const ID: &'static [u8] = b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_";
     const API_ID: &'static [u8] = b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_";
-    const GENERATOR_SEED: &'static [u8] =  b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_MESSAGE_GENERATOR_SEED";
-    const GENERATOR_SEED_BP: &'static [u8] = b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_BP_MESSAGE_GENERATOR_SEED";
-    const GENERATOR_SEED_DST: &'static [u8] = b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_SIG_GENERATOR_SEED_";
-    const GENERATOR_DST: &'static [u8] = b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_SIG_GENERATOR_DST_";
     const GENERATOR_SIG_DST: &'static [u8] = b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_SIG_DET_DST_";
     type Expander= ExpandMsgXmd<Sha256>;
+
+    const P1: &'static str = "a8ce256102840821a3e94ea9025e4662b205762f9776b3a766c872b948f1fd225e7c59698588e70d11406d161b4e28c9" ;
 }
 

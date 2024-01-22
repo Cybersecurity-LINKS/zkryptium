@@ -97,7 +97,7 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         let generators = match generators {
             Some(gens) => gens.clone(),
             None => {
-                let gens = Generators::create::<CS>(Some(pk), L+2);
+                let gens = Generators::create::<CS>(L);
                 gens
             }
             
@@ -107,7 +107,7 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
             panic!("not enough generators!");
         }
 
-        let domain = calculate_domain::<CS>(pk, generators.q1, generators.q2, &generators.message_generators, Some(header));
+        let domain = calculate_domain::<CS>(pk, generators.q1, generators.q1, &generators.message_generators, Some(header));
 
         // let mut e_s_for_hash: Vec<u8> = Vec::new();
         // e_s_for_hash.extend_from_slice(&sk.to_bytes());
@@ -135,7 +135,7 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         let e = scalars[0];
         let s = scalars[1];
 
-        let mut B = generators.g1_base_point + generators.q1 * s + generators.q2 *domain;
+        let mut B = generators.g1_base_point + generators.q1 * s + generators.q1 *domain;
         for i in 0..L {
             B = B + generators.message_generators[i] * messages[i].value;
         }
@@ -169,7 +169,7 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         let generators = match generators {
             Some(gens) => gens.clone(),
             None => {
-                let gens = Generators::create::<CS>(Some(pk), L+2);
+                let gens = Generators::create::<CS>(L);
                 gens
             }
             
@@ -179,9 +179,9 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
             panic!("not enough generators!");
         }
 
-        let domain = calculate_domain::<CS>(pk, generators.q1, generators.q2, &generators.message_generators, Some(header));
+        let domain = calculate_domain::<CS>(pk, generators.q1, generators.q1, &generators.message_generators, Some(header));
 
-        let mut B = generators.g1_base_point + generators.q1 * signature.s + generators.q2 *domain;
+        let mut B = generators.g1_base_point + generators.q1 * signature.s + generators.q1 *domain;
 
         for i in 0..L {
             B = B + generators.message_generators[i] * messages[i].value;

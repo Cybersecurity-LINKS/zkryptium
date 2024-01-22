@@ -30,7 +30,7 @@ hkdf = "0.12.3"
 digest = "0.10.6"
 
 # bbsplus
-bls12_381_plus = { version = "0.8.5", optional = true }
+bls12_381_plus = { version = "0.8.13", optional = true }
 ff = "0.13.0"
 group = "0.10"
 elliptic-curve = "0.13.4"

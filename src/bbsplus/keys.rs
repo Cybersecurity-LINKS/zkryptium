@@ -166,8 +166,7 @@ impl <CS: BbsCiphersuite> KeyPair<BBSplus<CS>>{
 /// This operation generates a secret key (SK) deterministically from a secret octet string (key_material)
 /// 
 /// # Inputs:
-/// * `key_material` (REQUIRED), a secret octet string. See requirements
-/// above.
+/// * `key_material` (REQUIRED), a secret octet string.
 /// * `key_info` (OPTIONAL), an octet string. Defaults to an empty string if
 /// not supplied.
 /// * `key_dst` (OPTIONAL), an octet string representing the domain separation

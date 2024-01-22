@@ -45,7 +45,7 @@ impl <CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
         let generators = match generators {
             Some(gens) => gens.clone(),
             None => {
-                let gens = Generators::create::<CS>(Some(pk), L+2);
+                let gens = Generators::create::<CS>(L);
                 gens
             }
             
