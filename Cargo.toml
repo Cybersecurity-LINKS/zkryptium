@@ -48,7 +48,7 @@ path = "src/lib.rs"
 features = ["cl03"]
 
 [features]
-default = ["bbsplus", "cl03"]
+default = ["bbsplus"]
 cl03 = ["dep:rug"]
 bbsplus = ["dep:bls12_381_plus"]
 
