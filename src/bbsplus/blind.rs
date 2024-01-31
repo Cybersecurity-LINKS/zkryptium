@@ -179,6 +179,13 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         Signature::<BBSplus<CS>>::BBSplus(BBSplusSignature{ a: self.a(), e: self.e(), s: s })
     }
 
+    pub fn bbsPlusBlindSignature(&self) -> &BBSplusBlindSignature{
+        match self {
+            Self::BBSplus(inner) => inner,
+            _ => panic!("Cannot happen!")
+        }
+    }
+
     pub fn a(&self) -> G1Projective {
         match self {
             Self::BBSplus(inner) => inner.a,

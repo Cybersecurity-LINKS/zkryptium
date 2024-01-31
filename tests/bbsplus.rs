@@ -991,7 +991,7 @@ mod bbsplus_tests {
         let mut new_msgs_scalars = msgs_scalars.clone();
         new_msgs_scalars[update_index] = new_message_scalar;
 
-        let updated_signature = blind_signature.update_signature(sk, &generators, &old_message_scalar, &new_message_scalar, update_index);
+        let updated_signature = BlindSignature::<BBSplus<S::Ciphersuite>>::BBSplus(blind_signature.bbsPlusBlindSignature().update_signature(sk, &generators, &old_message_scalar, &new_message_scalar, update_index));
         let unblind_updated_signature: Signature<BBSplus<<S as Scheme>::Ciphersuite>> = Signature::BBSplus(BBSplusSignature { a: updated_signature.a(), e: unblind_signature.e(), s: unblind_signature.s()});
         let verify = unblind_updated_signature.verify(pk, Some(&new_msgs_scalars), Some(&generators), Some(&header));
 
@@ -1042,7 +1042,7 @@ mod bbsplus_tests {
         let new_message_scalar = BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(new_message).unwrap(), Some(&dst));
         let old_message_scalar = msgs_scalars.get(update_index).unwrap();
 
-        let updated_signature = signature.update_signature(sk, &generators, &old_message_scalar, &new_message_scalar, update_index);
+        let updated_signature = Signature::<BBSplus<S::Ciphersuite>>::BBSplus(signature.bbsPlusSignature().update_signature(sk, &generators, &old_message_scalar, &new_message_scalar, update_index));
 
         let mut new_msgs_scalars = msgs_scalars.clone();
         new_msgs_scalars[update_index] = new_message_scalar;
