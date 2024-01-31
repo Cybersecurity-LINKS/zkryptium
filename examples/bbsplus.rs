@@ -97,9 +97,11 @@ mod bbsplus_example {
         
         assert!(blind_signature.is_ok(), "Blind Signature Error");
 
+        let blind_signature = blind_signature.unwrap();
+
         //Holder unblind the signature
         log::info!("Signature unblinding and verification...");
-        let unblind_signature = blind_signature.unwrap().unblind_sign(commitment.bbsPlusCommitment());
+        let unblind_signature = blind_signature.unblind_sign(commitment.bbsPlusCommitment());
 
         let verify = unblind_signature.verify(issuer_pk, Some(&msgs_scalars), Some(&generators), Some(&header));
 
@@ -120,6 +122,43 @@ mod bbsplus_example {
         let proof_result = proof.proof_verify(&issuer_pk, Some(&revealed_msgs), Some(&generators), Some(&revealed_message_indexes), Some(&header), Some(&nonce_verifier));
         assert!(proof_result, "Signature Proof of Knowledge Verification Failed!");
         log::info!("Signature Proof of Knowledge is VALID!");
+
+        // Holder request update from Issuer
+
+        // Holder sends its Blinded Credential ad Commitment to Issuer 
+
+        // Issuer verifies Blind Signature
+        let blind_signature_verification_res = blind_signature.verify(&revealed_msgs, commitment.bbsPlusCommitment(), issuer_pk, Some(&generators), &revealed_message_indexes, &unrevealed_message_indexes, Some(&header));
+
+        assert!(blind_signature_verification_res, "Blind Signature NOT Valid");
+
+        // Issuer update the Blind Signature 
+
+        
+        const new_message: &str = "8872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f05";
+        const update_index: usize = 0usize;
+
+
+        let new_message_scalar = BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(new_message).unwrap(), Some(&dst));
+        let old_message_scalar = revealed_msgs.get(update_index).unwrap();
+
+        let new_blind_signature = blind_signature.update_signature(issuer_sk, &generators, old_message_scalar, &new_message_scalar, update_index);
+
+        
+        // Issuer verifies Blind Signature with old messages
+        let blind_signature_verification_res = new_blind_signature.verify(&revealed_msgs, commitment.bbsPlusCommitment(), issuer_pk, Some(&generators), &revealed_message_indexes, &unrevealed_message_indexes, Some(&header));
+
+        assert!(!blind_signature_verification_res, "Blind Signature verification MUST fail!");
+
+        // Issuer verifies Blind Signature with new messages
+
+        let mut new_revealed_msgs = revealed_msgs.clone();
+        new_revealed_msgs[update_index] = new_message_scalar;
+
+        let blind_signature_verification_res = new_blind_signature.verify(&new_revealed_msgs, commitment.bbsPlusCommitment(), issuer_pk, Some(&generators), &revealed_message_indexes, &unrevealed_message_indexes, Some(&header));
+
+        assert!(blind_signature_verification_res, "Blind Signature NOT valid!");
+
 
     }
 

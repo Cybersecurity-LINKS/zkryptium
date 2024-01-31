@@ -14,7 +14,7 @@
 
 
 use std::panic;
-use bls12_381_plus::{G1Projective, Scalar, G1Affine};
+use bls12_381_plus::{multi_miller_loop, G1Affine, G1Projective, G2Prepared, G2Projective, Gt, Scalar};
 use elliptic_curve::{group::Curve, subtle::{CtOption, Choice}, hash2curve::ExpandMsg};
 use serde::{Deserialize, Serialize};
 use crate::{schemes::algorithms::BBSplus, utils::message::BBSplusMessage, bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, utils::util::bbsplus_utils::{calculate_domain, ScalarExt, hash_to_scalar_old}, errors::BlindSignError, schemes::generics::{BlindSignature, Signature, ZKPoK}};
@@ -121,6 +121,55 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
                 return Err(Box::new(BlindSignError("A == IDENTITY G1".to_string())));
             }
             Ok(Self::BBSplus(BBSplusBlindSignature{a: A, e, s_second}))
+
+    }
+
+
+    pub fn verify(&self, revealed_messages: &[BBSplusMessage], commitment: &BBSplusCommitment, pk: &BBSplusPublicKey, generators: Option<&Generators>, revealed_message_indexes: &[usize], unrevealed_message_indexes: &[usize], header: Option<&[u8]>) -> bool 
+    where
+        CS::Expander: for<'a> ExpandMsg<'a>,
+    {
+        let K = revealed_message_indexes.len();
+        if revealed_messages.len() != K {
+            panic!("len(known_messages) != len(revealed_message_indexes)");
+        }
+
+        let header = header.unwrap_or(b"");
+
+        let U = unrevealed_message_indexes.len();
+        let L = K + U;
+
+        let generators = match generators {
+            Some(gens) => gens.clone(),
+            None => {
+                let gens = Generators::create::<CS>(Some(pk), L+2);
+                gens
+            }
+            
+        };
+
+        let domain = calculate_domain::<CS>(pk, generators.q1, generators.q2, &generators.message_generators, Some(header));
+
+        let mut B = commitment.value + generators.g1_base_point + generators.q1 * self.s_second() + generators.q2 * domain;
+
+
+        for j in 0..K {
+            B += generators.message_generators.get(revealed_message_indexes[j]).expect("index overflow") * revealed_messages.get(j).expect("index overflow").value;
+        }
+
+
+
+        let P2 = G2Projective::GENERATOR;
+        let A2 = pk.0 + P2 * self.e();
+
+        let identity_GT = Gt::IDENTITY;
+
+        let Ps = (&self.a().to_affine(), &G2Prepared::from(A2.to_affine()));
+		let Qs = (&B.to_affine(), &G2Prepared::from(-P2.to_affine()));
+
+        let pairing = multi_miller_loop(&[Ps, Qs]).final_exponentiation();
+
+        pairing == identity_GT
 
     }
 
