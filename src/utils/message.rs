@@ -22,6 +22,7 @@ use serde::{Serialize, Deserialize};
 
 #[cfg(feature = "cl03")]
 use crate::cl03::ciphersuites::CLCiphersuite;
+use crate::schemes::algorithms::Scheme;
 #[cfg(feature = "cl03")]
 use rug::{Integer, integer::Order};
 
@@ -61,11 +62,12 @@ impl BBSplusMessage {
         Self{value: msg}
     }
 
-    pub fn map_message_to_scalar_as_hash<C: BbsCiphersuite>(data: &[u8], dst: Option<&[u8]>) -> Self 
+    pub fn map_message_to_scalar_as_hash<C: Scheme>(data: &[u8], dst: Option<&[u8]>) -> Self 
     where
-        C::Expander: for<'a> ExpandMsg<'a>,
+        C::Ciphersuite: BbsCiphersuite,
+        <C::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
-        let binding = [C::ID, "MAP_MSG_TO_SCALAR_AS_HASH_".as_bytes()].concat();
+        let binding = [C::Ciphersuite::ID, "MAP_MSG_TO_SCALAR_AS_HASH_".as_bytes()].concat();
         let default_dst = binding.as_slice();
         let dst = dst.unwrap_or(default_dst);
 
@@ -74,7 +76,7 @@ impl BBSplusMessage {
         }
 
         // let scalar = hash_to_scalar::<C>(data, Some(dst));
-        let scalar = hash_to_scalar_old::<C>(data, 1, Some(dst))[0];
+        let scalar = hash_to_scalar_old::<C::Ciphersuite>(data, 1, Some(dst))[0];
         Self { value: scalar }
 
     }

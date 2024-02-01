@@ -54,7 +54,7 @@ mod bbsplus_example {
         let generators = Generators::create::<S::Ciphersuite>(Some(issuer_pk), msgs.len()+2);
         //Map Messages to Scalars
 
-        let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst))).collect();
+        let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<BBSplus<S::Ciphersuite>>(&hex::decode(m).unwrap(), Some(&dst))).collect();
         
         log::info!("Computing pedersen commitment on messages");
         let commitment = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars, None, &issuer_pk, &unrevealed_message_indexes);
@@ -139,7 +139,7 @@ mod bbsplus_example {
         const update_index: usize = 0usize;
 
 
-        let new_message_scalar = BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(new_message).unwrap(), Some(&dst));
+        let new_message_scalar = BBSplusMessage::map_message_to_scalar_as_hash::<BBSplus<S::Ciphersuite>>(&hex::decode(new_message).unwrap(), Some(&dst));
         let old_message_scalar = revealed_msgs.get(update_index).unwrap();
 
         let new_blind_signature = blind_signature.update_signature(issuer_sk, issuer_pk, msgs_scalars.len(), old_message_scalar, &new_message_scalar, update_index);

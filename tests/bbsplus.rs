@@ -406,7 +406,7 @@ mod bbsplus_tests {
 
             let msg_hex = hex::decode(msg.as_str().unwrap()).unwrap();
 
-            let out = hex::encode(BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&msg_hex, Some(&dst)).to_bytes_be());
+            let out = hex::encode(BBSplusMessage::map_message_to_scalar_as_hash::<BBSplus<S::Ciphersuite>>(&msg_hex, Some(&dst)).to_bytes_be());
             let out_expected = cases[idx]["scalar"].as_str().unwrap();
 
             if out != out_expected{
@@ -518,7 +518,7 @@ mod bbsplus_tests {
 
         let dst = hex::decode(msg_scalars["dst"].as_str().unwrap()).unwrap();
 
-        let msg_scalars: Vec<BBSplusMessage> = msgs_hex.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst))).collect();
+        let msg_scalars: Vec<BBSplusMessage> = msgs_hex.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<BBSplus<S::Ciphersuite>>(&hex::decode(m).unwrap(), Some(&dst))).collect();
         
         //Precompute generators 
         let generators = Generators::create::<S::Ciphersuite>(None, msg_scalars.len() + 2);
@@ -703,7 +703,7 @@ mod bbsplus_tests {
 
         let mut msg_scalars: Vec<BBSplusMessage> = Vec::new();
         for m in messages {
-            msg_scalars.push(BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst)));
+            msg_scalars.push(BBSplusMessage::map_message_to_scalar_as_hash::<BBSplus<S::Ciphersuite>>(&hex::decode(m).unwrap(), Some(&dst)));
         }
 
 
@@ -777,8 +777,8 @@ mod bbsplus_tests {
         let scalars_json: serde_json::Value = serde_json::from_str(&data_scalars).expect("Unable to parse");
         let dst = hex::decode(scalars_json["dst"].as_str().unwrap()).unwrap();
 
-        let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst))).collect();
-        let msgs_scalars_wrong: Vec<BBSplusMessage> = msgs_wrong.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst))).collect();
+        let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<BBSplus<S::Ciphersuite>>(&hex::decode(m).unwrap(), Some(&dst))).collect();
+        let msgs_scalars_wrong: Vec<BBSplusMessage> = msgs_wrong.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<BBSplus<S::Ciphersuite>>(&hex::decode(m).unwrap(), Some(&dst))).collect();
 
         let commitment = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars, Some(&generators), &pk, &unrevealed_message_indexes);
         let commitment_wrong = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars_wrong, Some(&generators), &pk, &unrevealed_message_indexes);
@@ -845,8 +845,8 @@ mod bbsplus_tests {
         let scalars_json: serde_json::Value = serde_json::from_str(&data_scalars).expect("Unable to parse");
         let dst = hex::decode(scalars_json["dst"].as_str().unwrap()).unwrap();
 
-        let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst))).collect();
-        let msgs_scalars_wrong: Vec<BBSplusMessage> = msgs_wrong.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst))).collect();
+        let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<BBSplus<S::Ciphersuite>>(&hex::decode(m).unwrap(), Some(&dst))).collect();
+        let msgs_scalars_wrong: Vec<BBSplusMessage> = msgs_wrong.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<BBSplus<S::Ciphersuite>>(&hex::decode(m).unwrap(), Some(&dst))).collect();
 
         let commitment = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars, Some(&generators), pk, &unrevealed_message_indexes);
         let commitment_wrong = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars_wrong, Some(&generators), pk, &unrevealed_message_indexes);
@@ -944,7 +944,7 @@ mod bbsplus_tests {
         let scalars_json: serde_json::Value = serde_json::from_str(&data_scalars).expect("Unable to parse");
         let dst = hex::decode(scalars_json["dst"].as_str().unwrap()).unwrap();
 
-        let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst))).collect();
+        let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<BBSplus<S::Ciphersuite>>(&hex::decode(m).unwrap(), Some(&dst))).collect();
         
         let commitment = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars, Some(&generators), pk, &unrevealed_message_indexes);
         
@@ -985,7 +985,7 @@ mod bbsplus_tests {
 
         const new_message: &str = "8872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02";
         const update_index: usize = 0usize;
-        let new_message_scalar = BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(new_message).unwrap(), Some(&dst));
+        let new_message_scalar = BBSplusMessage::map_message_to_scalar_as_hash::<BBSplus<S::Ciphersuite>>(&hex::decode(new_message).unwrap(), Some(&dst));
         let old_message_scalar = msgs_scalars.get(update_index).unwrap();
 
         let mut new_msgs_scalars = msgs_scalars.clone();
@@ -1026,7 +1026,7 @@ mod bbsplus_tests {
         let scalars_json: serde_json::Value = serde_json::from_str(&data_scalars).expect("Unable to parse");
         let dst = hex::decode(scalars_json["dst"].as_str().unwrap()).unwrap();
 
-        let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst))).collect();
+        let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<BBSplus<S::Ciphersuite>>(&hex::decode(m).unwrap(), Some(&dst))).collect();
         
 
         let signature = Signature::<BBSplus<S::Ciphersuite>>::sign(Some(&msgs_scalars), sk, pk, Some(&generators), Some(&header));
@@ -1039,7 +1039,7 @@ mod bbsplus_tests {
 
         const new_message: &str = "8872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02";
         const update_index: usize = 0usize;
-        let new_message_scalar = BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(new_message).unwrap(), Some(&dst));
+        let new_message_scalar = BBSplusMessage::map_message_to_scalar_as_hash::<BBSplus<S::Ciphersuite>>(&hex::decode(new_message).unwrap(), Some(&dst));
         let old_message_scalar = msgs_scalars.get(update_index).unwrap();
 
         let updated_signature = signature.update_signature(sk, pk, msgs_scalars.len(), &old_message_scalar, &new_message_scalar, update_index);
