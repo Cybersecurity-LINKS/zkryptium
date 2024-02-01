@@ -142,7 +142,7 @@ mod bbsplus_example {
         let new_message_scalar = BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(new_message).unwrap(), Some(&dst));
         let old_message_scalar = revealed_msgs.get(update_index).unwrap();
 
-        let new_blind_signature = BlindSignature::<BBSplus<S::Ciphersuite>>::BBSplus(blind_signature.bbsPlusBlindSignature().update_signature(issuer_sk, &generators, old_message_scalar, &new_message_scalar, update_index));
+        let new_blind_signature = blind_signature.update_signature(issuer_sk, issuer_pk, msgs_scalars.len(), old_message_scalar, &new_message_scalar, update_index);
 
         
         // Issuer verifies Blind Signature with old messages
