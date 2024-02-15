@@ -36,7 +36,7 @@ impl <CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
     {
         let L = messages.len();
 
-        let s_prime = calculate_random_scalars::<CS>(1, None);
+        let s_prime = calculate_random_scalars::<CS>(1, None, None);
 
         if unrevealed_message_indexes.is_empty() {
             panic!("Unrevealed message indexes empty");

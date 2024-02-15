@@ -13,87 +13,72 @@
 // limitations under the License.
 
 
+use std::ops::Deref;
 
 use bls12_381_plus::{G1Projective, Scalar, G2Projective, G2Prepared, Gt, multi_miller_loop, G1Affine};
-use elliptic_curve::{hash2curve::ExpandMsg, group::Curve};
+use elliptic_curve::{group::Curve, hash2curve::ExpandMsg, Group};
 use serde::{Serialize, Deserialize};
-use crate::{schemes::algorithms::BBSplus, utils::message::BBSplusMessage, bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, utils::util::{bbsplus_utils::{get_messages, calculate_domain, calculate_random_scalars, ScalarExt, hash_to_scalar_old}, get_remaining_indexes}, schemes::generics::{ZKPoK, PoKSignature}};
+use crate::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, errors::Error, schemes::{algorithms::BBSplus, generics::{PoKSignature, ZKPoK}}, utils::{message::BBSplusMessage, util::{bbsplus_utils::{calculate_domain_new, get_messages, hash_to_scalar_new, hash_to_scalar_old, i2osp, ScalarExt}, get_remaining_indexes}}};
 use super::{signature::BBSplusSignature, keys::BBSplusPublicKey, commitment::BBSplusCommitment};
 
 
-
+use crate::utils::util::bbsplus_utils::calculate_random_scalars;
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusPoKSignature{
-    A_prime: G1Projective,
-    A_bar: G1Projective,
+    Abar: G1Projective,
+    Bbar: G1Projective,
     D: G1Projective,
-    c: Scalar,
     e_cap: Scalar,
-    r2_cap: Scalar,
+    r1_cap: Scalar,
     r3_cap: Scalar,
-    s_cap: Scalar,
-    m_cap: Vec<Scalar>
+    m_cap: Vec<Scalar>,
+    challenge: Scalar,
 }
 
 impl BBSplusPoKSignature {
 
-    pub fn to_bytes(&self) -> Vec<u8>{
-        let signature = self;
+    pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::new();
 
-        bytes.extend_from_slice(&signature.A_prime.to_affine().to_compressed());
-        bytes.extend_from_slice(&signature.A_bar.to_affine().to_compressed());
-        bytes.extend_from_slice(&signature.D.to_affine().to_compressed());
-        bytes.extend_from_slice(&signature.c.to_bytes_be());
-        bytes.extend_from_slice(&signature.e_cap.to_bytes_be());
-        bytes.extend_from_slice(&signature.r2_cap.to_bytes_be());
-        bytes.extend_from_slice(&signature.r3_cap.to_bytes_be());
-        bytes.extend_from_slice(&signature.s_cap.to_bytes_be());
-        signature.m_cap.iter().for_each(|v| bytes.extend_from_slice(&v.to_bytes_be()));
-        
+        bytes.extend_from_slice(&self.Abar.to_affine().to_compressed());
+        bytes.extend_from_slice(&self.Bbar.to_affine().to_compressed());
+        bytes.extend_from_slice(&self.D.to_affine().to_compressed());
+        bytes.extend_from_slice(&self.e_cap.to_bytes_be());
+        bytes.extend_from_slice(&self.r1_cap.to_bytes_be());
+        bytes.extend_from_slice(&self.r3_cap.to_bytes_be());
+        self.m_cap.iter().for_each(|v| bytes.extend_from_slice(&v.to_bytes_be()));
+        bytes.extend_from_slice(&self.challenge.to_bytes_be());
         bytes
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> Self {
-        
-        let len = bytes.len();
-        if len < 304 || (len - 304) % 32 != 0 {
-            panic!("Invalid number of bytes submitted!");
-        }
-
-        let A_prime =  G1Affine::from_compressed(&<[u8; 48]>::try_from(&bytes[0..48]).unwrap())
-        .map(G1Projective::from).unwrap();
-        let A_bar = G1Affine::from_compressed(&<[u8; 48]>::try_from(&bytes[48..96]).unwrap())
-        .map(G1Projective::from).unwrap();
-        let D = G1Affine::from_compressed(&<[u8; 48]>::try_from(&bytes[96..144]).unwrap())
-        .map(G1Projective::from).unwrap();
-
-
-        let c = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[144..176]).unwrap());
-
-        let e_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[176..208]).unwrap());
-        let r2_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[208..240]).unwrap());
-        let r3_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[240..272]).unwrap());
-        let s_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[272..304]).unwrap());
-        let mut start = 304;
-        let mut end = start + 32;
-        let mut m_cap: Vec<Scalar> = Vec::new();
-
-
-        while end <= len {
-            let b = <[u8; 32]>::try_from(&bytes[start..end]);
-            if b.is_err() {
-                panic!("bytes not valid");
-            } else {
-                m_cap.push(Scalar::from_bytes_be(&b.unwrap()));
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        let parse_g1_affine = |slice: &[u8]| -> Result<G1Projective, Error> {
+            let point = G1Affine::from_compressed(&<[u8; 48]>::try_from(slice).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?);
+            if point.is_none().into() {
+                return Err(Error::InvalidProofOfKnowledgeSignature);
             }
-            start = end;
-            end += 32;
+            Ok(point.map(G1Projective::from).unwrap())
+        };
+    
+        let Abar = parse_g1_affine(&bytes[0..48])?;
+        let Bbar = parse_g1_affine(&bytes[48..96])?;
+        let D = parse_g1_affine(&bytes[96..144])?;
+    
+        let e_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[144..176]).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?);
+        let r1_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[176..208]).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?);
+        let r3_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[208..240]).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?);
+    
+        let mut m_cap: Vec<Scalar> = Vec::new();
+    
+        for chunk in bytes[240..].chunks_exact(32) {
+            let b = <[u8; 32]>::try_from(chunk).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
+            m_cap.push(Scalar::from_bytes_be(&b));
         }
 
-        BBSplusPoKSignature { A_prime, A_bar, D, c, e_cap, r2_cap, r3_cap, s_cap, m_cap }
-        
+        let challenge = m_cap.pop().ok_or(Error::InvalidProofOfKnowledgeSignature)?; //at least the challenge should be present (even if all attributes are disclosed)
+
+        Ok(Self { Abar, Bbar, D, e_cap, r1_cap, r3_cap, m_cap, challenge })
     }
 }
 
@@ -103,222 +88,60 @@ impl BBSplusPoKSignature {
 
 impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
 
-    fn calculate_challenge(A_prime: G1Projective, Abar: G1Projective, D: G1Projective, C1: G1Projective, C2: G1Projective, i_array: &[usize], msg_array: &[BBSplusMessage], domain: Scalar, ph: Option<&[u8]>) -> Scalar
-    where
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
-        let ph = ph.unwrap_or(b"");
-        
-        let R = i_array.len();
-        if R != msg_array.len() {
-            panic!("R != msg_array.len()");
-        }
-
-        let mut c_array: Vec<u8> = Vec::new();
-        c_array.extend_from_slice(&A_prime.to_affine().to_compressed());
-        c_array.extend_from_slice(&Abar.to_affine().to_compressed());
-        c_array.extend_from_slice(&D.to_affine().to_compressed());
-        c_array.extend_from_slice(&C1.to_affine().to_compressed());
-        c_array.extend_from_slice(&C2.to_affine().to_compressed());
-        c_array.extend_from_slice(&R.to_be_bytes());
-        i_array.iter().for_each(|i| c_array.extend(i.to_be_bytes().iter()));
-        msg_array.iter().for_each(|m| c_array.extend_from_slice(&m.value.to_bytes_be()));
-        c_array.extend_from_slice(&domain.to_bytes_be());
-
-        let ph_i2osp: [u8; 8] = (ph.len() as u64).to_be_bytes();
-        c_array.extend_from_slice(&ph_i2osp);
-        c_array.extend_from_slice(ph);
-
-        let challenge = hash_to_scalar_old::<CS>(&c_array, 1, None);
-
-        challenge[0]
-    }
-
-    pub fn proof_gen(signature: &BBSplusSignature, pk: &BBSplusPublicKey, messages: Option<&[BBSplusMessage]>, generators: Option<&Generators>, revealed_message_indexes: Option<&[usize]>, header: Option<&[u8]>, ph: Option<&[u8]>, seed: Option<&[u8]>) -> Self
+    pub fn proof_gen(signature: &BBSplusSignature, pk: &BBSplusPublicKey, messages: Option<&[Vec<u8>]>, disclosed_indexes: Option<&[usize]>, header: Option<&[u8]>, ph: Option<&[u8]>) -> Result<Self, Error>
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
         let messages = messages.unwrap_or(&[]);
-        let revealed_message_indexes = revealed_message_indexes.unwrap_or(&[]);
-        let header = header.unwrap_or(b"");
-        let ph = ph.unwrap_or(b"");
-        let seed = seed.unwrap_or(b"");
+        let disclosed_indexes = disclosed_indexes.unwrap_or(&[]);
 
-        let L = messages.len();
-        let R = revealed_message_indexes.len();
-        let U = L - R;
+        let message_scalars = BBSplusMessage::messages_to_scalar::<CS>(messages, CS::API_ID)?;
+        let generators = Generators::create::<CS>(messages.len()+1);
 
-        let unrevealed_message_indexes = get_remaining_indexes(L, revealed_message_indexes);
+        let proof = core_proof_gen::<CS>(
+            pk, 
+            signature, 
+            &generators, 
+            &message_scalars, 
+            disclosed_indexes, 
+            header, 
+            ph, 
+            Some(CS::API_ID)
+        )?;
 
-        let revealed_messages = get_messages(messages, revealed_message_indexes);
-        let unrevealed_messages = get_messages(messages, &unrevealed_message_indexes);
-
-        let generators = match generators {
-            Some(gens) => gens.clone(),
-            None => {
-                let gens = Generators::create::<CS>(L);
-                gens
-            }
-            
-        };
-        
-        if generators.message_generators.len() < L {
-            panic!("not enough message generators!");
-        }
-
-        let mut H_j: Vec<G1Projective> = Vec::new();
-
-        for idx in unrevealed_message_indexes {
-            H_j.push(*generators.message_generators.get(idx).expect("unrevealed_message_indexes not valid (overflow)"));
-        }
-
-        let domain = calculate_domain::<CS>(pk, generators.q1, generators.q1, &generators.message_generators[0..L], Some(header));
-
-        let random_scalars = calculate_random_scalars::<CS>(6+U, Some(seed));
-
-        let r1 = random_scalars[0];
-        let r2 = random_scalars[1];
-        let e_tilde = random_scalars[2];
-        let r2_tilde = random_scalars[3];
-        let r3_tilde = random_scalars[4];
-        let s_tilde = random_scalars[5];
-
-        let m_tilde = &random_scalars[6..(6+U)];
-
-        let mut B = generators.g1_base_point + generators.q1 * signature.s + generators.q1 * domain;
-
-        for i in 0..L {
-            B = B + generators.message_generators.get(i).expect("index overflow") * messages.get(i).expect("index overflow").value;
-        }
-
-        let r3 = r1.invert().unwrap();
-
-        let A_prime = signature.a * r1;
-
-        let A_bar = A_prime * (-signature.e) + B * r1;
-
-        let D = B * r1 + generators.q1 * r2;
-
-        let s_prime = r2 * r3 + signature.s;
-
-        let C1 = A_prime * e_tilde + generators.q1 * r2_tilde;
-
-        let mut C2 = D * (-r3_tilde) + generators.q1 * s_tilde;
-
-        for idx in 0..U{
-            C2 = C2 + H_j.get(idx).expect("index overflow") * m_tilde.get(idx).expect("index overflow");
-        }
-
-        let c = Self::calculate_challenge(A_prime, A_bar, D, C1, C2, revealed_message_indexes, &revealed_messages, domain, Some(ph));
-
-        let e_cap = c * signature.e + e_tilde;
-
-        let r2_cap = c * r2 + r2_tilde;
-
-        let r3_cap = c * r3 + r3_tilde;
-
-        let s_cap = c * s_prime + s_tilde;
-
-        let mut m_cap: Vec<Scalar> = Vec::new();
-
-        for idx in 0..U {
-            let value = c * unrevealed_messages.get(idx).expect("index overflow").value + m_tilde.get(idx).expect("index overflow");
-            m_cap.push(value);
-        }
-
-        let proof = Self::BBSplus(BBSplusPoKSignature{ A_prime, A_bar, D, c, e_cap, r2_cap, r3_cap, s_cap, m_cap });
-
-        proof
+        Ok(Self::BBSplus(proof))
     }
 
-    pub fn proof_verify(&self, pk: &BBSplusPublicKey, revealed_messages: Option<&[BBSplusMessage]>, generators: Option<&Generators>, revealed_message_indexes: Option<&[usize]>, header: Option<&[u8]>, ph: Option<&[u8]>) -> bool 
+    pub fn proof_verify(&self, pk: &BBSplusPublicKey, disclosed_messages: Option<&[Vec<u8>]>, disclosed_indexes: Option<&[usize]>, header: Option<&[u8]>, ph: Option<&[u8]>) -> Result<(), Error> 
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
         let proof = self.to_bbsplus_proof();
-        let revealed_messages = revealed_messages.unwrap_or(&[]);
-        let revealed_message_indexes = revealed_message_indexes.unwrap_or(&[]);
-        let header = header.unwrap_or(b"");
-        let ph = ph.unwrap_or(b"");
+
+        let disclosed_messages = disclosed_messages.unwrap_or(&[]);
+        let mut disclosed_indexes = disclosed_indexes.unwrap_or(&[]).to_vec();
+        disclosed_indexes.sort();
+        disclosed_indexes.dedup();
 
         let U = proof.m_cap.len();
-        let R = revealed_message_indexes.len();
+        let R = disclosed_indexes.len();
 
-        let L = R + U;
+        let disclosed_message_scalars = BBSplusMessage::messages_to_scalar::<CS>(disclosed_messages, CS::API_ID)?;
 
-        let unrevealed_message_indexes = get_remaining_indexes(L, revealed_message_indexes);
+        let generators = Generators::create::<CS>(U + R + 1);
 
-        for i in revealed_message_indexes {
-            if *i > L {
-                panic!("i >= L");
-            }
-        }
+        let result = core_proof_verify::<CS>(
+            pk, 
+            proof, 
+            &generators, 
+            header, 
+            ph,
+            &disclosed_message_scalars, 
+            &disclosed_indexes, 
+            Some(CS::API_ID)
+        );
 
-        if revealed_messages.len() != R {
-            panic!("len(revealed_messages) != R");
-        }
-
-
-        let generators = match generators {
-            Some(gens) => gens.clone(),
-            None => {
-                let gens = Generators::create::<CS>(L);
-                gens
-            }
-            
-        };
-
-        if generators.message_generators.len() < L {
-            panic!("len(generators) < (L)");
-        }
-
-        let mut H_i: Vec<G1Projective> = Vec::new();
-
-        for idx in revealed_message_indexes {
-            H_i.push(*generators.message_generators.get(*idx).expect("index overflow"));
-        }
-
-        let mut H_j: Vec<G1Projective> = Vec::new();
-
-        for idx in unrevealed_message_indexes {
-            H_j.push(*generators.message_generators.get(idx).expect("index overflow"));
-        }
-
-        let domain = calculate_domain::<CS>(pk, generators.q1, generators.q1, &generators.message_generators[0..L], Some(header));
-
-        let C1 = (proof.A_bar + (-proof.D)) * proof.c + proof.A_prime * proof.e_cap + generators.q1 * proof.r2_cap;
-		
-		let mut T = generators.g1_base_point + generators.q1 * domain;		
-		for i in 0..R { 
-			T = T + H_i[i] * revealed_messages[i].value;
-        }		
-
-		let mut C2 = T * proof.c + proof.D * -proof.r3_cap + generators.q1 * proof.s_cap;
-		for j in 0..U {
-            C2 = C2 + H_j[j] * proof.m_cap[j];
-        }
-
-		let cv = Self::calculate_challenge(proof.A_prime, proof.A_bar, proof.D, C1, C2, revealed_message_indexes, revealed_messages, domain, Some(ph));
-        
-        if proof.c != cv {
-			return false;
-        }
-
-		if proof.A_prime == G1Projective::IDENTITY{
-			return false;
-        }
-
-
-        let P2 = G2Projective::GENERATOR;
-        let identity_GT = Gt::IDENTITY;
-
-        let Ps = (&proof.A_prime.to_affine(), &G2Prepared::from(pk.0.to_affine()));
-		let Qs = (&proof.A_bar.to_affine(), &G2Prepared::from(-P2.to_affine()));
-
-        let pairing = multi_miller_loop(&[Ps, Qs]).final_exponentiation();
-
-        pairing == identity_GT
-
+        result
     }
 
         // A_prime: G1Projective, //48
@@ -334,8 +157,8 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         self.to_bbsplus_proof().to_bytes()
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> Self {
-        Self::BBSplus(BBSplusPoKSignature::from_bytes(bytes))  
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        Ok(Self::BBSplus(BBSplusPoKSignature::from_bytes(bytes)?))  
     }
 
     pub fn to_bbsplus_proof(&self) ->  &BBSplusPoKSignature {
@@ -347,6 +170,268 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
 }
 
 
+fn core_proof_gen<CS>(pk: &BBSplusPublicKey, signature: &BBSplusSignature, generators: &Generators, messages: &[BBSplusMessage], disclosed_indexes: &[usize], header: Option<&[u8]>, ph: Option<&[u8]>, api_id: Option<&[u8]>) -> Result<BBSplusPoKSignature, Error>
+where
+    CS: BbsCiphersuite,
+    CS::Expander: for<'a> ExpandMsg<'a>,
+{
+    let L = messages.len();
+    let mut disclosed_indexes = disclosed_indexes.to_vec();
+    disclosed_indexes.sort();
+    disclosed_indexes.dedup();
+    
+    let R = disclosed_indexes.len();
+    if R > L {
+        return Err(Error::ProofGenError("R > L".to_owned()))
+    }
+    let U = L - R;
+
+    if let Some(invalid_index) = disclosed_indexes.iter().find(|&&i| i > L - 1) {
+        return Err(Error::ProofGenError(format!("Invalid disclosed index: {}", invalid_index)));
+    }
+
+    let undisclosed_indexes: Vec<usize> = get_remaining_indexes(L, &disclosed_indexes);
+
+    let disclosed_messages = get_messages(messages, &disclosed_indexes);
+    let undisclosed_messages = get_messages(messages, &undisclosed_indexes);
+
+    let mut random_scalars = 
+        calculate_random_scalars::<CS>(5 + U, None, None); //TODO: to be fixed !!!!
+
+    // if cfg!(test)//#[cfg(test)]
+    // {
+    //     let SEED = hex::decode("332e313431353932363533353839373933323338343632363433333833323739").unwrap();
+    //     let DST = [CS::API_ID, CS::MOCKED_SCALAR].concat(); 
+    //     println!("AAAAAAAAAAAAA");
+    //     random_scalars = seeded_random_scalars::<CS>(&SEED, &DST,5 + U);
+    // }
+
+    let init_res = proof_init::<CS>(
+        pk, 
+        signature, 
+        generators, 
+        &random_scalars, 
+        header, 
+        messages, 
+        &undisclosed_indexes, 
+        api_id
+    )?;
+
+    let challenge = proof_challenge_calculate::<CS>(
+        &init_res, 
+        &disclosed_indexes,
+        &disclosed_messages, 
+        ph,
+        api_id
+    )?;
+
+    let proof = proof_finalize(
+        &init_res, 
+        challenge, 
+        signature.e, 
+        &random_scalars,
+        &undisclosed_messages
+    )?;
+
+    Ok(proof)
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct ProofInitResult {
+    Abar: G1Projective, 
+    Bbar: G1Projective, 
+    D: G1Projective, 
+    T1: G1Projective, 
+    T2: G1Projective,
+    domain: Scalar
+}
+
+fn proof_init<CS>(pk: &BBSplusPublicKey, signature: &BBSplusSignature, generators: &Generators, random_scalars: &[Scalar], header: Option<&[u8]>, messages: &[BBSplusMessage], undisclosed_indexes: &[usize], api_id: Option<&[u8]>) -> Result<ProofInitResult, Error>
+where
+    CS: BbsCiphersuite,
+    CS::Expander: for<'a> ExpandMsg<'a>,
+{
+
+    let L = messages.len();
+    let U = undisclosed_indexes.len();
+
+    if random_scalars.len() != 5+U {
+        return Err(Error::ProofGenError("Random scalars not valid".to_owned()))
+    }
+
+    if generators.message_generators.len() != L {
+        return Err(Error::NotEnoughGenerators)
+    }
+
+    let domain = calculate_domain_new::<CS>(pk, &generators, header, api_id)?;
+
+    let mut B = generators.g1_base_point + generators.q1 * domain;
+    for i in 0..L {
+        B = B + generators.message_generators[i] * messages[i].value;
+    }
+
+    let r1 = random_scalars[0];
+    let r2 = random_scalars[1];
+    let e_tilde = random_scalars[2];
+    let r1_tilde = random_scalars[3];
+    let r3_tilde = random_scalars[4];
+    let m_tilde = &random_scalars[5..(5+U)];
+
+    let D = B * r2;
+    let Abar = signature.a * (r1 * r2);
+    let Bbar = D * r1 - Abar * signature.e;
+
+
+    let T1 = Abar * e_tilde + D * r1_tilde;
+    let mut T2 = D * r3_tilde;
+
+    for idx in 0..U {
+        T2 = T2 + generators.message_generators[undisclosed_indexes[idx]] * m_tilde[idx];
+    }
+
+    Ok(ProofInitResult{ Abar, Bbar, D, T1, T2, domain })
+}
+
+
+fn proof_challenge_calculate<CS>(init_res: &ProofInitResult, disclosed_indexes: &[usize], disclosed_messages: &[BBSplusMessage], ph: Option<&[u8]>, api_id: Option<&[u8]>) -> Result<Scalar, Error>
+where
+    CS: BbsCiphersuite
+{
+    let R = disclosed_indexes.len();
+
+    if disclosed_messages.len() != R {
+        return Err(Error::ProofGenError("Number of disclosed indexes different from number of disclosed messages".to_owned()))
+    }
+
+    let api_id = api_id.unwrap_or(b"");
+    let challenge_dst = [api_id, CS::H2S].concat();
+
+    let ph = ph.unwrap_or(b"");
+
+    let mut c_arr: Vec<u8> = Vec::new();
+    c_arr.extend_from_slice(&init_res.Abar.to_affine().to_compressed());
+    c_arr.extend_from_slice(&init_res.Bbar.to_affine().to_compressed());
+    c_arr.extend_from_slice(&init_res.D.to_affine().to_compressed());
+    c_arr.extend_from_slice(&init_res.T1.to_affine().to_compressed());
+    c_arr.extend_from_slice(&init_res.T2.to_affine().to_compressed());
+    c_arr.extend_from_slice(&i2osp(R, 8));
+    disclosed_indexes.iter().for_each(|&i| c_arr.extend_from_slice(&i2osp(i, 8)));
+    disclosed_messages.iter().for_each(|m| c_arr.extend_from_slice(&m.value.to_bytes_be()));
+    c_arr.extend_from_slice(&init_res.domain.to_bytes_be());
+
+    let ph_i2osp = i2osp(ph.len(), 8);
+
+    c_arr.extend_from_slice(&ph_i2osp);
+    c_arr.extend_from_slice(ph);
+
+    let challenge = hash_to_scalar_new::<CS>(&c_arr, &challenge_dst)?;
+
+    Ok(challenge)
+}
+
+
+fn proof_finalize(init_res: &ProofInitResult, challenge: Scalar, e: Scalar, random_scalars: &[Scalar], undisclosed_messages: &[BBSplusMessage]) -> Result<BBSplusPoKSignature, Error>
+{
+
+    let U = undisclosed_messages.len();
+
+    let r1 = random_scalars[0];
+    let r2 = random_scalars[1];
+    let e_tilde = random_scalars[2];
+    let r1_tilde = random_scalars[3];
+    let r3_tilde = random_scalars[4];
+    let m_tilde = &random_scalars[5..(5+U)];
+
+    let r3 = Option::<Scalar>::from(r2.invert()).ok_or(Error::ProofGenError("Invert scalar failed".to_owned()))?;
+
+    let e_cap = e_tilde + e  * challenge;
+
+    let r1_cap = r1_tilde - r1 * challenge;
+    let r3_cap = r3_tilde - r3 * challenge;
+    let mut m_cap: Vec<Scalar> = Vec::new();
+
+    for j in 0..U {
+        let m_cap_j = m_tilde[j] + undisclosed_messages[j].value * challenge;
+        m_cap.push(m_cap_j);
+    }
+
+    Ok(BBSplusPoKSignature{ Abar: init_res.Abar, Bbar: init_res.Bbar, D: init_res.D, e_cap, r1_cap, r3_cap, m_cap, challenge })
+}
+
+
+fn core_proof_verify<CS>(pk: &BBSplusPublicKey, proof: &BBSplusPoKSignature, generators: &Generators, header: Option<&[u8]>, ph: Option<&[u8]>, disclosed_messages: &[BBSplusMessage], disclosed_indexes: &[usize], api_id: Option<&[u8]>) -> Result<(), Error>
+where
+    CS: BbsCiphersuite
+{
+    let init_res = proof_verify_init::<CS>(
+        pk, 
+        proof, 
+        generators, 
+        header,
+        disclosed_messages, 
+        disclosed_indexes, 
+        api_id
+    )?;
+
+    let challenge = proof_challenge_calculate::<CS>(&init_res, disclosed_indexes, disclosed_messages, ph, api_id)?;
+
+    if proof.challenge != challenge {
+        return Err(Error::PoKSVerificationError("invalid challenge".to_owned()));
+    }
+
+    let BP2 = G2Projective::GENERATOR;
+
+    let term1 = (&proof.Abar.to_affine(), &G2Prepared::from(pk.0.to_affine()));
+    let term2 = (&proof.Bbar.to_affine(), &G2Prepared::from(-BP2.to_affine()));
+
+    let pairing = multi_miller_loop(&[term1, term2]).final_exponentiation();
+
+    if pairing.is_identity().into() {
+        Ok(())
+    } else {
+        Err(Error::PoKSVerificationError("Invalid Proof".to_owned()))
+    }
+}
+
+
+fn proof_verify_init<CS>(pk: &BBSplusPublicKey, proof: &BBSplusPoKSignature, generators: &Generators, header: Option<&[u8]>, disclosed_messages: &[BBSplusMessage], disclosed_indexes: &[usize], api_id: Option<&[u8]>) -> Result<ProofInitResult, Error>
+where
+    CS: BbsCiphersuite
+{
+    let U = proof.m_cap.len();
+    let R = disclosed_indexes.len();
+
+    let L = U + R;
+
+    for &i in disclosed_indexes {
+        if i > L - 1 {
+            return Err(Error::PoKSVerificationError("Invalid disclosed indexes".to_owned()))
+        }
+    }
+
+    if disclosed_messages.len() != R {
+        return Err(Error::PoKSVerificationError("len messages != len indexes".to_owned())) 
+    }
+
+    let undisclosed_indexes = get_remaining_indexes(L, disclosed_indexes);
+
+    let domain = calculate_domain_new::<CS>(pk, generators, header, api_id)?;
+
+    let T1 = proof.Bbar * proof.challenge + proof.Abar * proof.e_cap + proof.D * proof.r1_cap;
+    let mut Bv = generators.g1_base_point + generators.q1 * domain;
+
+    for i in 0..R {
+        Bv += generators.message_generators[disclosed_indexes[i]] * disclosed_messages[i].value;
+    }
+
+    let mut T2 = Bv * proof.challenge + proof.D * proof.r3_cap;
+    
+    for j in 0..U {
+        T2 += generators.message_generators[undisclosed_indexes[j]] * proof.m_cap[j];
+    }
+
+    Ok(ProofInitResult{ Abar: proof.Abar, Bbar: proof.Bbar, D: proof.D, T1, T2, domain })
+}
 
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -373,10 +458,10 @@ impl BBSplusZKPoK {
         //  (i1,...,iU) = CGIdxs = unrevealed_indexes
 			
 		//  s~ = HASH(PRF(8 * ceil(log2(r)))) mod
-        let s_tilde = calculate_random_scalars::<CS>(1, None)[0];
+        let s_tilde = calculate_random_scalars::<CS>(1,None, None)[0];
 		//  r~ = [U]
 		//  for i in 1 to U: r~[i] = HASH(PRF(8 * ceil(log2(r)))) mod r
-        let r_tilde = calculate_random_scalars::<CS>(U, None);	
+        let r_tilde = calculate_random_scalars::<CS>(U, None, None);	
 		//  U~ = h0 * s~ + h[i1] * r~[1] + ... + h[iU] \* r~[U]
         let mut U_tilde = generators.q1 * s_tilde;	
 

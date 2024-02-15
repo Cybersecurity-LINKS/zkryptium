@@ -106,7 +106,7 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     pub fn unblind_sign(&self, commitment: &BBSplusCommitment) -> Signature<BBSplus<CS>> {
         let s = commitment.s_prime + self.s_second();
 
-        Signature::<BBSplus<CS>>::BBSplus(BBSplusSignature{ a: self.a(), e: self.e(), s: s })
+        Signature::<BBSplus<CS>>::BBSplus(BBSplusSignature{ a: self.a(), e: self.e()})
     }
 
     pub fn update_signature(&self, sk: &BBSplusSecretKey, generators: &Generators, old_message: &BBSplusMessage, new_message: &BBSplusMessage, update_index: usize) -> Self {

@@ -25,6 +25,9 @@ pub trait BbsCiphersuite: Eq + 'static + Ciphersuite{
     const GENERATOR_SEED: &'static [u8] = b"MESSAGE_GENERATOR_SEED";
     const GENERATOR_SEED_DST: &'static [u8] = b"SIG_GENERATOR_SEED_";
     const GENERATOR_DST: &'static [u8] = b"SIG_GENERATOR_DST_";
+    const MAP_MSG_SCALAR: &'static [u8] = b"MAP_MSG_TO_SCALAR_AS_HASH_";
+    const H2S: &'static [u8] = b"H2S_";
+    const MOCKED_SCALAR: &'static [u8] = b"MOCK_RANDOM_SCALARS_DST_";
 
     const P1: &'static str;
     const GENERATOR_SIG_DST: &'static [u8];

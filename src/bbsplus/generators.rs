@@ -87,12 +87,12 @@ impl Generators {
 /// # Output:
 /// * [`Vec<G1Projective>`], an array of generators
 ///  
-pub(crate) fn create_generators<CS>(count: usize, api_id: Option<&[u8]>) -> Vec<G1Projective>
+fn create_generators<CS>(count: usize, api_id: Option<&[u8]>) -> Vec<G1Projective>
 where
     CS: BbsCiphersuite,
     CS::Expander: for<'a> ExpandMsg<'a>,
 {
-    let count = count + 1; // Q1, and generators
+    let count = count; // Q1, and generators
 
     let api_id = api_id.unwrap_or(&[]);
 

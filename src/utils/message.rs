@@ -82,6 +82,27 @@ impl BBSplusMessage {
 
     // }
 
+    pub fn messages_to_scalar<CS: BbsCiphersuite>(messages: &[Vec<u8>], api_id: &[u8]) -> Result<Vec<Self>, Error>
+    where
+        CS::Expander: for<'a> ExpandMsg<'a>
+    {
+        /*
+        1. L =  length(messages)
+        2. for i in (1, ..., L):
+        3.     msg_scalar_i = hash_to_scalar(messages[i], map_dst)
+        4. return (msg_scalar_1, ..., msg_scalar_L) 
+         */
+
+        let map_dst = [CS::API_ID, CS::MAP_MSG_SCALAR].concat();
+        let mut msg_scalars: Vec<Self> = Vec::new();
+        for m in messages {
+            let scalar = hash_to_scalar_new::<CS>(m, &map_dst)?;
+            msg_scalars.push(Self { value: scalar })
+        }
+
+        Ok(msg_scalars)
+    }
+
 
     
     pub fn map_message_to_scalar_as_hash<C: BbsCiphersuite>(data: &[u8], map_dst: Option<&[u8]>) -> Result<Self, Error> 

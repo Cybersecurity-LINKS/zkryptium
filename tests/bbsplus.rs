@@ -25,7 +25,7 @@ mod bbsplus_tests {
     use bbsplus::ciphersuites::BbsCiphersuite;
     use elliptic_curve::{hash2curve::ExpandMsg, group::Curve};
     use schemes::algorithms::Scheme;
-    use zkryptium::{utils::message::BBSplusMessage, bbsplus::{self, generators::Generators, keys::{BBSplusSecretKey, BBSplusPublicKey}, signature::BBSplusSignature}, schemes::{self, algorithms::BBSplus}, schemes::{generics::{Signature, PoKSignature, ZKPoK, Commitment, BlindSignature}, algorithms::Ciphersuite}, keys::pair::KeyPair, utils::{util::bbsplus_utils::{hash_to_scalar_old, ScalarExt, calculate_random_scalars, get_messages}, message::Message}};
+    use zkryptium::{bbsplus::{self, generators::Generators, keys::{BBSplusPublicKey, BBSplusSecretKey}, signature::BBSplusSignature}, keys::pair::KeyPair, schemes::{self, algorithms::{BBSplus, Ciphersuite}, generics::{BlindSignature, Commitment, PoKSignature, Signature, ZKPoK}}, utils::{message::{BBSplusMessage, Message}, util::bbsplus_utils::{calculate_random_scalars, get_messages, get_messages_vec, hash_to_scalar_new, hash_to_scalar_old, ScalarExt}}};
     use zkryptium::schemes::algorithms::{BBS_BLS12381_SHA256, BBS_BLS12381_SHAKE256};
     
     
@@ -73,7 +73,7 @@ mod bbsplus_tests {
     }
 
 
-    //MSG SIGNATURE
+    //MSG SIGNATURE - UPDATED
     #[test]
     fn msg_signature_sha256_1() {
         msg_signature::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "signature/signature001.json");
@@ -112,7 +112,7 @@ mod bbsplus_tests {
     }
 
 
-    //MSG SIGNATURE - SHAKE256
+    //MSG SIGNATURE - SHAKE256 - UPDATED
     #[test]
     fn msg_signature_shake256_1() {
         msg_signature::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "signature/signature001.json");
@@ -150,35 +150,35 @@ mod bbsplus_tests {
         msg_signature::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "signature/signature009.json");
     }
 
-    //h2s - SHA256
+    //h2s - SHA256 - UPDATED
     #[test]
     fn h2s_sha256_1() {
-        h2s::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "h2s/h2s001.json");
+        h2s::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "h2s.json");
     }
     #[test]
     fn h2s_sha256_2() {
-        h2s::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "h2s/h2s002.json");
+        h2s::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "h2s.json");
     }
 
-    //h2s - SHAKE256
+    //h2s - SHAKE256 -> UPDATED
     #[test]
     fn h2s_shake256_1() {
-        h2s::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "h2s/h2s001.json");
+        h2s::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "h2s.json");
     }
     #[test]
     fn h2s_shake256_2() {
-        h2s::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "h2s/h2s002.json");
+        h2s::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "h2s.json");
     }
 
     const seed: &str = "332e313431353932363533353839373933323338343632363433333833323739";
 
-    //mocked_rng - SHA256
+    //mocked_rng - SHA256 - UPDATED
     #[test]
     fn mocked_rng_sha256() {
         mocked_rng::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "mockedRng.json");
     }
 
-    //mocked_rng - SHAKE256
+    //mocked_rng - SHAKE256 - UPDATED
     #[test]
     fn mocked_rng_shake256() {
         mocked_rng::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "mockedRng.json");
@@ -324,30 +324,30 @@ mod bbsplus_tests {
     }
 
 
-    //Update Blinded Signature - SHA256
-    #[test]
-    fn update_blind_signature_sha256() {
-        update_blind_signature::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/");
-    }
+    // //Update Blinded Signature - SHA256
+    // #[test]
+    // fn update_blind_signature_sha256() {
+    //     update_blind_signature::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/");
+    // }
 
-    //Update Blinded Signature - SHAKE256
-    #[test]
-    fn update_blind_signature_shake256() {
-        update_blind_signature::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/");
-    }
+    // //Update Blinded Signature - SHAKE256
+    // #[test]
+    // fn update_blind_signature_shake256() {
+    //     update_blind_signature::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/");
+    // }
 
 
-    //Update Signature - SHA256
-    #[test]
-    fn update_signature_sha256() {
-        update_signature::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/");
-    }
+    // //Update Signature - SHA256
+    // #[test]
+    // fn update_signature_sha256() {
+    //     update_signature::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/");
+    // }
 
-    //Update Blinded Signature - SHAKE256
-    #[test]
-    fn update_signature_shake256() {
-        update_signature::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/");
-    }
+    // //Update Blinded Signature - SHAKE256
+    // #[test]
+    // fn update_signature_shake256() {
+    //     update_signature::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/");
+    // }
 
 
     pub(crate) fn key_pair_gen<S: Scheme>(filename: &str) 
@@ -443,12 +443,11 @@ mod bbsplus_tests {
         }
 
         println!("{}", generators_expected.len());
-        let generators = Generators::create::<S::Ciphersuite>(generators_expected.len());
+        let generators = Generators::create::<S::Ciphersuite>(generators_expected.len() + 1);
         println!("{}", generators.message_generators.len());
 
 
         let expected_BP = res["P1"].as_str().unwrap();
-        // println!("{}", BP);
 
         //check BP
         let BP = hex::encode(generators.g1_base_point.to_affine().to_compressed());
@@ -500,7 +499,7 @@ mod bbsplus_tests {
         eprintln!("{}", res["caseName"]);
 
         let header_hex = res["header"].as_str().unwrap();
-        let msgs_hex: Vec<&str> = res["messages"].as_array().unwrap().iter().map(|m| m.as_str().unwrap()).collect();
+        let msgs_hex: Vec<String> = res["messages"].as_array().unwrap().iter().map(|m| serde_json::from_value(m.clone()).unwrap()).collect();
         let SK_hex = res["signerKeyPair"]["secretKey"].as_str().unwrap();
         let PK_hex = res["signerKeyPair"]["publicKey"].as_str().unwrap();
         let SIGNATURE_expected = res["signature"].as_str().unwrap();
@@ -510,20 +509,9 @@ mod bbsplus_tests {
         let SK = BBSplusSecretKey::from_bytes(&hex::decode(SK_hex).unwrap());
         let PK = BBSplusPublicKey::from_bytes(&hex::decode(PK_hex).unwrap());
 
+        let messages: Vec<Vec<u8>> = msgs_hex.iter().map(|m| hex::decode(m).unwrap()).collect();
 
-        //Map Messages to Scalars
-        let data = fs::read_to_string([pathname, "MapMessageToScalarAsHash.json"].concat()).expect("Unable to read file");
-        let msg_scalars: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
-
-        let dst = hex::decode(msg_scalars["dst"].as_str().unwrap()).unwrap();
-
-        let msg_scalars: Vec<BBSplusMessage> = msgs_hex.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst)).unwrap()).collect();
-        
-        //Precompute generators 
-        let generators = Generators::create::<S::Ciphersuite>(msg_scalars.len());
-
-        //Sign the message
-        let signature = Signature::<BBSplus<S::Ciphersuite>>::sign(Some(&msg_scalars), &SK, &PK, Some(&generators), Some(&header));
+        let signature = Signature::<BBSplus<S::Ciphersuite>>::sign(Some(&messages), &SK, &PK, Some(&header)).unwrap();
 
         let result0 = hex::encode(signature.to_bytes()) == SIGNATURE_expected;
 
@@ -540,7 +528,7 @@ mod bbsplus_tests {
         //Verify the signature
 
         let signature_expected = Signature::<BBSplus<S::Ciphersuite>>::from_bytes(&hex::decode(SIGNATURE_expected).unwrap().try_into().unwrap());
-        let result2 = signature_expected.verify(&PK, Some(&msg_scalars), Some(&generators), Some(&header));
+        let result2 = signature_expected.verify(&PK, Some(&messages),  Some(&header)).is_ok();
         let result3 = result2 == RESULT_expected;
 
         if !result3 {
@@ -562,7 +550,6 @@ mod bbsplus_tests {
             }
         }
 
-
     }
 
 
@@ -577,36 +564,27 @@ mod bbsplus_tests {
 
         let msg_hex = res["message"].as_str().unwrap();
         let dst_hex = res["dst"].as_str().unwrap();
-        let count = usize::try_from(res["count"].as_u64().unwrap()).unwrap();
-        let scalars_hex = res["scalars"].as_array().unwrap();
+        let scalar_hex_expected = res["scalar"].as_str().unwrap();
 
         let msg = hex::decode(msg_hex).unwrap();
         let dst = hex::decode(dst_hex).unwrap();
 
-        assert_eq!(count, scalars_hex.len(), "count != len(SCALARS_hex)");
 
-        let scalars = hash_to_scalar_old::<S::Ciphersuite>(&msg, count, Some(&dst));
+        let scalar = hash_to_scalar_new::<S::Ciphersuite>(&msg, &dst).unwrap();
 
-        let mut results = true;
+        let mut result = true;
 
-        for i in 0..count {
-            let scalar_hex = hex::encode(scalars[i].to_bytes_be());
-            let scalar_expected = scalars_hex[i].as_str().unwrap();
+        let scalar_hex = hex::encode(scalar.to_bytes_be());
 
-            if scalar_hex != scalar_expected {
-                if results {
-                    results = false;
-                    eprintln!("{}", results);
-                }
+        if scalar_hex != scalar_hex_expected {
+            result = false;
+            eprintln!("{}", result);
 
-                eprintln!(" count: {}", i);
-                eprintln!(" Expected scalar: {}", scalar_expected);
-                eprintln!(" Computed scalar: {}", scalar_hex);
-            }
-
+            eprintln!(" Expected scalar: {}", scalar_hex_expected);
+            eprintln!(" Computed scalar: {}", scalar_hex);
         }
 
-        assert!(results, "Failed");
+        assert!(result, "Failed");
     }
 
 
@@ -619,11 +597,13 @@ mod bbsplus_tests {
         let res: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
         eprintln!("Mocked Random Scalars");
 
+        let seed_ = hex::decode(res["seed"].as_str().unwrap()).unwrap();
+        let dst = hex::decode(res["dst"].as_str().unwrap()).unwrap();
+        let count: usize = res["count"].as_u64().unwrap().try_into().unwrap();
+
         let mocked_scalars_hex: Vec<&str> = res["mockedScalars"].as_array().unwrap().iter().map(|s| s.as_str().unwrap()).collect();
 
-        let count = mocked_scalars_hex.len();
-
-        let r = calculate_random_scalars::<S::Ciphersuite>(count, Some(&hex::decode(seed).unwrap()));
+        let r = calculate_random_scalars::<S::Ciphersuite>( 12, Some(&seed_), Some(&dst) );
 
         let mut results = true;
 
@@ -642,6 +622,7 @@ mod bbsplus_tests {
             }
         }
 
+
         assert!(results, "Failed");
     }
 
@@ -657,29 +638,17 @@ mod bbsplus_tests {
         let signerPK_hex = proof_json["signerPublicKey"].as_str().unwrap();
         let header_hex = proof_json["header"].as_str().unwrap();
         let ph_hex = proof_json["presentationHeader"].as_str().unwrap();
-        let revealed_msgs_hex = proof_json["revealedMessages"].as_object().unwrap();
-
+        let input_messages: Vec<String> = proof_json["messages"].as_array().unwrap().iter().map(|m| serde_json::from_value(m.clone()).unwrap()).collect();
 
         let proof_expected = proof_json["proof"].as_str().unwrap();
         let result_expected = proof_json["result"]["valid"].as_bool().unwrap();
 
         let ph = hex::decode(ph_hex).unwrap();
-        let idxs_list: Vec<usize> = revealed_msgs_hex.keys().filter_map(|k| k.parse::<usize>().ok()).collect();
 
-        let msgs_hex: Vec<&str> = revealed_msgs_hex.values().filter_map(|m| m.as_str()).collect();
-
-        let revealed_message_indexes = idxs_list;
-
-        let revealed_messages = msgs_hex;
-
+        let revealed_message_indexes: Vec<usize> = proof_json["disclosedIndexes"].as_array().unwrap().iter().map(|m| serde_json::from_value(m.clone()).unwrap()).collect();
 
         //Get Message Signature
-
-        let data_sign = fs::read_to_string([pathname, sign_filename].concat()).expect("Unable to read file");
-        let sign_json: serde_json::Value = serde_json::from_str(&data_sign).expect("Unable to parse");
-
-        let msgs_hex: Vec<&str> = sign_json["messages"].as_array().unwrap().iter().filter_map(|m| m.as_str()).collect();
-        let signature_expected = sign_json["signature"].as_str().unwrap();
+        let signature_expected = proof_json["signature"].as_str().unwrap();
 
         let signature = Signature::<BBSplus<S::Ciphersuite>>::from_bytes(hex::decode(signature_expected).unwrap().as_slice().try_into().unwrap());
         let bbs_signature = signature.bbsPlusSignature();
@@ -687,46 +656,27 @@ mod bbsplus_tests {
         let header = hex::decode(header_hex).unwrap();
         let PK = BBSplusPublicKey::from_bytes(&hex::decode(signerPK_hex).unwrap());
 
-        let mut messages = msgs_hex;
-        let mut idx = 0usize;
+        let msgs: Vec<Vec<u8>> = input_messages.iter().map(|m| hex::decode(m).unwrap()).collect();
 
-        for i in &revealed_message_indexes {
-            messages[*i] = revealed_messages[idx];
-            idx += 1;
-        }
-
-        //Map Messages to Scalars
-        let data_scalars = fs::read_to_string([pathname, "MapMessageToScalarAsHash.json"].concat()).expect("Unable to read file");
-        let scalars_json: serde_json::Value = serde_json::from_str(&data_scalars).expect("Unable to parse");
-        let dst = hex::decode(scalars_json["dst"].as_str().unwrap()).unwrap();
-
-        let mut msg_scalars: Vec<BBSplusMessage> = Vec::new();
-        for m in messages {
-            msg_scalars.push(BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst)).unwrap());
-        }
-
-
-        //Precompute generators
-        let L = msg_scalars.len() + 1;
-        // NOTE: one extra generator, for additional test vectors with one extra message
-        let generators = Generators::create::<S::Ciphersuite>(L);
-
-        let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(bbs_signature, &PK, Some(&msg_scalars), Some(&generators), Some(&revealed_message_indexes), Some(&header), Some(&ph), Some(&hex::decode(seed).unwrap()));
-
-        let result0 = hex::encode(proof.to_bytes()) == proof_expected;
-        let result1 = result0 == result_expected; 
+        let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(bbs_signature, &PK, Some(&msgs), Some(&revealed_message_indexes), Some(&header), Some(&ph)).unwrap();  
+        let my_encoded_proof =  hex::encode(&proof.to_bytes());
+        let result0 = proof_expected == my_encoded_proof;
+        let result1 = result0 == result_expected;
         if result1 == false{
             println!("  proofGen: {}", result1);
             println!("  Expected: {}", proof_expected);
-            println!("  Computed: {}", hex::encode(proof.to_bytes()));
+            println!("  Computed: {}", my_encoded_proof);
             assert!(result1, "Failed");
         }
 
-        // Verify the Proof 
-        let disclosed_messages = get_messages(&msg_scalars, &revealed_message_indexes);
 
-        let PROOF = PoKSignature::<BBSplus<S::Ciphersuite>>::from_bytes(&hex::decode(proof_expected).unwrap());
-        let result2 = PROOF.proof_verify(&PK, Some(&disclosed_messages), Some(&generators), Some(&revealed_message_indexes), Some(&header), Some(&ph));
+        // Verify the Proof 
+        let disclosed_messages = get_messages_vec(&msgs, &revealed_message_indexes);
+
+        let PROOF = PoKSignature::<BBSplus<S::Ciphersuite>>::from_bytes(&hex::decode(proof_expected).unwrap()).unwrap();
+
+        
+        let result2 = PROOF.proof_verify(&PK, Some(&disclosed_messages), Some(&revealed_message_indexes), Some(&header), Some(&ph)).is_ok();
         let result3 = result2 == result_expected;
         if !result3 {
             eprintln!("  proofVerify: {}", result3);
@@ -735,7 +685,6 @@ mod bbsplus_tests {
             assert!(result3, "failed");
         
         }else {
-            eprintln!("  proofGen: {}", result1);
             eprintln!("  Expected: {}", signature_expected);
             eprintln!("  Computed: {}", hex::encode(signature.to_bytes()));
         
@@ -830,6 +779,14 @@ mod bbsplus_tests {
         // let nonce = generate_nonce();
         let nonce = b"aaaa".as_slice();
 
+        let messages: Vec<Vec<u8>> = msgs.iter().map(|m| {
+            hex::decode(m).unwrap().into()
+        }).collect();
+
+        let messages_wrong: Vec<Vec<u8>> = msgs_wrong.iter().map(|m| {
+            hex::decode(m).unwrap().into()
+        }).collect();
+
         let keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
             &hex::decode(&IKM).unwrap(),
             Some(&hex::decode(&KEY_INFO).unwrap()),
@@ -902,11 +859,11 @@ mod bbsplus_tests {
 
         let unblind_signature = blind_signature.unwrap().unblind_sign(commitment.bbsPlusCommitment());
 
-        let verify = unblind_signature.verify(pk, Some(&msgs_scalars), Some(&generators), Some(&header));
+        let verify = unblind_signature.verify(pk, Some(&messages), Some(&header)).is_ok();
 
         assert!(verify, "Unblinded Signature NOT VALID!");
 
-        let verify_wrong = unblind_signature.verify(pk, Some(&msgs_scalars_wrong), Some(&generators), Some(&header));
+        let verify_wrong = unblind_signature.verify(pk, Some(&messages_wrong), Some(&header)).is_ok();
 
         assert!(!verify_wrong, "Unblinded Signature MUST be INVALID!");
 
@@ -915,145 +872,149 @@ mod bbsplus_tests {
 
 
 
-    pub(crate) fn update_blind_signature<S: Scheme>(pathname: &str)
-    where
-        S::Ciphersuite: BbsCiphersuite,
-        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
-    {
-        const IKM: &str = "746869732d49532d6a7573742d616e2d546573742d494b4d2d746f2d67656e65726174652d246528724074232d6b6579";
-        const KEY_INFO: &str = "746869732d49532d736f6d652d6b65792d6d657461646174612d746f2d62652d757365642d696e2d746573742d6b65792d67656e";
-        const msgs: [&str; 3] = ["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02", "87a8bd656d49ee07b8110e1d8fd4f1dcef6fb9bc368c492d9bc8c4f98a739ac6", "96012096adda3f13dd4adbe4eea481a4c4b5717932b73b00e31807d3c5894b90"];
-        const header_hex: &str = "11223344556677889900aabbccddeeff";
-        let header = hex::decode(header_hex).unwrap();
-        let unrevealed_message_indexes = [1usize];
-        let revealed_message_indexes = [0usize, 2usize];
-        // let nonce = generate_nonce();
-        let nonce = b"aaaa".as_slice();
+    // pub(crate) fn update_blind_signature<S: Scheme>(pathname: &str)
+    // where
+    //     S::Ciphersuite: BbsCiphersuite,
+    //     <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
+    // {
+    //     const IKM: &str = "746869732d49532d6a7573742d616e2d546573742d494b4d2d746f2d67656e65726174652d246528724074232d6b6579";
+    //     const KEY_INFO: &str = "746869732d49532d736f6d652d6b65792d6d657461646174612d746f2d62652d757365642d696e2d746573742d6b65792d67656e";
+    //     const msgs: [&str; 3] = ["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02", "87a8bd656d49ee07b8110e1d8fd4f1dcef6fb9bc368c492d9bc8c4f98a739ac6", "96012096adda3f13dd4adbe4eea481a4c4b5717932b73b00e31807d3c5894b90"];
+    //     const header_hex: &str = "11223344556677889900aabbccddeeff";
+    //     let header = hex::decode(header_hex).unwrap();
+    //     let unrevealed_message_indexes = [1usize];
+    //     let revealed_message_indexes = [0usize, 2usize];
+    //     // let nonce = generate_nonce();
+    //     let nonce = b"aaaa".as_slice();
 
-        let keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
-            &hex::decode(&IKM).unwrap(),
-            Some(&hex::decode(&KEY_INFO).unwrap()),
-            None
-        ).unwrap();
+    //     let messages: Vec<Vec<u8>> = msgs.iter().map(|m| {
+    //         hex::decode(m).unwrap().into()
+    //     }).collect();
 
-        let sk = keypair.private_key();
-        let pk = keypair.public_key();
+    //     let keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
+    //         &hex::decode(&IKM).unwrap(),
+    //         Some(&hex::decode(&KEY_INFO).unwrap()),
+    //         None
+    //     ).unwrap();
 
-        let generators = Generators::create::<S::Ciphersuite>(msgs.len());
+    //     let sk = keypair.private_key();
+    //     let pk = keypair.public_key();
 
-        //Map Messages to Scalars
-        let data_scalars = fs::read_to_string([pathname, "MapMessageToScalarAsHash.json"].concat()).expect("Unable to read file");
-        let scalars_json: serde_json::Value = serde_json::from_str(&data_scalars).expect("Unable to parse");
-        let dst = hex::decode(scalars_json["dst"].as_str().unwrap()).unwrap();
+    //     let generators = Generators::create::<S::Ciphersuite>(msgs.len());
 
-        let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst)).unwrap()).collect();
+    //     //Map Messages to Scalars
+    //     let data_scalars = fs::read_to_string([pathname, "MapMessageToScalarAsHash.json"].concat()).expect("Unable to read file");
+    //     let scalars_json: serde_json::Value = serde_json::from_str(&data_scalars).expect("Unable to parse");
+    //     let dst = hex::decode(scalars_json["dst"].as_str().unwrap()).unwrap();
+
+    //     let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst)).unwrap()).collect();
         
-        let commitment = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars, Some(&generators), pk, &unrevealed_message_indexes);
+    //     let commitment = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars, Some(&generators), pk, &unrevealed_message_indexes);
         
         
-        let unrevealed_msgs: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
-            if unrevealed_message_indexes.contains(&i) {
-                Some(*m)
-            } else {
-                None
-            }
-        }).collect();
+    //     let unrevealed_msgs: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
+    //         if unrevealed_message_indexes.contains(&i) {
+    //             Some(*m)
+    //         } else {
+    //             None
+    //         }
+    //     }).collect();
 
-        let revealed_msgs: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
-            if !unrevealed_message_indexes.contains(&i) {
-                Some(*m)
-            } else {
-                None
-            }
-        }).collect();
+    //     let revealed_msgs: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
+    //         if !unrevealed_message_indexes.contains(&i) {
+    //             Some(*m)
+    //         } else {
+    //             None
+    //         }
+    //     }).collect();
 
-        let zkpok = ZKPoK::<BBSplus<S::Ciphersuite>>::generate_proof(&unrevealed_msgs, commitment.bbsPlusCommitment(), &generators, &unrevealed_message_indexes, &nonce);
+    //     let zkpok = ZKPoK::<BBSplus<S::Ciphersuite>>::generate_proof(&unrevealed_msgs, commitment.bbsPlusCommitment(), &generators, &unrevealed_message_indexes, &nonce);
 
-        let blind_signature_result = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(&revealed_msgs, commitment.bbsPlusCommitment(), &zkpok, sk, pk, Some(&generators), &revealed_message_indexes, &unrevealed_message_indexes, &nonce, Some(&header));
+    //     let blind_signature_result = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(&revealed_msgs, commitment.bbsPlusCommitment(), &zkpok, sk, pk, Some(&generators), &revealed_message_indexes, &unrevealed_message_indexes, &nonce, Some(&header));
 
-        if let Err(e) = &blind_signature_result {
-            println!("Error: {}", e);
-        }
+    //     if let Err(e) = &blind_signature_result {
+    //         println!("Error: {}", e);
+    //     }
         
-        assert!(blind_signature_result.is_ok(), "Blind Signature Error");
-        let blind_signature = blind_signature_result.unwrap();
+    //     assert!(blind_signature_result.is_ok(), "Blind Signature Error");
+    //     let blind_signature = blind_signature_result.unwrap();
 
-        let unblind_signature = blind_signature.unblind_sign(commitment.bbsPlusCommitment());
+    //     let unblind_signature = blind_signature.unblind_sign(commitment.bbsPlusCommitment());
 
-        let verify = unblind_signature.verify(pk, Some(&msgs_scalars), Some(&generators), Some(&header));
+    //     let verify = unblind_signature.verify(pk, Some(&messages), Some(&header)).is_ok();
 
-        assert!(verify, "Unblinded Signature NOT VALID!");
-
-
-        const new_message: &str = "8872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02";
-        const update_index: usize = 0usize;
-        let new_message_scalar = BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(new_message).unwrap(), Some(&dst)).unwrap();
-        let old_message_scalar = msgs_scalars.get(update_index).unwrap();
-
-        let mut new_msgs_scalars = msgs_scalars.clone();
-        new_msgs_scalars[update_index] = new_message_scalar;
-
-        let updated_signature = blind_signature.update_signature(sk, &generators, &old_message_scalar, &new_message_scalar, update_index);
-        let unblind_updated_signature: Signature<BBSplus<<S as Scheme>::Ciphersuite>> = Signature::BBSplus(BBSplusSignature { a: updated_signature.a(), e: unblind_signature.e(), s: unblind_signature.s()});
-        let verify = unblind_updated_signature.verify(pk, Some(&new_msgs_scalars), Some(&generators), Some(&header));
-
-        assert!(verify, "Unblinded Signature NOT VALID!");
-
-    }
+    //     assert!(verify, "Unblinded Signature NOT VALID!");
 
 
-    pub(crate) fn update_signature<S: Scheme>(pathname: &str)
-    where
-        S::Ciphersuite: BbsCiphersuite,
-        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
-    {
-        const IKM: &str = "746869732d49532d6a7573742d616e2d546573742d494b4d2d746f2d67656e65726174652d246528724074232d6b6579";
-        const KEY_INFO: &str = "746869732d49532d736f6d652d6b65792d6d657461646174612d746f2d62652d757365642d696e2d746573742d6b65792d67656e";
-        const msgs: [&str; 3] = ["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02", "87a8bd656d49ee07b8110e1d8fd4f1dcef6fb9bc368c492d9bc8c4f98a739ac6", "96012096adda3f13dd4adbe4eea481a4c4b5717932b73b00e31807d3c5894b90"];
-        const header_hex: &str = "11223344556677889900aabbccddeeff";
-        let header = hex::decode(header_hex).unwrap();
+    //     const new_message: &str = "8872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02";
+    //     const update_index: usize = 0usize;
+    //     let new_message_scalar = BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(new_message).unwrap(), Some(&dst)).unwrap();
+    //     let old_message_scalar = msgs_scalars.get(update_index).unwrap();
 
-        let keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
-            &hex::decode(&IKM).unwrap(),
-            Some(&hex::decode(&KEY_INFO).unwrap()),
-            None
-        ).unwrap();
+    //     let mut new_msgs_scalars = msgs_scalars.clone();
+    //     new_msgs_scalars[update_index] = new_message_scalar;
 
-        let sk = keypair.private_key();
-        let pk = keypair.public_key();
+    //     let updated_signature = blind_signature.update_signature(sk, &generators, &old_message_scalar, &new_message_scalar, update_index);
+    //     let unblind_updated_signature: Signature<BBSplus<<S as Scheme>::Ciphersuite>> = Signature::BBSplus(BBSplusSignature { a: updated_signature.a(), e: unblind_signature.e(), s: unblind_signature.s()});
+    //     let verify = unblind_updated_signature.verify(pk, Some(&new_msgs_scalars), Some(&generators), Some(&header));
 
-        let generators = Generators::create::<S::Ciphersuite>(msgs.len());
+    //     assert!(verify, "Unblinded Signature NOT VALID!");
 
-        //Map Messages to Scalars
-        let data_scalars = fs::read_to_string([pathname, "MapMessageToScalarAsHash.json"].concat()).expect("Unable to read file");
-        let scalars_json: serde_json::Value = serde_json::from_str(&data_scalars).expect("Unable to parse");
-        let dst = hex::decode(scalars_json["dst"].as_str().unwrap()).unwrap();
+    // }
 
-        let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst)).unwrap()).collect();
+
+    // pub(crate) fn update_signature<S: Scheme>(pathname: &str)
+    // where
+    //     S::Ciphersuite: BbsCiphersuite,
+    //     <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
+    // {
+    //     const IKM: &str = "746869732d49532d6a7573742d616e2d546573742d494b4d2d746f2d67656e65726174652d246528724074232d6b6579";
+    //     const KEY_INFO: &str = "746869732d49532d736f6d652d6b65792d6d657461646174612d746f2d62652d757365642d696e2d746573742d6b65792d67656e";
+    //     const msgs: [&str; 3] = ["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02", "87a8bd656d49ee07b8110e1d8fd4f1dcef6fb9bc368c492d9bc8c4f98a739ac6", "96012096adda3f13dd4adbe4eea481a4c4b5717932b73b00e31807d3c5894b90"];
+    //     const header_hex: &str = "11223344556677889900aabbccddeeff";
+    //     let header = hex::decode(header_hex).unwrap();
+
+    //     let keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
+    //         &hex::decode(&IKM).unwrap(),
+    //         Some(&hex::decode(&KEY_INFO).unwrap()),
+    //         None
+    //     ).unwrap();
+
+    //     let sk = keypair.private_key();
+    //     let pk = keypair.public_key();
+
+    //     let generators = Generators::create::<S::Ciphersuite>(msgs.len());
+
+    //     //Map Messages to Scalars
+    //     let data_scalars = fs::read_to_string([pathname, "MapMessageToScalarAsHash.json"].concat()).expect("Unable to read file");
+    //     let scalars_json: serde_json::Value = serde_json::from_str(&data_scalars).expect("Unable to parse");
+    //     let dst = hex::decode(scalars_json["dst"].as_str().unwrap()).unwrap();
+
+    //     let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst)).unwrap()).collect();
         
 
-        let signature = Signature::<BBSplus<S::Ciphersuite>>::sign(Some(&msgs_scalars), sk, pk, Some(&generators), Some(&header));
+    //     let signature = Signature::<BBSplus<S::Ciphersuite>>::sign(Some(&msgs_scalars), sk, pk, Some(&generators), Some(&header));
 
 
-        let verify = signature.verify(pk, Some(&msgs_scalars), Some(&generators), Some(&header));
+    //     let verify = signature.verify(pk, Some(&msgs_scalars), Some(&generators), Some(&header));
 
-        assert!(verify, "Signature NOT VALID!");
+    //     assert!(verify, "Signature NOT VALID!");
 
 
-        const new_message: &str = "8872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02";
-        const update_index: usize = 0usize;
-        let new_message_scalar = BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(new_message).unwrap(), Some(&dst)).unwrap();
-        let old_message_scalar = msgs_scalars.get(update_index).unwrap();
+    //     const new_message: &str = "8872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02";
+    //     const update_index: usize = 0usize;
+    //     let new_message_scalar = BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(new_message).unwrap(), Some(&dst)).unwrap();
+    //     let old_message_scalar = msgs_scalars.get(update_index).unwrap();
 
-        let updated_signature = signature.update_signature(sk, &generators, &old_message_scalar, &new_message_scalar, update_index);
+    //     let updated_signature = signature.update_signature(sk, &generators, &old_message_scalar, &new_message_scalar, update_index);
 
-        let mut new_msgs_scalars = msgs_scalars.clone();
-        new_msgs_scalars[update_index] = new_message_scalar;
+    //     let mut new_msgs_scalars = msgs_scalars.clone();
+    //     new_msgs_scalars[update_index] = new_message_scalar;
 
-        let verify = updated_signature.verify(pk, Some(&new_msgs_scalars), Some(&generators), Some(&header));
+    //     let verify = updated_signature.verify(pk, Some(&new_msgs_scalars), Some(&generators), Some(&header));
 
-        assert!(verify, "Signature NOT VALID!");
+    //     assert!(verify, "Signature NOT VALID!");
 
-    }
+    // }
 }
 

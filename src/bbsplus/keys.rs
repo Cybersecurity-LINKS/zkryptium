@@ -175,7 +175,7 @@ impl <CS: BbsCiphersuite> KeyPair<BBSplus<CS>>{
 /// # Output:
 /// * SK, a [`Scalar`]
 ///  
-pub(crate) fn key_gen<CS>(key_material: &[u8], key_info: Option<&[u8]>, key_dst: Option<&[u8]>) -> Result<Scalar, Error>
+fn key_gen<CS>(key_material: &[u8], key_info: Option<&[u8]>, key_dst: Option<&[u8]>) -> Result<Scalar, Error>
 where
     CS: BbsCiphersuite,
     CS::Expander: for<'a> ExpandMsg<'a>,
@@ -216,7 +216,7 @@ where
 /// # Output:
 /// * PK, a [`G2Projective`]
 /// 
-pub(crate) fn sk_to_pk(sk: Scalar) -> G2Projective {
+fn sk_to_pk(sk: Scalar) -> G2Projective {
     // W = SK * BP2
     let pk = G2Affine::generator() * sk;
     pk

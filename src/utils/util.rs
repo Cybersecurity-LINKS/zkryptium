@@ -17,11 +17,12 @@
 #[cfg(feature = "bbsplus")]
 pub mod bbsplus_utils {
     use std::{any::{TypeId, Any}, borrow::Borrow};
-    use rand::RngCore;
+    use ff::Field;
+    use rand::{random, RngCore};
     use rand::rngs::OsRng;
     use bls12_381_plus::{Scalar, G1Projective, G2Projective};
     use elliptic_curve::{hash2curve::{ExpandMsg, Expander}, group::Curve};
-    use crate::{utils::message::BBSplusMessage, errors::Error};
+    use crate::{bbsplus::generators::Generators, errors::Error, utils::message::BBSplusMessage};
     use crate::{bbsplus::ciphersuites::BbsCiphersuite, bbsplus::keys::BBSplusPublicKey};
 
     const NONCE_LENGTH: usize = 16;
@@ -153,18 +154,6 @@ pub mod bbsplus_utils {
     }
 
 
-    // pub fn calculate_random_scalars(count: u8) -> Vec<Scalar> {
-    //     let mut rng = rand::thread_rng();
-    //     let mut scalars = Vec::new();
-    //     for _i in 0..count {
-    //         scalars.push(Scalar::random(&mut rng))
-    //     }
-
-    //     scalars
-
-    // }
-
-
     pub fn subgroup_check_g1(p: G1Projective) -> bool {
         if p.is_on_curve().into() /*&& p.is_identity().into()*/ {
             true
@@ -209,6 +198,40 @@ pub mod bbsplus_utils {
         // let domain = hash_to_scalar::<CS>(&dom_input, None);
         let domain = hash_to_scalar_old::<CS>(&dom_input, 1, None)[0];
         domain
+    }
+
+
+    //UPDATED
+    pub(crate) fn calculate_domain_new<CS: BbsCiphersuite>(pk: &BBSplusPublicKey, generators: &Generators, header: Option<&[u8]>, api_id: Option<&[u8]>) -> Result<Scalar, Error>
+    where
+        CS::Expander: for<'a> ExpandMsg<'a>,
+    {
+        let header = header.unwrap_or(b"");
+
+        let L = generators.message_generators.len();
+
+        let api_id = api_id.unwrap_or(b"");
+
+        let domain_dst = [api_id, CS::H2S].concat();
+
+        let mut dom_octs: Vec<u8> = Vec::new();
+        dom_octs.extend_from_slice(&L.to_be_bytes());
+        dom_octs.extend_from_slice(&generators.q1.to_affine().to_compressed());
+
+        generators.message_generators.iter().map(|&p| p.to_affine().to_compressed()).for_each(|a| dom_octs.extend_from_slice(&a));
+
+        dom_octs.extend_from_slice(CS::API_ID);
+
+        let mut dom_input: Vec<u8> = Vec::new();
+        dom_input.extend_from_slice(&pk.to_bytes());
+        dom_input.extend_from_slice(&dom_octs);
+
+        let header_i2osp = i2osp(header.len(), 8);
+
+        dom_input.extend_from_slice(&header_i2osp);
+        dom_input.extend_from_slice(header);
+
+        hash_to_scalar_new::<CS>(&dom_input, &domain_dst)
     }
 
     pub trait ScalarExt {
@@ -285,51 +308,74 @@ pub mod bbsplus_utils {
 
     pub fn get_messages(messages: &[BBSplusMessage], indexes: &[usize]) -> Vec<BBSplusMessage> {
         let mut out: Vec<BBSplusMessage> = Vec::new();
-        for i in indexes {
-            out.push(messages[*i]);
+        for &i in indexes {
+            out.push(messages[i]);
         }
 
         out
 
     }
 
+    pub fn get_messages_vec(messages: &[Vec<u8>], indexes: &[usize]) -> Vec<Vec<u8>> {
+        let mut out: Vec<Vec<u8>> = Vec::new();
+        for &i in indexes {
+            out.push(messages[i].clone());
+        }
 
-    pub fn calculate_random_scalars<CS>(count: usize, seed: Option<&[u8]>) -> Vec<Scalar> 
+        out
+
+    }
+
+    fn get_random() -> Scalar {
+        let rng = rand::thread_rng();
+        Scalar::random(rng)
+    }
+
+    // #[cfg(not(test))]
+    // pub fn calculate_random_scalars<CS>(count: usize) -> Vec<Scalar> 
+    // // where
+    // //     CS: BbsCiphersuite,
+    // //     CS::Expander: for<'a> ExpandMsg<'a>,
+    // {
+    //     let mut random_scalars: Vec<Scalar> =  Vec::new();
+
+    //     for _i in 0..count {
+    //         random_scalars.push(get_random());
+    //     }
+
+    //     random_scalars
+    // }
+
+    // #[cfg(test)]
+    pub fn calculate_random_scalars<CS>(count: usize, seed: Option<&[u8]>, dst: Option<&[u8]>) -> Vec<Scalar> 
     where
         CS: BbsCiphersuite,
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
 
-        let seed = seed.unwrap_or(b"");
-        let mut random_scalars: Vec<Scalar> =  Vec::new();
+        let binding = hex::decode("332e313431353932363533353839373933323338343632363433333833323739").unwrap();
+        let seed = seed.unwrap_or(&binding);
+        let binding2 = [CS::API_ID, CS::MOCKED_SCALAR].concat();
+        let dst = dst.unwrap_or(&binding2); 
+        println!("AAAAAAAAAAAAA");
 
-        let mut rng = rand::thread_rng();
 
-        if seed ==  b"" {
-            for _i in 0..count {
-                let mut buf = [0; 48];
-                rng.fill_bytes(&mut buf);
-                let scalar = Scalar::from_okm(&buf);
-                random_scalars.push(scalar);
-            }
-        } else {
-            let dst = [CS::ID, b"MOCK_RANDOM_SCALARS_DST_"].concat();
-            if count * 48 > 65535 {
-                panic!("count * expend_len > 65535");
-            }
+        let out_len = CS::EXPAND_LEN * count;
+        let mut v = vec![0u8; out_len];
 
-            let out_len = 48 * count;
-            let mut v = vec!(0u8; out_len);
-            CS::Expander::expand_message(&[seed], &[&dst], out_len).unwrap().fill_bytes(&mut v);
-            for i in 0..count {
-                let start_idx = i * 48;
-                let end_idx = (i+1) * 48;
-                let slice: &[u8; 48] = &v[start_idx..end_idx].try_into().unwrap();
-                random_scalars.push(Scalar::from_okm(slice));
-            }
+        CS::Expander::expand_message(&[&seed], &[&dst], out_len).unwrap().fill_bytes(&mut v);
+
+        let mut scalars: Vec<Scalar> = Vec::new();
+
+        for i in 1..count+1 {
+            let start_idx = (i-1) * CS::EXPAND_LEN;
+            let end_idx = i * CS::EXPAND_LEN;
+            let okm= &v[start_idx..end_idx].try_into().unwrap();
+            let scalar = Scalar::from_okm(okm);
+            scalars.push(scalar);
         }
 
-        random_scalars
+        scalars
     }
 }
 
@@ -392,7 +438,7 @@ pub mod cl03_utils {
 
 
 
-pub fn get_remaining_indexes(length: usize, indexes: &[usize]) -> Vec<usize>{
+pub(crate) fn get_remaining_indexes(length: usize, indexes: &[usize]) -> Vec<usize>{
     let mut remaining: Vec<usize> = Vec::new();
 
     for i in 0..length {
@@ -403,10 +449,4 @@ pub fn get_remaining_indexes(length: usize, indexes: &[usize]) -> Vec<usize>{
 
     remaining
 }
-
-
-// pub fn check_indexes_overflow<T>(messages: &[T], indexes: &[usize]) -> bool
-// {
-//     indexes.iter().max().unwrap_or(&0usize) < &messages.len()
-// }
 

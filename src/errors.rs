@@ -24,6 +24,22 @@ pub enum Error {
     #[error("Error during hash to scalar computation")]
     HashToScalarError,
     #[error("Error mapping a message to scalar")]
-    MapMessageToScalarError
+    MapMessageToScalarError,
+    #[error("Not enough Generators")]
+    NotEnoughGenerators,
+    /// [More Info](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-coresign) in the `Note` at the end
+    #[error(" A == Identity_G1")]
+    G1IdentityError,
+    #[error("Signature is not valid")]
+    SignatureVerificationError,
+    #[error("Error during computation of a Proof ok Knowledge of a Signature")]
+    ProofGenError(String),
+    #[error("Unknown error")]
+    Unspecified,
+    #[error("Invalid Proof of Knowledge of a Signature")]
+    InvalidProofOfKnowledgeSignature,
+    #[error("Proof of Knowledge of a Signature verification failed")]
+    PoKSVerificationError(String),
+
 }
 
