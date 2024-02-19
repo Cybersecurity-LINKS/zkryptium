@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use digest::Digest;
+
 use elliptic_curve::hash2curve::ExpandMsg;
 use ff::Field;
 use rand::RngCore;

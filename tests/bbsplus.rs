@@ -25,7 +25,7 @@ mod bbsplus_tests {
     use bbsplus::ciphersuites::BbsCiphersuite;
     use elliptic_curve::{hash2curve::ExpandMsg, group::Curve};
     use schemes::algorithms::Scheme;
-    use zkryptium::{utils::message::BBSplusMessage, bbsplus::{self, generators::Generators, keys::{BBSplusSecretKey, BBSplusPublicKey}, signature::BBSplusSignature}, schemes::{self, algorithms::BBSplus}, schemes::{generics::{Signature, PoKSignature, ZKPoK, Commitment, BlindSignature}, algorithms::Ciphersuite}, keys::pair::KeyPair, utils::{util::bbsplus_utils::{hash_to_scalar_old, ScalarExt, calculate_random_scalars, get_messages}, message::Message}};
+    use zkryptium::{utils::message::BBSplusMessage, bbsplus::{self, generators::Generators, keys::{BBSplusSecretKey, BBSplusPublicKey}, signature::BBSplusSignature}, schemes::{self, algorithms::BBSplus}, schemes::generics::{Signature, PoKSignature, ZKPoK, Commitment, BlindSignature}, keys::pair::KeyPair, utils::{util::bbsplus_utils::{hash_to_scalar_old, ScalarExt, calculate_random_scalars, get_messages}, message::Message}};
     use zkryptium::schemes::algorithms::{BBS_BLS12381_SHA256, BBS_BLS12381_SHAKE256};
     
     
@@ -870,14 +870,6 @@ mod bbsplus_tests {
 
         let unrevealed_msgs_wrong: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
             if unrevealed_message_indexes.contains(&i) {
-                Some(*m)
-            } else {
-                None
-            }
-        }).collect();
-
-        let revealed_msgs_wrong: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
-            if !unrevealed_message_indexes.contains(&i) {
                 Some(*m)
             } else {
                 None
