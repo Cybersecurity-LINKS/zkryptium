@@ -61,6 +61,11 @@ path = "examples/bbsplus.rs"
 features = ["bbsplus"]
 
 [[example]]
+name = "bbsplus2"
+path = "examples/bbsplus2.rs"
+features = ["bbsplus"]
+
+[[example]]
 name = "cl03"
 path = "examples/cl03.rs"
 features = ["cl03"]

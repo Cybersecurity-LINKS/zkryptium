@@ -15,9 +15,14 @@
 use bls12_381_plus::{Scalar, G1Projective};
 use elliptic_curve::hash2curve::ExpandMsg;
 use serde::{Deserialize, Serialize};
-use crate::{utils::message::{Message, BBSplusMessage}, bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, schemes::algorithms::BBSplus, utils::util::bbsplus_utils::{calculate_random_scalars, subgroup_check_g1}, schemes::generics::Commitment};
+use crate::{utils::message::{Message, BBSplusMessage}, bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, schemes::algorithms::BBSplus, utils::util::bbsplus_utils::subgroup_check_g1, schemes::generics::Commitment};
 use super::keys::BBSplusPublicKey;
 
+
+#[cfg(not(test))]
+use crate::utils::util::bbsplus_utils::calculate_random_scalars;
+#[cfg(test)]
+use crate::utils::util::bbsplus_utils::seeded_random_scalars;
 
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -36,7 +41,13 @@ impl <CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
     {
         let L = messages.len();
 
-        let s_prime = calculate_random_scalars::<CS>(1, None, None);
+        // let s_prime = calculate_random_scalars::<CS>(1);
+
+        #[cfg(not(test))]
+        let mut s_prime = calculate_random_scalars(1); //TODO: to be fixed !!!!
+    
+        #[cfg(test)]
+        let mut s_prime = seeded_random_scalars::<CS>(1, None, None);
 
         if unrevealed_message_indexes.is_empty() {
             panic!("Unrevealed message indexes empty");

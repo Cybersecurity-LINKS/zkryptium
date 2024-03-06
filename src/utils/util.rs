@@ -326,39 +326,36 @@ pub mod bbsplus_utils {
 
     }
 
-    fn get_random() -> Scalar {
+    pub(crate) fn get_random() -> Scalar {
         let rng = rand::thread_rng();
         Scalar::random(rng)
     }
 
-    // #[cfg(not(test))]
-    // pub fn calculate_random_scalars<CS>(count: usize) -> Vec<Scalar> 
-    // // where
-    // //     CS: BbsCiphersuite,
-    // //     CS::Expander: for<'a> ExpandMsg<'a>,
-    // {
-    //     let mut random_scalars: Vec<Scalar> =  Vec::new();
+    #[cfg(not(test))]
+    pub fn calculate_random_scalars(count: usize) -> Vec<Scalar> 
+    {
 
-    //     for _i in 0..count {
-    //         random_scalars.push(get_random());
-    //     }
+        let mut random_scalars: Vec<Scalar> =  Vec::new();
 
-    //     random_scalars
-    // }
+        for _i in 0..count {
+            random_scalars.push(get_random());
+        }
 
-    // #[cfg(test)]
-    pub fn calculate_random_scalars<CS>(count: usize, seed: Option<&[u8]>, dst: Option<&[u8]>) -> Vec<Scalar> 
+        random_scalars
+    }
+
+
+
+    #[cfg(test)]
+    pub fn seeded_random_scalars<CS>(count: usize, seed: Option<&[u8]>, dst: Option<&[u8]>) -> Vec<Scalar> 
     where
         CS: BbsCiphersuite,
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
-
         let binding = hex::decode("332e313431353932363533353839373933323338343632363433333833323739").unwrap();
         let seed = seed.unwrap_or(&binding);
         let binding2 = [CS::API_ID, CS::MOCKED_SCALAR].concat();
         let dst = dst.unwrap_or(&binding2); 
-        println!("AAAAAAAAAAAAA");
-
 
         let out_len = CS::EXPAND_LEN * count;
         let mut v = vec![0u8; out_len];
@@ -377,6 +374,7 @@ pub mod bbsplus_utils {
 
         scalars
     }
+
 }
 
 

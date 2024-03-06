@@ -18,11 +18,15 @@ use std::ops::Deref;
 use bls12_381_plus::{G1Projective, Scalar, G2Projective, G2Prepared, Gt, multi_miller_loop, G1Affine};
 use elliptic_curve::{group::Curve, hash2curve::ExpandMsg, Group};
 use serde::{Serialize, Deserialize};
-use crate::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, errors::Error, schemes::{algorithms::BBSplus, generics::{PoKSignature, ZKPoK}}, utils::{message::BBSplusMessage, util::{bbsplus_utils::{calculate_domain_new, get_messages, hash_to_scalar_new, hash_to_scalar_old, i2osp, ScalarExt}, get_remaining_indexes}}};
+use crate::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, errors::Error, schemes::{algorithms::BBSplus, generics::{PoKSignature, ZKPoK}}, utils::{message::BBSplusMessage, util::{bbsplus_utils::{calculate_domain_new, get_messages, get_random, hash_to_scalar_new, hash_to_scalar_old, i2osp, ScalarExt}, get_remaining_indexes}}};
 use super::{signature::BBSplusSignature, keys::BBSplusPublicKey, commitment::BBSplusCommitment};
 
 
+#[cfg(not(test))]
 use crate::utils::util::bbsplus_utils::calculate_random_scalars;
+#[cfg(test)]
+use crate::utils::util::bbsplus_utils::seeded_random_scalars;
+
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusPoKSignature{
@@ -194,17 +198,12 @@ where
 
     let disclosed_messages = get_messages(messages, &disclosed_indexes);
     let undisclosed_messages = get_messages(messages, &undisclosed_indexes);
+  
+    #[cfg(not(test))]
+    let random_scalars = calculate_random_scalars(5 + U);
 
-    let mut random_scalars = 
-        calculate_random_scalars::<CS>(5 + U, None, None); //TODO: to be fixed !!!!
-
-    // if cfg!(test)//#[cfg(test)]
-    // {
-    //     let SEED = hex::decode("332e313431353932363533353839373933323338343632363433333833323739").unwrap();
-    //     let DST = [CS::API_ID, CS::MOCKED_SCALAR].concat(); 
-    //     println!("AAAAAAAAAAAAA");
-    //     random_scalars = seeded_random_scalars::<CS>(&SEED, &DST,5 + U);
-    // }
+    #[cfg(test)]
+    let random_scalars = seeded_random_scalars::<CS>(5 + U, None, None);
 
     let init_res = proof_init::<CS>(
         pk, 
@@ -458,10 +457,26 @@ impl BBSplusZKPoK {
         //  (i1,...,iU) = CGIdxs = unrevealed_indexes
 			
 		//  s~ = HASH(PRF(8 * ceil(log2(r)))) mod
-        let s_tilde = calculate_random_scalars::<CS>(1,None, None)[0];
+        // let s_tilde = calculate_random_scalars::<CS>(1)[0];
+
+        #[cfg(not(test))]
+        let s_tilde = calculate_random_scalars(1)[0]; //TODO: to be fixed !!!!
+    
+        #[cfg(test)]
+        let s_tilde = seeded_random_scalars::<CS>(1, None, None)[0];
+
+
 		//  r~ = [U]
 		//  for i in 1 to U: r~[i] = HASH(PRF(8 * ceil(log2(r)))) mod r
-        let r_tilde = calculate_random_scalars::<CS>(U, None, None);	
+        // let r_tilde = calculate_random_scalars::<CS>(U);	
+
+        #[cfg(not(test))]
+        let r_tilde = calculate_random_scalars(U); //TODO: to be fixed !!!!
+    
+        #[cfg(test)]
+        let r_tilde = seeded_random_scalars::<CS>(U, None, None);
+
+
 		//  U~ = h0 * s~ + h[i1] * r~[1] + ... + h[iU] \* r~[U]
         let mut U_tilde = generators.q1 * s_tilde;	
 
@@ -562,5 +577,254 @@ impl <CS: BbsCiphersuite> ZKPoK<BBSplus<CS>>
 
     pub fn from_bytes() {
         todo!()
+    }
+}
+
+
+
+
+
+
+
+
+#[cfg(test)]
+mod test {
+    use std::fs;
+
+    use elliptic_curve::hash2curve::ExpandMsg;
+
+    use crate::{bbsplus::{ciphersuites::BbsCiphersuite, keys::BBSplusPublicKey, proof::seeded_random_scalars}, schemes::{algorithms::{BBSplus, Scheme, BBS_BLS12381_SHA256, BBS_BLS12381_SHAKE256}, generics::{PoKSignature, Signature}}, utils::util::bbsplus_utils::{get_messages_vec, ScalarExt}};
+
+
+    //mocked_rng - SHA256 - UPDATED
+    #[test]
+    fn mocked_rng_sha256() {
+        mocked_rng::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "mockedRng.json");
+    }
+
+    //mocked_rng - SHAKE256 - UPDATED
+    #[test]
+    fn mocked_rng_shake256() {
+        mocked_rng::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "mockedRng.json");
+    }
+
+    //SIGNATURE POK - SHA256
+    #[test]
+    fn proof_check_sha256_1() {
+        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "signature/signature001.json", "proof/proof001.json")
+    }
+    #[test]
+    fn proof_check_sha256_2() {
+        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json", "proof/proof002.json")
+    }
+    #[test]
+    fn proof_check_sha256_3() {
+        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json", "proof/proof003.json")
+    }
+    #[test]
+    fn proof_check_sha256_4() {
+        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json", "proof/proof004.json")
+    }
+    #[test]
+    fn proof_check_sha256_5() {
+        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json", "proof/proof005.json")
+    }
+    #[test]
+    fn proof_check_sha256_6() {
+        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json", "proof/proof006.json")
+    }
+    #[test]
+    fn proof_check_sha256_7() {
+        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json", "proof/proof007.json")
+    }
+    #[test]
+    fn proof_check_sha256_8() {
+        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json", "proof/proof008.json")
+    }
+    #[test]
+    fn proof_check_sha256_9() {
+        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json", "proof/proof009.json")
+    }
+    #[test]
+    fn proof_check_sha256_10() {
+        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json", "proof/proof010.json")
+    }
+    #[test]
+    fn proof_check_sha256_11() {
+        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json", "proof/proof011.json")
+    }
+    #[test]
+    fn proof_check_sha256_12() {
+        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json", "proof/proof012.json")
+    }
+    #[test]
+    fn proof_check_sha256_13() {
+        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json", "proof/proof013.json")
+    }
+
+
+
+    //SIGNATURE POK - SHAKE256
+
+    #[test]
+    fn proof_check_shake256_1() {
+        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "signature/signature001.json", "proof/proof001.json")
+    }
+    #[test]
+    fn proof_check_shake256_2() {
+        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof002.json")
+    }
+    #[test]
+    fn proof_check_shake256_3() {
+        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof003.json")
+    }
+    #[test]
+    fn proof_check_shake256_4() {
+        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof004.json")
+    }
+    #[test]
+    fn proof_check_shake256_5() {
+        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof005.json")
+    }
+    #[test]
+    fn proof_check_shake256_6() {
+        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof006.json")
+    }
+    #[test]
+    fn proof_check_shake256_7() {
+        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof007.json")
+    }
+    #[test]
+    fn proof_check_shake256_8() {
+        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof008.json")
+    }
+    #[test]
+    fn proof_check_shake256_9() {
+        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof009.json")
+    }
+    #[test]
+    fn proof_check_shake256_10() {
+        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof010.json")
+    }
+    #[test]
+    fn proof_check_shake256_11() {
+        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof011.json")
+    }
+    #[test]
+    fn proof_check_shake256_12() {
+        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof012.json")
+    }
+    #[test]
+    fn proof_check_shake256_13() {
+        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json", "proof/proof013.json")
+    }
+
+
+    pub(crate) fn mocked_rng<S: Scheme>(pathname: &str, filename: &str) 
+    where
+        S::Ciphersuite: BbsCiphersuite,
+        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
+    {
+        let data = fs::read_to_string([pathname, filename].concat()).expect("Unable to read file");
+        let res: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
+        eprintln!("Mocked Random Scalars");
+
+        let seed_ = hex::decode(res["seed"].as_str().unwrap()).unwrap();
+        let dst = hex::decode(res["dst"].as_str().unwrap()).unwrap();
+        let count: usize = res["count"].as_u64().unwrap().try_into().unwrap();
+
+        let mocked_scalars_hex: Vec<&str> = res["mockedScalars"].as_array().unwrap().iter().map(|s| s.as_str().unwrap()).collect();
+
+        let r = seeded_random_scalars::<S::Ciphersuite>(count, Some(&seed_), Some(&dst));
+
+        let mut results = true;
+
+        for i in 0..count{
+            let scalar_hex = hex::encode(r[i].to_bytes_be());
+
+            let scalar_expected = mocked_scalars_hex[i];
+
+            if scalar_hex != scalar_expected {
+                if results == true {
+                    results = false
+                }
+                eprintln!(" count: {}", i);
+                eprintln!(" Expected scalar: {}", scalar_expected);
+                eprintln!(" Computed scalar: {}", scalar_hex);
+            }
+        }
+
+
+        assert!(results, "Failed");
+    }
+    
+    pub(crate) fn proof_check<S: Scheme>(pathname: &str, sign_filename: &str, proof_filename: &str) 
+    where
+        S::Ciphersuite: BbsCiphersuite,
+        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
+    {
+        let data = fs::read_to_string([pathname, proof_filename].concat()).expect("Unable to read file");
+        let proof_json: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
+
+        let signerPK_hex = proof_json["signerPublicKey"].as_str().unwrap();
+        let header_hex = proof_json["header"].as_str().unwrap();
+        let ph_hex = proof_json["presentationHeader"].as_str().unwrap();
+        let input_messages: Vec<String> = proof_json["messages"].as_array().unwrap().iter().map(|m| serde_json::from_value(m.clone()).unwrap()).collect();
+
+        let proof_expected = proof_json["proof"].as_str().unwrap();
+        let result_expected = proof_json["result"]["valid"].as_bool().unwrap();
+
+        let ph = hex::decode(ph_hex).unwrap();
+
+        let revealed_message_indexes: Vec<usize> = proof_json["disclosedIndexes"].as_array().unwrap().iter().map(|m| serde_json::from_value(m.clone()).unwrap()).collect();
+
+        //Get Message Signature
+        let signature_expected = proof_json["signature"].as_str().unwrap();
+
+        let signature = Signature::<BBSplus<S::Ciphersuite>>::from_bytes(hex::decode(signature_expected).unwrap().as_slice().try_into().unwrap());
+        let bbs_signature = signature.bbsPlusSignature();
+        
+        let header = hex::decode(header_hex).unwrap();
+        let PK = BBSplusPublicKey::from_bytes(&hex::decode(signerPK_hex).unwrap());
+
+        let msgs: Vec<Vec<u8>> = input_messages.iter().map(|m| hex::decode(m).unwrap()).collect();
+
+        let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(bbs_signature, &PK, Some(&msgs), Some(&revealed_message_indexes), Some(&header), Some(&ph)).unwrap();  
+        let my_encoded_proof =  hex::encode(&proof.to_bytes());
+        let result0 = proof_expected == my_encoded_proof;
+        let result1 = result0 == result_expected;
+        if result1 == false{
+            println!("  proofGen: {}", result1);
+            println!("  Expected: {}", proof_expected);
+            println!("  Computed: {}", my_encoded_proof);
+            assert!(result1, "Failed");
+        }
+
+
+        // Verify the Proof 
+        let disclosed_messages = get_messages_vec(&msgs, &revealed_message_indexes);
+
+        let PROOF = PoKSignature::<BBSplus<S::Ciphersuite>>::from_bytes(&hex::decode(proof_expected).unwrap()).unwrap();
+
+        
+        let result2 = PROOF.proof_verify(&PK, Some(&disclosed_messages), Some(&revealed_message_indexes), Some(&header), Some(&ph)).is_ok();
+        let result3 = result2 == result_expected;
+        if !result3 {
+            eprintln!("  proofVerify: {}", result3);
+            eprintln!("  Expected: {}", result_expected);
+            eprintln!("  Computed: {}", result2);
+            assert!(result3, "failed");
+        
+        }else {
+            eprintln!("  Expected: {}", signature_expected);
+            eprintln!("  Computed: {}", hex::encode(signature.to_bytes()));
+        
+            eprintln!("  proofVerify: {}", result3);
+            eprintln!("  Expected: {}", result_expected);
+            eprintln!("  Computed: {}", result2);
+            if result_expected == false {
+                eprintln!("{} ({})", result3, proof_json["result"]["reason"].as_str().unwrap());
+            }
+        }
     }
 }
