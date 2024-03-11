@@ -1,0 +1,49 @@
+{
+  "caseName": "valid multiple signer and prover committed messages, no signer blind signature",
+  "mockRngParameters": {
+    "SEED": "3.141592653589793238462643383279",
+    "commit": {
+      "DST": "BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_COMMIT_MOCK_RANDOM_SCALARS_DST_",
+      "count": 7
+    },
+    "signature": {
+      "DST": "BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_SIGNATURE_MOCK_RANDOM_SCALARS_DST_",
+      "count": 1
+    }
+  },
+  "signerKeyPair": {
+    "secretKey": "60e55110f76883a13d030b2f6bd11883422d5abde717569fc0731f51237169fc",
+    "publicKey": "a820f230f6ae38503b86c70dc50b61c58a77e45c39ab25c0652bbaa8fa136f2851bd4781c9dcde39fc9d1d52c9e60268061e7d7632171d91aa8d460acee0e96f1e7c4cfb12d3ff9ab5d5dc91c277db75c845d649ef3c4f63aebc364cd55ded0c"
+  },
+  "commitmentWithProof": "8707ce71651e7fadbdd39cd88e83255629aacd969186eaefe95ea27935ab54af325220bb410af7f4389f85adc630548a02ff284a86147a4fc93da14be0c8f2c8df53b0057f71adee985b3b72bc759c2642187bd6cdc9f9e78f4d44b7fea7cb41563058647bc49614cdbb30b8f88264112e4b9aed8849609ab34eed40a83fa095d7ed156e9f89e7bb64bec73cd02ccd8814aa43b6f46cf2b5684125fbc25c0285aa525dc3aba6f21a597f7b5a424a014c5162983082c2d63ff500fc06b5200423fb647bf67815bb9baf76d5a8ccb665ba120fff68b6fd180f4b4c43fb437d68cff8eeac230a47d331b4a72f124957042e4664bae34f486b5c33d1120eaa676e6e302ed1f79739b75e074baa702beb7939",
+  "header": "11223344556677889900aabbccddeeff",
+  "messages": [
+    "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02",
+    "c344136d9ab02da4dd5908bbba913ae6f58c2cc844b802a6f811f5fb075f9b80",
+    "7372e9daa5ed31e6cd5c825eac1b855e84476a1d94932aa348e07b73",
+    "77fe97eb97a1ebe2e81e4e3597a3ee740a66e9ef2412472c",
+    "496694774c5604ab1b2544eababcf0f53278ff50",
+    "515ae153e22aae04ad16f759e07237b4",
+    "d183ddc6e2665aa4e2f088af",
+    "ac55fb33a75909ed",
+    "96012096",
+    ""
+  ],
+  "committedMessages": [
+    "5982967821da3c5983496214df36aa5e58de6fa25314af4cf4c00400779f08c3",
+    "a75d8b634891af92282cc81a675972d1929d3149863c1fc0",
+    "835889a40744813a892eff9deb1edaeb",
+    "e1ca9729410dc6ba",
+    ""
+  ],
+  "proverBlind": "4fba5396baa36b2fde81d46a9b9ee89c425dbc5e1ffd65c20249afb4abd37589",
+  "signerBlind": null,
+  "signature": "91902b68ac869d0b250355be499fe555e292759de6cad9c28eec51d3f4bb5f435238636538d347be44a4b33e0edbfd4d1bc5b0082b29eea3b3aed2b718706a8d08ada2fe623279472fa5e4c571c44ebf",
+  "result": {
+    "valid": true
+  },
+  "trace": {
+    "B": "8444fca0a990ab19c0c7c7cd93ed31406e5dde17c16f1333c2e42284ddfb88e062fed9fd2aa6ae6cc81e6b9a6251fcb6",
+    "domain": "386bb1c7c4d1e3b95686cd66ad21ba8302f9f87290cc800a79c910f0e96dbd02"
+  }
+}

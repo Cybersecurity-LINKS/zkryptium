@@ -22,6 +22,8 @@ use crate::schemes::algorithms::Ciphersuite;
 pub trait BbsCiphersuite: Eq + 'static + Ciphersuite{
     const ID: &'static [u8];
     const API_ID: &'static [u8]; // ciphersuite_id || "H2G_HM2S_"
+    const API_ID_BLIND: &'static [u8];
+    const COMMIT_DST: &'static [u8];
     const GENERATOR_SEED: &'static [u8] = b"MESSAGE_GENERATOR_SEED";
     const GENERATOR_SEED_DST: &'static [u8] = b"SIG_GENERATOR_SEED_";
     const GENERATOR_DST: &'static [u8] = b"SIG_GENERATOR_DST_";
@@ -69,6 +71,8 @@ pub struct Bls12381Sha256 {}
 impl BbsCiphersuite for Bls12381Shake256 {
     const ID: &'static [u8] = b"BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_";
     const API_ID: &'static [u8] =  b"BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_H2G_HM2S_";
+    const API_ID_BLIND: &'static [u8] =  b"BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_BLIND_H2G_HM2S_";
+    const COMMIT_DST: &'static [u8] =  b"BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_H2G_HM2S_COMMIT_MOCK_RANDOM_SCALARS_DST_";
     const GENERATOR_SIG_DST: &'static [u8] = b"BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_SIG_DET_DST_";
     type Expander= ExpandMsgXof<Shake256>;
 
@@ -82,6 +86,8 @@ impl BbsCiphersuite for Bls12381Shake256 {
 impl BbsCiphersuite for Bls12381Sha256 {
     const ID: &'static [u8] = b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_";
     const API_ID: &'static [u8] = b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_";
+    const API_ID_BLIND: &'static [u8] = b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_BLIND_H2G_HM2S_";
+    const COMMIT_DST: &'static [u8] = b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_COMMIT_MOCK_RANDOM_SCALARS_DST_";
     const GENERATOR_SIG_DST: &'static [u8] = b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_SIG_DET_DST_";
     type Expander= ExpandMsgXmd<Sha256>;
 

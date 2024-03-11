@@ -93,7 +93,7 @@ impl BBSplusMessage {
         4. return (msg_scalar_1, ..., msg_scalar_L) 
          */
 
-        let map_dst = [CS::API_ID, CS::MAP_MSG_SCALAR].concat();
+        let map_dst = [api_id, CS::MAP_MSG_SCALAR].concat();
         let mut msg_scalars: Vec<Self> = Vec::new();
         for m in messages {
             let scalar = hash_to_scalar_new::<CS>(m, &map_dst)?;

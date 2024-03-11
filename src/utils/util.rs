@@ -236,7 +236,7 @@ pub mod bbsplus_utils {
 
     pub trait ScalarExt {
         fn to_bytes_be(&self) -> [u8; 32];
-        fn from_bytes_be(bytes: &[u8; 32]) -> Self;
+        fn from_bytes_be(bytes: &[u8; 32]) -> Result<Scalar, Error>;
     }
 
     impl ScalarExt for Scalar {
@@ -246,11 +246,17 @@ pub mod bbsplus_utils {
             bytes
         }
 
-        fn from_bytes_be(bytes: &[u8; 32]) -> Self {
+        fn from_bytes_be(bytes: &[u8; 32]) -> Result<Self, Error> {
             let mut bytes_le = [0u8; 32];
             bytes_le.copy_from_slice(bytes);
             // bytes_le.reverse();
-            Scalar::from_be_bytes(&bytes_le).unwrap()
+            let s = Scalar::from_be_bytes(&bytes_le);
+
+            if s.is_none().into() {
+                return Err(Error::InvalidProofOfKnowledgeSignature);
+            }
+
+            Ok(s.unwrap())
         }
     }
 
@@ -373,6 +379,47 @@ pub mod bbsplus_utils {
         }
 
         scalars
+    }
+
+
+    // UPDATE
+    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-00#name-blind-challenge-calculation -> challenge = calculate_blind_challenge(C, Cbar, generators, api_id)
+    /// 
+    /// # Description
+    /// Utility function to generate a challenge
+    /// 
+    /// # Inputs:
+    /// * `C` (REQUIRED), a point of G1.
+    /// * `Cbar` (REQUIRED), a point of G1.
+    /// * `generators` (REQUIRED), an array of points from G1, of length at
+    /// least 1.
+    /// * `api_id` (OPTIONAL), octet string. If not supplied it defaults to the
+    /// empty octet string ("").
+    /// 
+    /// # Output:
+    /// * a [`Scalar`].
+    /// 
+    pub fn calculate_blind_challenge<CS>(C: G1Projective, Cbar: G1Projective, generators: &[G1Projective], api_id: Option<&[u8]>) -> Result<Scalar, Error> 
+    where
+        CS: BbsCiphersuite,
+        CS::Expander: for<'a> ExpandMsg<'a>,
+    {
+
+        if generators.len() == 0 {
+            return Err(Error::NotEnoughGenerators)
+        }
+
+        let M = generators.len()-1;
+        let api_id = api_id.unwrap_or(b"");
+        let blind_challenge_dst = [api_id, CS::H2S].concat();
+
+        let mut c_arr: Vec<u8> = Vec::new();
+        c_arr.extend_from_slice(&C.to_affine().to_compressed());
+        c_arr.extend_from_slice(&Cbar.to_affine().to_compressed());
+        c_arr.extend_from_slice(&i2osp(M, 8));
+        generators.iter().for_each(|&i| c_arr.extend_from_slice(&i.to_affine().to_compressed()));
+
+        hash_to_scalar_new::<CS>(&c_arr, &blind_challenge_dst)
     }
 
 }

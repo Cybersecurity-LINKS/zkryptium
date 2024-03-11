@@ -173,31 +173,31 @@ mod bbsplus_tests {
     }
 
 
-    //ZKPoK (BlindMessagesProofGen) - SHA2563
-    #[test]
-    fn zkpok_sha256() {
-        blind_messages_proof_gen::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/");
-    }
+    // //ZKPoK (BlindMessagesProofGen) - SHA2563
+    // #[test]
+    // fn zkpok_sha256() {
+    //     blind_messages_proof_gen::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/");
+    // }
 
-    #[test]
-    //ZKPoK (BlindMessagesProofGen) - SHAKE256
-    fn zkpok_shake256() {
-        blind_messages_proof_gen::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/");
-    }
+    // #[test]
+    // //ZKPoK (BlindMessagesProofGen) - SHAKE256
+    // fn zkpok_shake256() {
+    //     blind_messages_proof_gen::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/");
+    // }
 
 
 
-    //Blind Signature and ZKPoK - SHA256
-    #[test]
-    fn blind_sign_sha256() {
-        blind_sign::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/");
-    }
+    // //Blind Signature and ZKPoK - SHA256
+    // #[test]
+    // fn blind_sign_sha256() {
+    //     blind_sign::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/");
+    // }
 
-    //Blind Signature and ZKPoK - SHAKE256
-    #[test]
-    fn blind_sign_shake256() {
-        blind_sign::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/");
-    }
+    // //Blind Signature and ZKPoK - SHAKE256
+    // #[test]
+    // fn blind_sign_shake256() {
+    //     blind_sign::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/");
+    // }
 
 
     // //Update Blinded Signature - SHA256
@@ -319,7 +319,7 @@ mod bbsplus_tests {
         }
 
         println!("{}", generators_expected.len());
-        let generators = Generators::create::<S::Ciphersuite>(generators_expected.len() + 1);
+        let generators = Generators::create::<S::Ciphersuite>(generators_expected.len() + 1, Some(<S::Ciphersuite as BbsCiphersuite>::API_ID));
         println!("{}", generators.message_generators.len());
 
 
@@ -464,177 +464,177 @@ mod bbsplus_tests {
     }
 
 
-    pub(crate) fn blind_messages_proof_gen<S: Scheme>(pathname: &str) 
-    where
-        S::Ciphersuite: BbsCiphersuite,
-        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
-    {
-        const IKM: &str = "746869732d49532d6a7573742d616e2d546573742d494b4d2d746f2d67656e65726174652d246528724074232d6b6579";
-        const KEY_INFO: &str = "746869732d49532d736f6d652d6b65792d6d657461646174612d746f2d62652d757365642d696e2d746573742d6b65792d67656e";
-        const msgs: [&str; 3] = ["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02", "87a8bd656d49ee07b8110e1d8fd4f1dcef6fb9bc368c492d9bc8c4f98a739ac6", "96012096adda3f13dd4adbe4eea481a4c4b5717932b73b00e31807d3c5894b90"];
-        const msgs_wrong: [&str; 3] = ["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f03", "87a8bd656d49ee07b8110e1d8fd4f1dcef6fb9bc368c492d9bc8c4f98a739ac7", "96012096adda3f13dd4adbe4eea481a4c4b5717932b73b00e31807d3c5894b91"];
-        let unrevealed_message_indexes = [1usize];
-        // let nonce = generate_nonce();
-        let nonce = b"aaaa".as_slice();
+    // pub(crate) fn blind_messages_proof_gen<S: Scheme>(pathname: &str) 
+    // where
+    //     S::Ciphersuite: BbsCiphersuite,
+    //     <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
+    // {
+    //     const IKM: &str = "746869732d49532d6a7573742d616e2d546573742d494b4d2d746f2d67656e65726174652d246528724074232d6b6579";
+    //     const KEY_INFO: &str = "746869732d49532d736f6d652d6b65792d6d657461646174612d746f2d62652d757365642d696e2d746573742d6b65792d67656e";
+    //     const msgs: [&str; 3] = ["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02", "87a8bd656d49ee07b8110e1d8fd4f1dcef6fb9bc368c492d9bc8c4f98a739ac6", "96012096adda3f13dd4adbe4eea481a4c4b5717932b73b00e31807d3c5894b90"];
+    //     const msgs_wrong: [&str; 3] = ["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f03", "87a8bd656d49ee07b8110e1d8fd4f1dcef6fb9bc368c492d9bc8c4f98a739ac7", "96012096adda3f13dd4adbe4eea481a4c4b5717932b73b00e31807d3c5894b91"];
+    //     let unrevealed_message_indexes = [1usize];
+    //     // let nonce = generate_nonce();
+    //     let nonce = b"aaaa".as_slice();
 
-        let keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
-            &hex::decode(&IKM).unwrap(),
-            Some(&hex::decode(&KEY_INFO).unwrap()),
-            None
-        ).unwrap();
+    //     let keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
+    //         &hex::decode(&IKM).unwrap(),
+    //         Some(&hex::decode(&KEY_INFO).unwrap()),
+    //         None
+    //     ).unwrap();
 
-        let pk = keypair.public_key();
+    //     let pk = keypair.public_key();
 
-        let generators = Generators::create::<S::Ciphersuite>(msgs.len());
+    //     let generators = Generators::create::<S::Ciphersuite>(msgs.len(), Some(<S::Ciphersuite as BbsCiphersuite>::API_ID));
 
-        //Map Messages to Scalars
-        let data_scalars = fs::read_to_string([pathname, "MapMessageToScalarAsHash.json"].concat()).expect("Unable to read file");
-        let scalars_json: serde_json::Value = serde_json::from_str(&data_scalars).expect("Unable to parse");
-        let dst = hex::decode(scalars_json["dst"].as_str().unwrap()).unwrap();
+    //     //Map Messages to Scalars
+    //     let data_scalars = fs::read_to_string([pathname, "MapMessageToScalarAsHash.json"].concat()).expect("Unable to read file");
+    //     let scalars_json: serde_json::Value = serde_json::from_str(&data_scalars).expect("Unable to parse");
+    //     let dst = hex::decode(scalars_json["dst"].as_str().unwrap()).unwrap();
 
-        let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst)).unwrap()).collect();
-        let msgs_scalars_wrong: Vec<BBSplusMessage> = msgs_wrong.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst)).unwrap()).collect();
+    //     let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst)).unwrap()).collect();
+    //     let msgs_scalars_wrong: Vec<BBSplusMessage> = msgs_wrong.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst)).unwrap()).collect();
 
-        let commitment = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars, Some(&generators), &pk, &unrevealed_message_indexes);
-        let commitment_wrong = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars_wrong, Some(&generators), &pk, &unrevealed_message_indexes);
-
-        
-        let unrevealed_msgs: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
-            if unrevealed_message_indexes.contains(&i) {
-                Some(*m)
-            } else {
-                None
-            }
-        }).collect();
-
-        let unrevealed_msgs_wrong: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
-            if unrevealed_message_indexes.contains(&i) {
-                Some(*m)
-            } else {
-                None
-            }
-        }).collect();
-
-        let zkpok = ZKPoK::<BBSplus<S::Ciphersuite>>::generate_proof(&unrevealed_msgs, commitment.bbsPlusCommitment(), &generators, &unrevealed_message_indexes, &nonce);
-        let verify = zkpok.verify_proof(commitment.bbsPlusCommitment(), &generators, &unrevealed_message_indexes, nonce);
-
-        assert!(verify, "Error! Verification should PASS");
-
-        let wrong_zkpok = ZKPoK::<BBSplus<S::Ciphersuite>>::generate_proof(&unrevealed_msgs_wrong, commitment_wrong.bbsPlusCommitment(), &generators, &unrevealed_message_indexes, &nonce);
-        let verify = wrong_zkpok.verify_proof(commitment.bbsPlusCommitment(), &generators, &unrevealed_message_indexes, nonce);
-
-        assert!(!verify, "Error! Verification should FAIL");
-
+    //     let commitment = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars, Some(&generators), &pk, &unrevealed_message_indexes);
+    //     let commitment_wrong = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars_wrong, Some(&generators), &pk, &unrevealed_message_indexes);
 
         
-    }
+    //     let unrevealed_msgs: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
+    //         if unrevealed_message_indexes.contains(&i) {
+    //             Some(*m)
+    //         } else {
+    //             None
+    //         }
+    //     }).collect();
 
-    pub(crate) fn blind_sign<S: Scheme>(pathname: &str) 
-    where
-        S::Ciphersuite: BbsCiphersuite,
-        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
-    {
-        const IKM: &str = "746869732d49532d6a7573742d616e2d546573742d494b4d2d746f2d67656e65726174652d246528724074232d6b6579";
-        const KEY_INFO: &str = "746869732d49532d736f6d652d6b65792d6d657461646174612d746f2d62652d757365642d696e2d746573742d6b65792d67656e";
-        const msgs: [&str; 3] = ["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02", "87a8bd656d49ee07b8110e1d8fd4f1dcef6fb9bc368c492d9bc8c4f98a739ac6", "96012096adda3f13dd4adbe4eea481a4c4b5717932b73b00e31807d3c5894b90"];
-        const msgs_wrong: [&str; 3] = ["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f03", "87a8bd656d49ee07b8110e1d8fd4f1dcef6fb9bc368c492d9bc8c4f98a739ac7", "96012096adda3f13dd4adbe4eea481a4c4b5717932b73b00e31807d3c5894b91"];
-        const header_hex: &str = "11223344556677889900aabbccddeeff";
-        let header = hex::decode(header_hex).unwrap();
-        let unrevealed_message_indexes = [1usize];
-        let revealed_message_indexes = [0usize, 2usize];
-        // let nonce = generate_nonce();
-        let nonce = b"aaaa".as_slice();
+    //     let unrevealed_msgs_wrong: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
+    //         if unrevealed_message_indexes.contains(&i) {
+    //             Some(*m)
+    //         } else {
+    //             None
+    //         }
+    //     }).collect();
 
-        let messages: Vec<Vec<u8>> = msgs.iter().map(|m| {
-            hex::decode(m).unwrap().into()
-        }).collect();
+    //     let zkpok = ZKPoK::<BBSplus<S::Ciphersuite>>::generate_proof(&unrevealed_msgs, commitment.bbsPlusCommitment(), &generators, &unrevealed_message_indexes, &nonce);
+    //     let verify = zkpok.verify_proof(commitment.bbsPlusCommitment(), &generators, &unrevealed_message_indexes, nonce);
 
-        let messages_wrong: Vec<Vec<u8>> = msgs_wrong.iter().map(|m| {
-            hex::decode(m).unwrap().into()
-        }).collect();
+    //     assert!(verify, "Error! Verification should PASS");
 
-        let keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
-            &hex::decode(&IKM).unwrap(),
-            Some(&hex::decode(&KEY_INFO).unwrap()),
-            None
-        ).unwrap();
+    //     let wrong_zkpok = ZKPoK::<BBSplus<S::Ciphersuite>>::generate_proof(&unrevealed_msgs_wrong, commitment_wrong.bbsPlusCommitment(), &generators, &unrevealed_message_indexes, &nonce);
+    //     let verify = wrong_zkpok.verify_proof(commitment.bbsPlusCommitment(), &generators, &unrevealed_message_indexes, nonce);
 
-        let sk = keypair.private_key();
-        let pk = keypair.public_key();
+    //     assert!(!verify, "Error! Verification should FAIL");
 
-        let generators = Generators::create::<S::Ciphersuite>(msgs.len());
-
-        //Map Messages to Scalars
-        let data_scalars = fs::read_to_string([pathname, "MapMessageToScalarAsHash.json"].concat()).expect("Unable to read file");
-        let scalars_json: serde_json::Value = serde_json::from_str(&data_scalars).expect("Unable to parse");
-        let dst = hex::decode(scalars_json["dst"].as_str().unwrap()).unwrap();
-
-        let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst)).unwrap()).collect();
-        let msgs_scalars_wrong: Vec<BBSplusMessage> = msgs_wrong.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst)).unwrap()).collect();
-
-        let commitment = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars, Some(&generators), pk, &unrevealed_message_indexes);
-        let commitment_wrong = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars_wrong, Some(&generators), pk, &unrevealed_message_indexes);
 
         
-        let unrevealed_msgs: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
-            if unrevealed_message_indexes.contains(&i) {
-                Some(*m)
-            } else {
-                None
-            }
-        }).collect();
+    // }
 
-        let revealed_msgs: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
-            if !unrevealed_message_indexes.contains(&i) {
-                Some(*m)
-            } else {
-                None
-            }
-        }).collect();
+    // pub(crate) fn blind_sign<S: Scheme>(pathname: &str) 
+    // where
+    //     S::Ciphersuite: BbsCiphersuite,
+    //     <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
+    // {
+    //     const IKM: &str = "746869732d49532d6a7573742d616e2d546573742d494b4d2d746f2d67656e65726174652d246528724074232d6b6579";
+    //     const KEY_INFO: &str = "746869732d49532d736f6d652d6b65792d6d657461646174612d746f2d62652d757365642d696e2d746573742d6b65792d67656e";
+    //     const msgs: [&str; 3] = ["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02", "87a8bd656d49ee07b8110e1d8fd4f1dcef6fb9bc368c492d9bc8c4f98a739ac6", "96012096adda3f13dd4adbe4eea481a4c4b5717932b73b00e31807d3c5894b90"];
+    //     const msgs_wrong: [&str; 3] = ["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f03", "87a8bd656d49ee07b8110e1d8fd4f1dcef6fb9bc368c492d9bc8c4f98a739ac7", "96012096adda3f13dd4adbe4eea481a4c4b5717932b73b00e31807d3c5894b91"];
+    //     const header_hex: &str = "11223344556677889900aabbccddeeff";
+    //     let header = hex::decode(header_hex).unwrap();
+    //     let unrevealed_message_indexes = [1usize];
+    //     let revealed_message_indexes = [0usize, 2usize];
+    //     // let nonce = generate_nonce();
+    //     let nonce = b"aaaa".as_slice();
 
-        let unrevealed_msgs_wrong: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
-            if unrevealed_message_indexes.contains(&i) {
-                Some(*m)
-            } else {
-                None
-            }
-        }).collect();
+    //     let messages: Vec<Vec<u8>> = msgs.iter().map(|m| {
+    //         hex::decode(m).unwrap().into()
+    //     }).collect();
 
-        let revealed_msgs_wrong: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
-            if !unrevealed_message_indexes.contains(&i) {
-                Some(*m)
-            } else {
-                None
-            }
-        }).collect();
+    //     let messages_wrong: Vec<Vec<u8>> = msgs_wrong.iter().map(|m| {
+    //         hex::decode(m).unwrap().into()
+    //     }).collect();
 
-        let zkpok = ZKPoK::<BBSplus<S::Ciphersuite>>::generate_proof(&unrevealed_msgs, commitment.bbsPlusCommitment(), &generators, &unrevealed_message_indexes, &nonce);
+    //     let keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
+    //         &hex::decode(&IKM).unwrap(),
+    //         Some(&hex::decode(&KEY_INFO).unwrap()),
+    //         None
+    //     ).unwrap();
 
-        let blind_signature = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(&revealed_msgs, commitment.bbsPlusCommitment(), &zkpok, sk, pk, Some(&generators), &revealed_message_indexes, &unrevealed_message_indexes, &nonce, Some(&header));
+    //     let sk = keypair.private_key();
+    //     let pk = keypair.public_key();
 
-        if let Err(e) = &blind_signature {
-            println!("Error: {}", e);
-        }
+    //     let generators = Generators::create::<S::Ciphersuite>(msgs.len());
+
+    //     //Map Messages to Scalars
+    //     let data_scalars = fs::read_to_string([pathname, "MapMessageToScalarAsHash.json"].concat()).expect("Unable to read file");
+    //     let scalars_json: serde_json::Value = serde_json::from_str(&data_scalars).expect("Unable to parse");
+    //     let dst = hex::decode(scalars_json["dst"].as_str().unwrap()).unwrap();
+
+    //     let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst)).unwrap()).collect();
+    //     let msgs_scalars_wrong: Vec<BBSplusMessage> = msgs_wrong.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst)).unwrap()).collect();
+
+    //     let commitment = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars, Some(&generators), pk, &unrevealed_message_indexes);
+    //     let commitment_wrong = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars_wrong, Some(&generators), pk, &unrevealed_message_indexes);
+
         
-        assert!(blind_signature.is_ok(), "Blind Signature Error");
+    //     let unrevealed_msgs: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
+    //         if unrevealed_message_indexes.contains(&i) {
+    //             Some(*m)
+    //         } else {
+    //             None
+    //         }
+    //     }).collect();
 
-        let wrong_zkpok = ZKPoK::<BBSplus<S::Ciphersuite>>::generate_proof(&unrevealed_msgs_wrong, commitment_wrong.bbsPlusCommitment(), &generators, &unrevealed_message_indexes, &nonce);
-        let blind_signature_wrong = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(&revealed_msgs, commitment.bbsPlusCommitment(), &wrong_zkpok, sk, pk, Some(&generators), &revealed_message_indexes, &unrevealed_message_indexes, &nonce, Some(&header));
+    //     let revealed_msgs: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
+    //         if !unrevealed_message_indexes.contains(&i) {
+    //             Some(*m)
+    //         } else {
+    //             None
+    //         }
+    //     }).collect();
+
+    //     let unrevealed_msgs_wrong: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
+    //         if unrevealed_message_indexes.contains(&i) {
+    //             Some(*m)
+    //         } else {
+    //             None
+    //         }
+    //     }).collect();
+
+    //     let revealed_msgs_wrong: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
+    //         if !unrevealed_message_indexes.contains(&i) {
+    //             Some(*m)
+    //         } else {
+    //             None
+    //         }
+    //     }).collect();
+
+    //     let zkpok = ZKPoK::<BBSplus<S::Ciphersuite>>::generate_proof(&unrevealed_msgs, commitment.bbsPlusCommitment(), &generators, &unrevealed_message_indexes, &nonce);
+
+    //     let blind_signature = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(&revealed_msgs, commitment.bbsPlusCommitment(), &zkpok, sk, pk, Some(&generators), &revealed_message_indexes, &unrevealed_message_indexes, &nonce, Some(&header));
+
+    //     if let Err(e) = &blind_signature {
+    //         println!("Error: {}", e);
+    //     }
         
-        assert!(blind_signature_wrong.is_err(), "Blind Signature generation MUST fail");
+    //     assert!(blind_signature.is_ok(), "Blind Signature Error");
 
-        let unblind_signature = blind_signature.unwrap().unblind_sign(commitment.bbsPlusCommitment());
+    //     let wrong_zkpok = ZKPoK::<BBSplus<S::Ciphersuite>>::generate_proof(&unrevealed_msgs_wrong, commitment_wrong.bbsPlusCommitment(), &generators, &unrevealed_message_indexes, &nonce);
+    //     let blind_signature_wrong = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(&revealed_msgs, commitment.bbsPlusCommitment(), &wrong_zkpok, sk, pk, Some(&generators), &revealed_message_indexes, &unrevealed_message_indexes, &nonce, Some(&header));
+        
+    //     assert!(blind_signature_wrong.is_err(), "Blind Signature generation MUST fail");
 
-        let verify = unblind_signature.verify(pk, Some(&messages), Some(&header)).is_ok();
+    //     let unblind_signature = blind_signature.unwrap().unblind_sign(commitment.bbsPlusCommitment());
 
-        assert!(verify, "Unblinded Signature NOT VALID!");
+    //     let verify = unblind_signature.verify(pk, Some(&messages), Some(&header)).is_ok();
 
-        let verify_wrong = unblind_signature.verify(pk, Some(&messages_wrong), Some(&header)).is_ok();
+    //     assert!(verify, "Unblinded Signature NOT VALID!");
 
-        assert!(!verify_wrong, "Unblinded Signature MUST be INVALID!");
+    //     let verify_wrong = unblind_signature.verify(pk, Some(&messages_wrong), Some(&header)).is_ok();
+
+    //     assert!(!verify_wrong, "Unblinded Signature MUST be INVALID!");
 
 
-    }
+    // }
 
 
 

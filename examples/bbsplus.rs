@@ -17,7 +17,7 @@
 mod bbsplus_example {
     use elliptic_curve::hash2curve::ExpandMsg;
     use rand::Rng;
-    use zkryptium::{utils::{message::BBSplusMessage, util::bbsplus_utils::generate_nonce}, keys::pair::KeyPair, bbsplus::{generators::Generators, ciphersuites::BbsCiphersuite}, schemes::algorithms::{BBSplus, Scheme, Ciphersuite}, schemes::generics::{Commitment, BlindSignature, PoKSignature, ZKPoK}, errors::Error};
+    use zkryptium::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, errors::Error, keys::pair::KeyPair, schemes::{algorithms::{BBSplus, Ciphersuite, Scheme}, generics::{BlindSignature, Commitment, PoKSignature, Signature, ZKPoK}}, utils::{message::BBSplusMessage, util::bbsplus_utils::{generate_nonce, get_messages_vec}}};
 
 
 
@@ -31,10 +31,8 @@ mod bbsplus_example {
         log::info!("Messages: {:?}", msgs);
         
         const header_hex: &str = "11223344556677889900aabbccddeeff";
-        let dst: Vec<u8> =  hex::decode("4242535f424c53313233383147315f584d443a5348412d3235365f535357555f524f5f4d41505f4d53475f544f5f5343414c41525f41535f484153485f").unwrap();
         let header = hex::decode(header_hex).unwrap();
-        let unrevealed_message_indexes = [1usize];
-        let revealed_message_indexes = [0usize, 2usize];
+
         
         let mut rng = rand::thread_rng();
         let key_material: Vec<u8> = (0..S::Ciphersuite::IKM_LEN).map(|_| rng.gen()).collect();
@@ -52,77 +50,30 @@ mod bbsplus_example {
         let issuer_pk = issuer_keypair.public_key();
         log::info!("PK: {}", hex::encode(issuer_pk.to_bytes()));
 
-        log::info!("Computing Generators");
 
-        let generators = Generators::create::<S::Ciphersuite>(msgs.len());
-        //Map Messages to Scalars
+        let msgs_scalars: Vec<Vec<u8>> = msgs.iter().map(|m| hex::decode(m).unwrap()).collect();
 
-        let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap(), Some(&dst)).unwrap()).collect();
         
-        log::info!("Computing pedersen commitment on messages");
-        let commitment = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars, None, &issuer_pk, &unrevealed_message_indexes);
-        
-        
-        let unrevealed_msgs: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
-            if unrevealed_message_indexes.contains(&i) {
-                Some(*m)
-            } else {
-                None
-            }
-        }).collect();
-
-        let revealed_msgs: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
-            if !unrevealed_message_indexes.contains(&i) {
-                Some(*m)
-            } else {
-                None
-            }
-        }).collect();
-
-
-        //Holder receive nonce from Issuer
-        let nonce_issuer = generate_nonce();
-        log::info!("Generate Nonce...");
-        log::info!("Nonce: {}", hex::encode(&nonce_issuer));
-
-
-        log::info!("Computation of a Zero-Knowledge proof-of-knowledge of committed messages");
-        let zkpok = ZKPoK::<BBSplus<S::Ciphersuite>>::generate_proof(&unrevealed_msgs, commitment.bbsPlusCommitment(), &generators, &unrevealed_message_indexes, &nonce_issuer);
-
-
-        //Issuer compute blind signature
-        log::info!("Verification of the Zero-Knowledge proof and computation of a blind signature");
-        let blind_signature = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(&revealed_msgs, commitment.bbsPlusCommitment(), &zkpok, issuer_sk, issuer_pk, Some(&generators), &revealed_message_indexes, &unrevealed_message_indexes, &nonce_issuer, Some(&header));
-
-        if let Err(e) = &blind_signature {
-            println!("Error: {}", e);
-        }
-        
-        assert!(blind_signature.is_ok(), "Blind Signature Error");
-
-        //Holder unblind the signature
-        log::info!("Signature unblinding and verification...");
-        let unblind_signature = blind_signature.unwrap().unblind_sign(commitment.bbsPlusCommitment());
-
-        // let verify = unblind_signature.verify(issuer_pk, Some(&msgs_scalars), Some(&header));
-
-        // assert!(verify, "Unblinded Signature NOT VALID!");
-        // log::info!("Signature is VALID!");
+        let signature = Signature::<BBSplus<S::Ciphersuite>>::sign(Some(&msgs_scalars), issuer_sk, issuer_pk, Some(&header)).unwrap();
 
         //Holder receive nonce from Verifier
         let nonce_verifier = generate_nonce();
         log::info!("Generate Nonce...");
         log::info!("Nonce: {}", hex::encode(&nonce_verifier));
 
-        // //Holder generates SPoK
-        // log::info!("Computation of a Zero-Knowledge proof-of-knowledge of a signature");
-        // let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(unblind_signature.bbsPlusSignature(), &issuer_pk, Some(&msgs_scalars), Some(&generators), Some(&revealed_message_indexes), Some(&header), Some(&nonce_verifier), None);
+        let revealed_message_indexes = [0usize, 2usize];
 
-        // //Verifier verifies SPok
-        // log::info!("Signature Proof of Knowledge verification...");
-        // let proof_result = proof.proof_verify(&issuer_pk, Some(&revealed_msgs), Some(&generators), Some(&revealed_message_indexes), Some(&header), Some(&nonce_verifier));
-        // assert!(proof_result, "Signature Proof of Knowledge Verification Failed!");
-        // log::info!("Signature Proof of Knowledge is VALID!");
+        //Holder generates SPoK
+        let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(signature.bbsPlusSignature(), issuer_pk, Some(&msgs_scalars), Some(&revealed_message_indexes), Some(&header), Some(&nonce_verifier)).unwrap();  
+
+        //Verifier verifies SPok
+
+        let disclosed_messages = get_messages_vec(&msgs_scalars, &revealed_message_indexes);
+        
+        log::info!("Signature Proof of Knowledge verification...");
+        let proof_result = proof.proof_verify(&issuer_pk, Some(&disclosed_messages), Some(&revealed_message_indexes), Some(&header), Some(&nonce_verifier)).is_ok();
+        assert!(proof_result, "Signature Proof of Knowledge Verification Failed!");
+        log::info!("Signature Proof of Knowledge is VALID!");
 
         Ok(())
     }

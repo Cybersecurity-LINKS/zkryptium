@@ -32,101 +32,102 @@ pub struct BBSplusBlindSignature {
 
 impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
 
-    pub fn blind_sign(revealed_messages: &[BBSplusMessage], commitment: &BBSplusCommitment, zkpok: &ZKPoK<BBSplus<CS>>, sk: &BBSplusSecretKey, pk: &BBSplusPublicKey, generators: Option<&Generators>, revealed_message_indexes: &[usize], unrevealed_message_indexes: &[usize], nonce: &[u8], header: Option<&[u8]>) -> Result<Self, Error>
-    where
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
-            let K = revealed_message_indexes.len();
-            if revealed_messages.len() != K {
-                return Err(Error::BlindSignError(
-                    "len(known_messages) != len(revealed_message_indexes)".to_string(),
-                ));
-            }
+    // pub fn blind_sign(revealed_messages: &[BBSplusMessage], commitment: &BBSplusCommitment, zkpok: &ZKPoK<BBSplus<CS>>, sk: &BBSplusSecretKey, pk: &BBSplusPublicKey, generators: Option<&Generators>, revealed_message_indexes: &[usize], unrevealed_message_indexes: &[usize], nonce: &[u8], header: Option<&[u8]>) -> Result<Self, Error>
+    // where
+    //     CS::Expander: for<'a> ExpandMsg<'a>,
+    // {
+    //         let K = revealed_message_indexes.len();
+    //         if revealed_messages.len() != K {
+    //             return Err(Error::BlindSignError(
+    //                 "len(known_messages) != len(revealed_message_indexes)".to_string(),
+    //             ));
+    //         }
 
-            let header = header.unwrap_or(b"");
+    //         let header = header.unwrap_or(b"");
 
-            let U = unrevealed_message_indexes.len();
-            let L = K + U;
+    //         let U = unrevealed_message_indexes.len();
+    //         let L = K + U;
 
-            let generators = match generators {
-                Some(gens) => gens.clone(),
-                None => {
-                    let gens = Generators::create::<CS>(L);
-                    gens
-                }
+    //         let generators = match generators {
+    //             Some(gens) => gens.clone(),
+    //             None => {
+    //                 let gens = Generators::create::<CS>(L);
+    //                 gens
+    //             }
                 
-            };
+    //         };
 
-            let domain = calculate_domain::<CS>(pk, generators.q1, generators.q1, &generators.message_generators[0..L], Some(header));
+    //         let domain = calculate_domain::<CS>(pk, generators.q1, generators.q1, &generators.message_generators[0..L], Some(header));
             
-            let mut e_s_for_hash: Vec<u8> = Vec::new();
-            e_s_for_hash.extend_from_slice(&sk.0.to_bytes_be());
-            e_s_for_hash.extend_from_slice(&domain.to_bytes_be());
-            revealed_messages.iter().for_each(|m| e_s_for_hash.extend_from_slice(&m.value.to_bytes_be()));
-            // e = HASH(PRF(8 \* ceil(log2(r)))) mod r
-            // s'' = HASH(PRF(8 \* ceil(log2(r)))) mod r
-            let e_s = hash_to_scalar_old::<CS>(&e_s_for_hash, 2, None);
-            let e = e_s[0];
-            let s_second = e_s[1];
+    //         let mut e_s_for_hash: Vec<u8> = Vec::new();
+    //         e_s_for_hash.extend_from_slice(&sk.0.to_bytes_be());
+    //         e_s_for_hash.extend_from_slice(&domain.to_bytes_be());
+    //         revealed_messages.iter().for_each(|m| e_s_for_hash.extend_from_slice(&m.value.to_bytes_be()));
+    //         // e = HASH(PRF(8 \* ceil(log2(r)))) mod r
+    //         // s'' = HASH(PRF(8 \* ceil(log2(r)))) mod r
+    //         let e_s = hash_to_scalar_old::<CS>(&e_s_for_hash, 2, None);
+    //         let e = e_s[0];
+    //         let s_second = e_s[1];
 
-            // if BlindMessagesProofVerify(commitment, nizk, CGIdxs, nonce) is INVALID abort
-            if !zkpok.verify_proof(commitment, &generators, unrevealed_message_indexes, nonce){
-                return Err(Error::BlindSignError(
-                    "Knowledge of committed secrets not verified".to_string(),
-                ));
-            }
+    //         // if BlindMessagesProofVerify(commitment, nizk, CGIdxs, nonce) is INVALID abort
 
-            for i in revealed_message_indexes {
-                if unrevealed_message_indexes.contains(i) {
-                    return Err(Error::BlindSignError(
-                        "revealed_message_indexes in unrevealed_message_indexes".to_string(),
-                    ));
-                }
-            }
+    //         // if !zkpok.verify_proof(commitment, &generators, unrevealed_message_indexes, nonce){
+    //         //     return Err(Error::BlindSignError(
+    //         //         "Knowledge of committed secrets not verified".to_string(),
+    //         //     ));
+    //         // }
 
-            // b = commitment + P1 + h0 * s'' + h[j1] * msg[1] + ... + h[jK] * msg[K]
-            let mut B = commitment.value + generators.g1_base_point + generators.q1 * s_second + generators.q1 * domain;
+    //         for i in revealed_message_indexes {
+    //             if unrevealed_message_indexes.contains(i) {
+    //                 return Err(Error::BlindSignError(
+    //                     "revealed_message_indexes in unrevealed_message_indexes".to_string(),
+    //                 ));
+    //             }
+    //         }
+
+    //         // b = commitment + P1 + h0 * s'' + h[j1] * msg[1] + ... + h[jK] * msg[K]
+    //         let mut B = commitment.value + generators.g1_base_point + generators.q1 * s_second + generators.q1 * domain;
 
 
-            for j in 0..K {
-                B += generators.message_generators.get(revealed_message_indexes[j]).expect("index overflow") * revealed_messages.get(j).expect("index overflow").value;
-            }
+    //         for j in 0..K {
+    //             B += generators.message_generators.get(revealed_message_indexes[j]).expect("index overflow") * revealed_messages.get(j).expect("index overflow").value;
+    //         }
 
-            let SK_plus_e = sk.0 + e;
+    //         let SK_plus_e = sk.0 + e;
 
-            let A = B * SK_plus_e.invert().unwrap();
+    //         let A = B * SK_plus_e.invert().unwrap();
 
-            if A == G1Projective::IDENTITY{
-                return Err(Error::BlindSignError("A == IDENTITY G1".to_string()));
-            }
-            Ok(Self::BBSplus(BBSplusBlindSignature{a: A, e, s_second}))
+    //         if A == G1Projective::IDENTITY{
+    //             return Err(Error::BlindSignError("A == IDENTITY G1".to_string()));
+    //         }
+    //         Ok(Self::BBSplus(BBSplusBlindSignature{a: A, e, s_second}))
 
-    }
+    // }
 
-    pub fn unblind_sign(&self, commitment: &BBSplusCommitment) -> Signature<BBSplus<CS>> {
-        let s = commitment.s_prime + self.s_second();
+    // pub fn unblind_sign(&self, commitment: &BBSplusCommitment) -> Signature<BBSplus<CS>> {
+    //     let s = commitment.s_prime + self.s_second();
 
-        Signature::<BBSplus<CS>>::BBSplus(BBSplusSignature{ a: self.a(), e: self.e()})
-    }
+    //     Signature::<BBSplus<CS>>::BBSplus(BBSplusSignature{ a: self.a(), e: self.e()})
+    // }
 
-    pub fn update_signature(&self, sk: &BBSplusSecretKey, generators: &Generators, old_message: &BBSplusMessage, new_message: &BBSplusMessage, update_index: usize) -> Self {
+    // pub fn update_signature(&self, sk: &BBSplusSecretKey, generators: &Generators, old_message: &BBSplusMessage, new_message: &BBSplusMessage, update_index: usize) -> Self {
 
-        if generators.message_generators.len() <= update_index {
-            panic!("len(generators) <= update_index");
-        }
-        let H_i = generators.message_generators.get(update_index).expect("index overflow");
-        let SK_plus_e = sk.0 + self.e();
-        let mut B = self.a() * SK_plus_e;
-        B = B + (-H_i * old_message.value);
-        B = B + (H_i * new_message.value);
-        let A = B * SK_plus_e.invert().unwrap();
+    //     if generators.message_generators.len() <= update_index {
+    //         panic!("len(generators) <= update_index");
+    //     }
+    //     let H_i = generators.message_generators.get(update_index).expect("index overflow");
+    //     let SK_plus_e = sk.0 + self.e();
+    //     let mut B = self.a() * SK_plus_e;
+    //     B = B + (-H_i * old_message.value);
+    //     B = B + (H_i * new_message.value);
+    //     let A = B * SK_plus_e.invert().unwrap();
 
-        if A == G1Projective::IDENTITY{
-            panic!("A == IDENTITY G1");
-        }
+    //     if A == G1Projective::IDENTITY{
+    //         panic!("A == IDENTITY G1");
+    //     }
 
-        return Self::BBSplus(BBSplusBlindSignature { a: A, e: self.e(), s_second: self.s_second() })
-    }
+    //     return Self::BBSplus(BBSplusBlindSignature { a: A, e: self.e(), s_second: self.s_second() })
+    // }
 
     pub fn a(&self) -> G1Projective {
         match self {

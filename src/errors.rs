@@ -41,5 +41,14 @@ pub enum Error {
     #[error("Proof of Knowledge of a Signature verification failed")]
     PoKSVerificationError(String),
 
+    #[error("This should NOT happen!")]
+    UnespectedError,
+
+    #[error("Failed to verify the commitment proof")]
+    InvalidCommitmentProof,
+
+    #[error("Failed to compute the blind challenge")]
+    ChallengeComputationFailed,
+
 }
 

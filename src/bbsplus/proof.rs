@@ -69,15 +69,15 @@ impl BBSplusPoKSignature {
         let Bbar = parse_g1_affine(&bytes[48..96])?;
         let D = parse_g1_affine(&bytes[96..144])?;
     
-        let e_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[144..176]).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?);
-        let r1_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[176..208]).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?);
-        let r3_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[208..240]).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?);
+        let e_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[144..176]).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?)?;
+        let r1_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[176..208]).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?)?;
+        let r3_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[208..240]).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?)?;
     
         let mut m_cap: Vec<Scalar> = Vec::new();
     
         for chunk in bytes[240..].chunks_exact(32) {
             let b = <[u8; 32]>::try_from(chunk).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
-            m_cap.push(Scalar::from_bytes_be(&b));
+            m_cap.push(Scalar::from_bytes_be(&b)?);
         }
 
         let challenge = m_cap.pop().ok_or(Error::InvalidProofOfKnowledgeSignature)?; //at least the challenge should be present (even if all attributes are disclosed)
@@ -100,7 +100,7 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         let disclosed_indexes = disclosed_indexes.unwrap_or(&[]);
 
         let message_scalars = BBSplusMessage::messages_to_scalar::<CS>(messages, CS::API_ID)?;
-        let generators = Generators::create::<CS>(messages.len()+1);
+        let generators = Generators::create::<CS>(messages.len()+1, Some(CS::API_ID));
 
         let proof = core_proof_gen::<CS>(
             pk, 
@@ -132,7 +132,7 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
 
         let disclosed_message_scalars = BBSplusMessage::messages_to_scalar::<CS>(disclosed_messages, CS::API_ID)?;
 
-        let generators = Generators::create::<CS>(U + R + 1);
+        let generators = Generators::create::<CS>(U + R + 1, Some(CS::API_ID));
 
         let result = core_proof_verify::<CS>(
             pk, 
@@ -435,150 +435,180 @@ where
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusZKPoK {
-    c: Scalar, 
-    s_cap: Scalar,
-    r_cap: Vec<Scalar>
+    pub(crate) s_cap: Scalar, 
+    pub(crate) m_cap: Vec<Scalar>,
+    pub(crate) challenge: Scalar
 }
 
 impl BBSplusZKPoK {
 
-    fn blindMessagesProofGen<CS>(unrevealed_messages: &[BBSplusMessage], commitment: &BBSplusCommitment, generators: &Generators, unrevealed_message_indexes: &[usize], nonce: &[u8]) -> Self
-    where
-        CS: BbsCiphersuite,
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
-        if generators.message_generators.len() < *unrevealed_message_indexes.iter().max().unwrap_or(&0)  && unrevealed_messages.len() != unrevealed_message_indexes.len(){
-            panic!("len(generators) < max(unrevealed_message_indexes) || len(unrevealed_messages) != len(unrevealed_message_indexes)");
+    pub fn new(s_cap: Scalar, m_cap: Vec<Scalar>, challenge: Scalar) -> Self {
+        Self { s_cap, m_cap, challenge }
+    }
+
+    pub fn to_bytes(&self) -> Vec<u8>{
+        let mut bytes: Vec<u8> = Vec::new();
+
+        bytes.extend_from_slice(&self.s_cap.to_bytes_be());
+        self.m_cap.iter().for_each(|s| bytes.extend_from_slice(&s.to_bytes_be()));
+        bytes.extend_from_slice(&self.challenge.to_bytes_be());
+        bytes
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+
+        let s_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[0..32]).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?)?;
+
+        let mut m_cap: Vec<Scalar> = Vec::new();
+    
+        for chunk in bytes[240..].chunks_exact(32) {
+            let b = <[u8; 32]>::try_from(chunk).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
+            m_cap.push(Scalar::from_bytes_be(&b)?);
         }
 
-        // Get unrevealed messages length
-        let U = unrevealed_message_indexes.len();
+        let challenge = m_cap.pop().ok_or(Error::InvalidProofOfKnowledgeSignature)?; //at least the challenge should be present (even if all attributes are disclosed)
 
-        //  (i1,...,iU) = CGIdxs = unrevealed_indexes
+        Ok(Self{s_cap, m_cap, challenge})
+    }
+
+
+    // fn blindMessagesProofGen<CS>(unrevealed_messages: &[BBSplusMessage], commitment: &BBSplusCommitment, generators: &Generators, unrevealed_message_indexes: &[usize], nonce: &[u8]) -> Self
+    // where
+    //     CS: BbsCiphersuite,
+    //     CS::Expander: for<'a> ExpandMsg<'a>,
+    // {
+    //     if generators.message_generators.len() < *unrevealed_message_indexes.iter().max().unwrap_or(&0)  && unrevealed_messages.len() != unrevealed_message_indexes.len(){
+    //         panic!("len(generators) < max(unrevealed_message_indexes) || len(unrevealed_messages) != len(unrevealed_message_indexes)");
+    //     }
+
+    //     // Get unrevealed messages length
+    //     let U = unrevealed_message_indexes.len();
+
+    //     //  (i1,...,iU) = CGIdxs = unrevealed_indexes
 			
-		//  s~ = HASH(PRF(8 * ceil(log2(r)))) mod
-        // let s_tilde = calculate_random_scalars::<CS>(1)[0];
+	// 	//  s~ = HASH(PRF(8 * ceil(log2(r)))) mod
+    //     // let s_tilde = calculate_random_scalars::<CS>(1)[0];
 
-        #[cfg(not(test))]
-        let s_tilde = calculate_random_scalars(1)[0]; //TODO: to be fixed !!!!
+    //     #[cfg(not(test))]
+    //     let s_tilde = calculate_random_scalars(1)[0]; //TODO: to be fixed !!!!
     
-        #[cfg(test)]
-        let s_tilde = seeded_random_scalars::<CS>(1, None, None)[0];
+    //     #[cfg(test)]
+    //     let s_tilde = seeded_random_scalars::<CS>(1, None, None)[0];
 
 
-		//  r~ = [U]
-		//  for i in 1 to U: r~[i] = HASH(PRF(8 * ceil(log2(r)))) mod r
-        // let r_tilde = calculate_random_scalars::<CS>(U);	
+	// 	//  r~ = [U]
+	// 	//  for i in 1 to U: r~[i] = HASH(PRF(8 * ceil(log2(r)))) mod r
+    //     // let r_tilde = calculate_random_scalars::<CS>(U);	
 
-        #[cfg(not(test))]
-        let r_tilde = calculate_random_scalars(U); //TODO: to be fixed !!!!
+    //     #[cfg(not(test))]
+    //     let r_tilde = calculate_random_scalars(U); //TODO: to be fixed !!!!
     
-        #[cfg(test)]
-        let r_tilde = seeded_random_scalars::<CS>(U, None, None);
+    //     #[cfg(test)]
+    //     let r_tilde = seeded_random_scalars::<CS>(U, None, None);
 
 
-		//  U~ = h0 * s~ + h[i1] * r~[1] + ... + h[iU] \* r~[U]
-        let mut U_tilde = generators.q1 * s_tilde;	
+	// 	//  U~ = h0 * s~ + h[i1] * r~[1] + ... + h[iU] \* r~[U]
+    //     let mut U_tilde = generators.q1 * s_tilde;	
 
 
-        let mut index = 0usize;
-        for i in unrevealed_message_indexes {
-            U_tilde += generators.message_generators.get(*i).expect("unreaveled_message_indexes not valid (overflow)") * r_tilde.get(index).expect("index buffer overflow");
-            index += 1;
-        }
+    //     let mut index = 0usize;
+    //     for i in unrevealed_message_indexes {
+    //         U_tilde += generators.message_generators.get(*i).expect("unreaveled_message_indexes not valid (overflow)") * r_tilde.get(index).expect("index buffer overflow");
+    //         index += 1;
+    //     }
 
-        // c = HASH(commitment || U~ || nonce)
+    //     // c = HASH(commitment || U~ || nonce)
 
-        let mut value: Vec<u8> = Vec::new();
-        value.extend_from_slice(&commitment.value.to_affine().to_compressed());
-        value.extend_from_slice(&U_tilde.to_affine().to_compressed());
-        value.extend_from_slice(nonce);
+    //     let mut value: Vec<u8> = Vec::new();
+    //     value.extend_from_slice(&commitment.value.to_affine().to_compressed());
+    //     value.extend_from_slice(&U_tilde.to_affine().to_compressed());
+    //     value.extend_from_slice(nonce);
         
-        let c = hash_to_scalar_old::<CS>(&value, 1, None)[0];
-		// TODO update hash_to_scalar as in latest draft	
+    //     let c = hash_to_scalar_old::<CS>(&value, 1, None)[0];
+	// 	// TODO update hash_to_scalar as in latest draft	
 
-		// s^ = s~ + c * s'
-        let s_cap = s_tilde + c * commitment.s_prime;
+	// 	// s^ = s~ + c * s'
+    //     let s_cap = s_tilde + c * commitment.s_prime;
 		
-		// for i in 1 to U: r^[i] = r~[i] + c * msg[i]
+	// 	// for i in 1 to U: r^[i] = r~[i] + c * msg[i]
 
-        let mut r_cap: Vec<Scalar> = Vec::new();
-        for index in 0..U {
-            r_cap.push(r_tilde.get(index).expect("index buffer overflow") + c * unrevealed_messages.get(index).expect("index buffer overflow").value);
-        }		
-		// nizk = (c, s^, r^)
-        Self{c, s_cap, r_cap}
-		// nizk = [c, s_cap] + r_cap
-    }
+    //     let mut r_cap: Vec<Scalar> = Vec::new();
+    //     for index in 0..U {
+    //         r_cap.push(r_tilde.get(index).expect("index buffer overflow") + c * unrevealed_messages.get(index).expect("index buffer overflow").value);
+    //     }		
+	// 	// nizk = (c, s^, r^)
+    //     Self{c, s_cap, r_cap}
+	// 	// nizk = [c, s_cap] + r_cap
+    // }
 
-    fn blindMessagesProofVerify<CS>(&self, commitment: &BBSplusCommitment, generators: &Generators, unrevealed_message_indexes: &[usize], nonce: &[u8]) -> bool
-    where
-        CS: BbsCiphersuite,
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
+    // fn blindMessagesProofVerify<CS>(&self, commitment: &BBSplusCommitment, generators: &Generators, unrevealed_message_indexes: &[usize], nonce: &[u8]) -> bool
+    // where
+    //     CS: BbsCiphersuite,
+    //     CS::Expander: for<'a> ExpandMsg<'a>,
+    // {
 
-        if generators.message_generators.len() < *unrevealed_message_indexes.iter().max().unwrap_or(&0) {
-            panic!("len(generators) < max(unrevealed_message_indexes)");
-        }
-        // Get unrevealed messages length
-        // let U = unrevealed_message_indexes.len();
-        // (i1,...,iU) = CGIdxs = unrevealed_indexes
+    //     if generators.message_generators.len() < *unrevealed_message_indexes.iter().max().unwrap_or(&0) {
+    //         panic!("len(generators) < max(unrevealed_message_indexes)");
+    //     }
+    //     // Get unrevealed messages length
+    //     // let U = unrevealed_message_indexes.len();
+    //     // (i1,...,iU) = CGIdxs = unrevealed_indexes
 
-        // U^ = commitment * -c + h0 * s^ + h[i1] \* r^[1] + ... + h[iU] \* r^[U]
-        let mut U_cap = commitment.value * (-self.c) + generators.q1 * self.s_cap;
-        let mut index = 0usize;
+    //     // U^ = commitment * -c + h0 * s^ + h[i1] \* r^[1] + ... + h[iU] \* r^[U]
+    //     let mut U_cap = commitment.value * (-self.c) + generators.q1 * self.s_cap;
+    //     let mut index = 0usize;
 
-        for i in unrevealed_message_indexes {
-            U_cap += generators.message_generators.get(*i).expect("unrevealed_message_indexes not valid") * self.r_cap.get(index).expect("index overflow");
-            index += 1;
-        }
-        // c_v = HASH(U || U^ || nonce)
-        let mut value: Vec<u8> = Vec::new();
-        value.extend_from_slice(&commitment.value.to_affine().to_compressed());
-        value.extend_from_slice(&U_cap.to_affine().to_compressed());
-        value.extend_from_slice(nonce);
+    //     for i in unrevealed_message_indexes {
+    //         U_cap += generators.message_generators.get(*i).expect("unrevealed_message_indexes not valid") * self.r_cap.get(index).expect("index overflow");
+    //         index += 1;
+    //     }
+    //     // c_v = HASH(U || U^ || nonce)
+    //     let mut value: Vec<u8> = Vec::new();
+    //     value.extend_from_slice(&commitment.value.to_affine().to_compressed());
+    //     value.extend_from_slice(&U_cap.to_affine().to_compressed());
+    //     value.extend_from_slice(nonce);
 
-        let cv = hash_to_scalar_old::<CS>(&value, 1, None)[0]; //TODO: update hash_to_scalar as in latest draft	
+    //     let cv = hash_to_scalar_old::<CS>(&value, 1, None)[0]; //TODO: update hash_to_scalar as in latest draft	
 
-        self.c == cv
-    }
+    //     self.c == cv
+    // }
 
 }
 
 
 
 
-impl <CS: BbsCiphersuite> ZKPoK<BBSplus<CS>>  
-{
-    pub fn generate_proof(unrevealed_messages: &[BBSplusMessage], commitment: &BBSplusCommitment, generators: &Generators, unrevealed_message_indexes: &[usize], nonce: &[u8]) -> Self
-    where
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
-        Self::BBSplus(BBSplusZKPoK::blindMessagesProofGen::<CS>(unrevealed_messages, commitment, generators, unrevealed_message_indexes, nonce))
-    }
+// impl <CS: BbsCiphersuite> ZKPoK<BBSplus<CS>>  
+// {
+//     pub fn generate_proof(unrevealed_messages: &[BBSplusMessage], commitment: &BBSplusCommitment, generators: &Generators, unrevealed_message_indexes: &[usize], nonce: &[u8]) -> Self
+//     where
+//         CS::Expander: for<'a> ExpandMsg<'a>,
+//     {
+//         Self::BBSplus(BBSplusZKPoK::blindMessagesProofGen::<CS>(unrevealed_messages, commitment, generators, unrevealed_message_indexes, nonce))
+//     }
 
-    pub fn verify_proof(&self, commitment: &BBSplusCommitment, generators: &Generators, unrevealed_message_indexes: &[usize], nonce: &[u8]) -> bool 
-    where
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
-        self.to_bbsplus_zkpok().blindMessagesProofVerify::<CS>(commitment, generators, unrevealed_message_indexes, nonce)
-    }
+//     pub fn verify_proof(&self, commitment: &BBSplusCommitment, generators: &Generators, unrevealed_message_indexes: &[usize], nonce: &[u8]) -> bool 
+//     where
+//         CS::Expander: for<'a> ExpandMsg<'a>,
+//     {
+//         self.to_bbsplus_zkpok().blindMessagesProofVerify::<CS>(commitment, generators, unrevealed_message_indexes, nonce)
+//     }
 
-    pub fn to_bbsplus_zkpok(&self) -> &BBSplusZKPoK {
-        match self {
-            Self::BBSplus(inner) => inner,
-            _ => panic!("Cannot happen!")
-        }
-    }
+//     pub fn to_bbsplus_zkpok(&self) -> &BBSplusZKPoK {
+//         match self {
+//             Self::BBSplus(inner) => inner,
+//             _ => panic!("Cannot happen!")
+//         }
+//     }
 
-    pub fn to_bytes(&self) {
-        todo!()
-    }
+//     pub fn to_bytes(&self) {
+//         todo!()
+//     }
 
-    pub fn from_bytes() {
-        todo!()
-    }
-}
+//     pub fn from_bytes() {
+//         todo!()
+//     }
+// }
 
 
 
@@ -588,7 +618,7 @@ impl <CS: BbsCiphersuite> ZKPoK<BBSplus<CS>>
 
 
 #[cfg(test)]
-mod test {
+mod tests {
     use std::fs;
 
     use elliptic_curve::hash2curve::ExpandMsg;

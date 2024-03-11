@@ -80,7 +80,7 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
     {
         let messages = messages.unwrap_or(&[]);
         let message_scalars = BBSplusMessage::messages_to_scalar::<CS>(messages, CS::API_ID)?;
-        let generators = Generators::create::<CS>(messages.len() + 1);
+        let generators = Generators::create::<CS>(messages.len() + 1, Some(CS::API_ID));
         let signature = core_sign::<CS>(sk, pk, generators, header, &message_scalars, Some(CS::API_ID))?;
 
         Ok(Self::BBSplus(signature))
@@ -92,7 +92,7 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
     {
         let messages = messages.unwrap_or(&[]);
         let message_scalars = BBSplusMessage::messages_to_scalar::<CS>(messages, CS::API_ID)?;
-        let generators = Generators::create::<CS>(messages.len() + 1);
+        let generators = Generators::create::<CS>(messages.len() + 1, Some(CS::API_ID));
         let signature = self.bbsPlusSignature();
 
         core_verify::<CS>(pk, signature, &message_scalars, generators, header, Some(CS::API_ID))

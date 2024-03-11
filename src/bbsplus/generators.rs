@@ -58,12 +58,12 @@ impl Serialize for Generators {
 
 impl Generators {
 
-    pub fn create<CS>(count: usize) -> Generators
+    pub fn create<CS>(count: usize, api_id: Option<&[u8]>) -> Generators
     where
         CS: BbsCiphersuite,
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
-        let generators = create_generators::<CS>(count, Some(CS::API_ID));
+        let generators = create_generators::<CS>(count, api_id);
 
         Self { 
             g1_base_point: G1Projective::from_compressed_hex(CS::P1).unwrap(), 

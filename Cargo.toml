@@ -54,15 +54,14 @@ cl03 = ["dep:rug"]
 bbsplus = ["dep:bls12_381_plus"]
 
 
+[[example]]
+name = "bbsplus_blind"
+path = "examples/bbsplus_blind.rs"
+features = ["bbsplus"]
 
 [[example]]
 name = "bbsplus"
 path = "examples/bbsplus.rs"
-features = ["bbsplus"]
-
-[[example]]
-name = "bbsplus2"
-path = "examples/bbsplus2.rs"
 features = ["bbsplus"]
 
 [[example]]
