@@ -117,10 +117,11 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
 
     pub fn update_signature(&self, sk: &BBSplusSecretKey, generators: &Generators, old_message: &BBSplusMessage, new_message: &BBSplusMessage, update_index: usize) -> Self {
 
-        if generators.message_generators.len() <= update_index {
+        if generators.values.len()+1 <= update_index {
             panic!("len(generators) <= update_index");
         }
-        let H_i = generators.message_generators.get(update_index).expect("index overflow");
+        let H_points = &generators.values[1..];
+        let H_i = H_points.get(update_index).expect("index overflow");
         let SK_plus_e = sk.0 + self.e();
         let mut B = self.a() * SK_plus_e;
         B = B + (-H_i * old_message.value);
@@ -144,15 +145,18 @@ where
 
     let L = messages.len();
 
-    if generators.message_generators.len() != L {
+    if generators.values.len() != L+1 {
         return Err(Error::NotEnoughGenerators);
     }
+
+    let Q1 = generators.values[0];
+    let H_points = &generators.values[1..];
 
     let api_id = api_id.unwrap_or(b"");
 
     let signature_dst = [api_id, CS::H2S].concat();
 
-    let domain = calculate_domain_new::<CS>(pk, &generators, header, Some(api_id))?;
+    let domain = calculate_domain_new::<CS>(pk, Q1, H_points, header, Some(api_id))?;
 
     //serialize 
     let mut input: Vec<Scalar> = Vec::new();
@@ -164,10 +168,10 @@ where
 
     // B = P1 + Q_1 * domain + H_1 * msg_1 + ... + H_L * msg_L
 
-    let mut B = generators.g1_base_point + generators.q1 * domain;
+    let mut B = generators.g1_base_point + Q1 * domain;
 
     for i in 0..L {
-        B = B + generators.message_generators[i] * messages[i].value;
+        B = B + H_points[i] * messages[i].value;
     }
 
     // A = B * (1 / (SK + e))
@@ -189,16 +193,19 @@ where
 {
     let L = messages.len();
 
-    if generators.message_generators.len() != L {
+    if generators.values.len() != L+1 {
         return Err(Error::NotEnoughGenerators);
     }
 
-    let domain = calculate_domain_new::<CS>(pk, &generators, header, api_id)?;
+    let Q1 = generators.values[0];
+    let H_points: &[G1Projective] = &generators.values[1..];
 
-    let mut B = generators.g1_base_point + generators.q1 * domain;
+    let domain = calculate_domain_new::<CS>(pk, Q1, H_points, header, api_id)?;
+
+    let mut B = generators.g1_base_point + Q1 * domain;
 
     for i in 0..L {
-        B = B + generators.message_generators[i] * messages[i].value;
+        B = B + H_points[i] * messages[i].value;
     }
 
 

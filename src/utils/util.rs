@@ -202,13 +202,15 @@ pub mod bbsplus_utils {
 
 
     //UPDATED
-    pub(crate) fn calculate_domain_new<CS: BbsCiphersuite>(pk: &BBSplusPublicKey, generators: &Generators, header: Option<&[u8]>, api_id: Option<&[u8]>) -> Result<Scalar, Error>
+    pub(crate) fn calculate_domain_new<CS: BbsCiphersuite>(pk: &BBSplusPublicKey, Q1: G1Projective, H_points: &[G1Projective], header: Option<&[u8]>, api_id: Option<&[u8]>) -> Result<Scalar, Error>
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
         let header = header.unwrap_or(b"");
 
-        let L = generators.message_generators.len();
+        // 1. L = length(H_Points)
+        // 2. (H_1, ..., H_L) = H_Points
+        let L = H_points.len(); 
 
         let api_id = api_id.unwrap_or(b"");
 
@@ -216,9 +218,9 @@ pub mod bbsplus_utils {
 
         let mut dom_octs: Vec<u8> = Vec::new();
         dom_octs.extend_from_slice(&L.to_be_bytes());
-        dom_octs.extend_from_slice(&generators.q1.to_affine().to_compressed());
+        dom_octs.extend_from_slice(&Q1.to_affine().to_compressed());
 
-        generators.message_generators.iter().map(|&p| p.to_affine().to_compressed()).for_each(|a| dom_octs.extend_from_slice(&a));
+        H_points.iter().map(|&p| p.to_affine().to_compressed()).for_each(|a| dom_octs.extend_from_slice(&a));
 
         dom_octs.extend_from_slice(CS::API_ID);
 

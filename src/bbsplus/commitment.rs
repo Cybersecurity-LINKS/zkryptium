@@ -17,7 +17,7 @@ use std::os::windows::process;
 use bls12_381_plus::{G1Affine, G1Projective, Scalar};
 use serde::{Deserialize, Serialize};
 use crate::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, errors::Error, schemes::{algorithms::BBSplus, generics::Commitment}, utils::{message::{BBSplusMessage, Message}, util::bbsplus_utils::{calculate_blind_challenge, subgroup_check_g1, ScalarExt}}};
-use super::{keys::BBSplusPublicKey, proof::BBSplusZKPoK};
+use super::{generators, keys::BBSplusPublicKey, proof::BBSplusZKPoK};
 use elliptic_curve::hash2curve::{ExpandMsg, Expander};
 use bls12_381_plus::group::Curve;
 
@@ -73,18 +73,34 @@ impl <CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
 
 
 
-    pub fn validate(&self) -> Result<(), Error>{
+    pub fn deserialize_and_validate_commit(commitment_with_proof: Option<&[u8]>, generators: &Generators, api_id: Option<&[u8]> ) -> Result<(G1Projective, usize), Error>{
 
-        let (commitment, proof) = match self {
-            Commitment::BBSplus(inner) => (inner.commitment, &inner.proof),
+        let commitment_with_proof = commitment_with_proof.unwrap_or(&[]);
+
+        if commitment_with_proof.is_empty() {
+            return Ok((G1Projective::IDENTITY, 0usize))
+        }
+
+        let commitment_with_proof = Self::from_bytes(commitment_with_proof)?;
+
+        let (commitment, proof) = match commitment_with_proof {
+            Commitment::BBSplus(inner) => (inner.commitment, inner.proof),
             _ => return Err(Error::UnespectedError),
         };
 
-        let M = proof.m_cap.len();
+        let M = proof.m_cap.len() + 1;
 
-        let blind_generators = Generators::create::<CS>(M+2, Some(CS::API_ID_BLIND)).message_generators;
+        if generators.values.len() < M+1 {
+            return Err(Error::NotEnoughGenerators)
+        }
 
-        verify_commitment::<CS>(commitment, proof, &blind_generators, Some(CS::API_ID_BLIND))
+        let blind_generators = &generators.values[1..];
+
+        if verify_commitment::<CS>(commitment, &proof, &blind_generators, api_id).is_ok() {
+            Ok((commitment, M))
+        } else {
+            Err(Error::InvalidCommitmentProof)
+        }
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -140,10 +156,10 @@ where
 
     let commited_message_scalars = BBSplusMessage::messages_to_scalar::<CS>(committed_messages, api_id)?;
 
-    let generators = Generators::create::<CS>(M+2, Some(api_id)).message_generators;
+    let generators = Generators::create::<CS>(M+2, Some(api_id)).values;
 
-    let Q2 = generators[0];
-    let Js = &generators[1..];
+    let Q2 = generators[1];
+    let Js = &generators[2..];
 
     #[cfg(not(test))]
     let random_scalars = calculate_random_scalars(M + 2);
@@ -226,7 +242,7 @@ mod tests {
 
     use elliptic_curve::hash2curve::ExpandMsg;
 
-    use crate::{bbsplus::ciphersuites::BbsCiphersuite, schemes::{algorithms::{BBSplus, Scheme, BBS_BLS12381_SHA256, BBS_BLS12381_SHAKE256}, generics::Commitment}};
+    use crate::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, schemes::{algorithms::{BBSplus, Scheme, BBS_BLS12381_SHA256, BBS_BLS12381_SHAKE256}, generics::Commitment}};
 
 
     // Commitment - SHA256
@@ -280,11 +296,16 @@ mod tests {
 
         let (commitment_with_proof_result, secret) = Commitment::<BBSplus<S::Ciphersuite>>::commit(Some(&committed_messages)).unwrap();
 
-        assert_eq!(hex::encode(commitment_with_proof_result.to_bytes()), commitment_with_proof);
+        println!("------- {}", hex::encode(commitment_with_proof_result.to_bytes()));
+        println!("+++++++++ {}", commitment_with_proof);
+        let commitment_with_proof_result_oct = commitment_with_proof_result.to_bytes();
+        assert_eq!(hex::encode(&commitment_with_proof_result_oct), commitment_with_proof);
 
         assert_eq!(hex::encode(secret.to_bytes()), prover_blind);
 
-        let result = commitment_with_proof_result.validate().is_ok();
+        let generators = Generators::create::<S::Ciphersuite>(committed_messages.len()+2, Some(<S::Ciphersuite as BbsCiphersuite>::API_ID_BLIND));
+
+        let result = Commitment::<BBSplus<S::Ciphersuite>>::deserialize_and_validate_commit(Some(&commitment_with_proof_result_oct), &generators, Some(<S::Ciphersuite as BbsCiphersuite>::API_ID_BLIND)).is_ok();
 
         assert_eq!(result, expected_result);
         

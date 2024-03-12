@@ -32,6 +32,8 @@ pub struct BBSplusBlindSignature {
 
 impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
 
+    // pub fn blind_sign()
+
     // pub fn blind_sign(revealed_messages: &[BBSplusMessage], commitment: &BBSplusCommitment, zkpok: &ZKPoK<BBSplus<CS>>, sk: &BBSplusSecretKey, pk: &BBSplusPublicKey, generators: Option<&Generators>, revealed_message_indexes: &[usize], unrevealed_message_indexes: &[usize], nonce: &[u8], header: Option<&[u8]>) -> Result<Self, Error>
     // where
     //     CS::Expander: for<'a> ExpandMsg<'a>,

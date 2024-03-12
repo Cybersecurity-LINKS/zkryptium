@@ -29,9 +29,9 @@ use super::ciphersuites::BbsCiphersuite;
 #[derive(Clone, PartialEq, Eq, Debug, Deserialize)]
 pub struct Generators {
     pub g1_base_point: G1Projective,
-    pub q1: G1Projective,
+    // pub q1: G1Projective,
     // pub q2: G1Projective,
-    pub message_generators: Vec<G1Projective>
+    pub values: Vec<G1Projective>
 }
 
 impl Serialize for Generators {
@@ -39,15 +39,15 @@ impl Serialize for Generators {
     where
         S: Serializer
     {
-        let result: Vec<String> = self.message_generators.iter()
+        let result: Vec<String> = self.values.iter()
             .map(|item| hex::encode(item.to_affine().to_compressed())).collect();
 
         let mut state = serializer.serialize_struct("Generators", 4)?;
         state.serialize_field("BP",
             &hex::encode(self.g1_base_point.to_affine().to_compressed()))?;
 
-        state.serialize_field("Q1",
-            &hex::encode(self.q1.to_affine().to_compressed()))?;
+        // state.serialize_field("Q1",
+        //     &hex::encode(self.q1.to_affine().to_compressed()))?;
         // state.serialize_field("Q2", 
         //     &hex::encode(self.q2.to_affine().to_compressed()))?;
 
@@ -67,8 +67,8 @@ impl Generators {
 
         Self { 
             g1_base_point: G1Projective::from_compressed_hex(CS::P1).unwrap(), 
-            q1: generators[0].clone(),  
-            message_generators: generators[1..].to_vec() 
+            // q1: generators[0].clone(),  
+            values: generators[0..].to_vec() 
         }
     }
 
@@ -92,7 +92,6 @@ where
     CS: BbsCiphersuite,
     CS::Expander: for<'a> ExpandMsg<'a>,
 {
-    let count = count; // Q1, and generators
 
     let api_id = api_id.unwrap_or(&[]);
 

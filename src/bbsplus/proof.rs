@@ -13,7 +13,7 @@
 // limitations under the License.
 
 
-use std::ops::Deref;
+use std::{borrow::Borrow, ops::Deref};
 
 use bls12_381_plus::{G1Projective, Scalar, G2Projective, G2Prepared, Gt, multi_miller_loop, G1Affine};
 use elliptic_curve::{group::Curve, hash2curve::ExpandMsg, Group};
@@ -258,15 +258,18 @@ where
         return Err(Error::ProofGenError("Random scalars not valid".to_owned()))
     }
 
-    if generators.message_generators.len() != L {
+    if generators.values.len() != L+1 {
         return Err(Error::NotEnoughGenerators)
     }
 
-    let domain = calculate_domain_new::<CS>(pk, &generators, header, api_id)?;
+    let Q1 = generators.values[0];
+    let H_points = &generators.values[1..];
 
-    let mut B = generators.g1_base_point + generators.q1 * domain;
+    let domain = calculate_domain_new::<CS>(pk, Q1, H_points, header, api_id)?;
+
+    let mut B = generators.g1_base_point + Q1 * domain;
     for i in 0..L {
-        B = B + generators.message_generators[i] * messages[i].value;
+        B = B + H_points[i] * messages[i].value;
     }
 
     let r1 = random_scalars[0];
@@ -285,7 +288,7 @@ where
     let mut T2 = D * r3_tilde;
 
     for idx in 0..U {
-        T2 = T2 + generators.message_generators[undisclosed_indexes[idx]] * m_tilde[idx];
+        T2 = T2 + H_points[undisclosed_indexes[idx]] * m_tilde[idx]; //TODO: to check
     }
 
     Ok(ProofInitResult{ Abar, Bbar, D, T1, T2, domain })
@@ -412,21 +415,28 @@ where
         return Err(Error::PoKSVerificationError("len messages != len indexes".to_owned())) 
     }
 
+    if generators.values.len() != L+1 {
+        return Err(Error::NotEnoughGenerators)
+    }
+
+    let Q1 = generators.values[0];
+    let H_points = &generators.values[1..];
+
     let undisclosed_indexes = get_remaining_indexes(L, disclosed_indexes);
 
-    let domain = calculate_domain_new::<CS>(pk, generators, header, api_id)?;
+    let domain = calculate_domain_new::<CS>(pk, Q1, H_points, header, api_id)?;
 
     let T1 = proof.Bbar * proof.challenge + proof.Abar * proof.e_cap + proof.D * proof.r1_cap;
-    let mut Bv = generators.g1_base_point + generators.q1 * domain;
+    let mut Bv = generators.g1_base_point + Q1 * domain;
 
     for i in 0..R {
-        Bv += generators.message_generators[disclosed_indexes[i]] * disclosed_messages[i].value;
+        Bv += H_points[disclosed_indexes[i]] * disclosed_messages[i].value; //TODO: to check
     }
 
     let mut T2 = Bv * proof.challenge + proof.D * proof.r3_cap;
     
     for j in 0..U {
-        T2 += generators.message_generators[undisclosed_indexes[j]] * proof.m_cap[j];
+        T2 += H_points[undisclosed_indexes[j]] * proof.m_cap[j];
     }
 
     Ok(ProofInitResult{ Abar: proof.Abar, Bbar: proof.Bbar, D: proof.D, T1, T2, domain })
@@ -461,7 +471,7 @@ impl BBSplusZKPoK {
 
         let mut m_cap: Vec<Scalar> = Vec::new();
     
-        for chunk in bytes[240..].chunks_exact(32) {
+        for chunk in bytes[32..].chunks_exact(32) {
             let b = <[u8; 32]>::try_from(chunk).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
             m_cap.push(Scalar::from_bytes_be(&b)?);
         }

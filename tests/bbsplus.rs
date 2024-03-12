@@ -320,8 +320,10 @@ mod bbsplus_tests {
 
         println!("{}", generators_expected.len());
         let generators = Generators::create::<S::Ciphersuite>(generators_expected.len() + 1, Some(<S::Ciphersuite as BbsCiphersuite>::API_ID));
-        println!("{}", generators.message_generators.len());
+        println!("{}", generators.values.len());
 
+        let Q1 = generators.values[0];
+        let message_generators = &generators.values[1..];
 
         let expected_BP = res["P1"].as_str().unwrap();
 
@@ -339,7 +341,7 @@ mod bbsplus_tests {
         }
 
         let expected_Q1 = res["Q1"].as_str().unwrap();
-        let Q1 = hex::encode(generators.q1.to_compressed());
+        let Q1 = hex::encode(Q1.to_compressed());
 
         if expected_Q1 != Q1 {
             result = false;
@@ -350,7 +352,7 @@ mod bbsplus_tests {
 
 
         generators_expected.iter().enumerate().for_each(|(i, expected_g)| {
-            let g = hex::encode(generators.message_generators.get(i).expect("index overflow").to_affine().to_compressed());
+            let g = hex::encode(message_generators.get(i).expect("index overflow").to_affine().to_compressed());
             if *expected_g != g{
                 result = false;
                 eprintln!("  GENERATOR {}: {}", i, result);
