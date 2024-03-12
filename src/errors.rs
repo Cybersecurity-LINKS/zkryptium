@@ -30,12 +30,18 @@ pub enum Error {
     /// [More Info](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-coresign) in the `Note` at the end
     #[error(" A == Identity_G1")]
     G1IdentityError,
+    #[error("Error during deserialization")]
+    DeserializationError(String),
     #[error("Signature is not valid")]
     SignatureVerificationError,
     #[error("Error during computation of a Proof ok Knowledge of a Signature")]
     ProofGenError(String),
     #[error("Unknown error")]
     Unspecified,
+
+    #[error("Signature update failed")]
+    UpdateSignatureError(String),
+
     #[error("Invalid Proof of Knowledge of a Signature")]
     InvalidProofOfKnowledgeSignature,
     #[error("Proof of Knowledge of a Signature verification failed")]

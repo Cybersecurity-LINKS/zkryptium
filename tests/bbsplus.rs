@@ -405,7 +405,7 @@ mod bbsplus_tests {
 
         //Verify the signature
 
-        let signature_expected = Signature::<BBSplus<S::Ciphersuite>>::from_bytes(&hex::decode(SIGNATURE_expected).unwrap().try_into().unwrap());
+        let signature_expected = Signature::<BBSplus<S::Ciphersuite>>::from_bytes(&hex::decode(SIGNATURE_expected).unwrap().try_into().unwrap()).unwrap();
         let result2 = signature_expected.verify(&PK, Some(&messages),  Some(&header)).is_ok();
         let result3 = result2 == RESULT_expected;
 

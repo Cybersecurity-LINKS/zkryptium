@@ -278,11 +278,6 @@ mod tests {
         let data = fs::read_to_string([pathname, filename].concat()).expect("Unable to read file");
         let proof_json: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
         println!("{}", proof_json["caseName"]);
-
-        // let seed = proof_json["mockRngParameters"]["SEED"].as_str().unwrap().as_bytes();
-        // let dst = proof_json["mockRngParameters"]["commit"]["DST"].as_str().unwrap().as_bytes();
-        // let count: usize = proof_json["mockRngParameters"]["commit"]["count"].as_u64().unwrap().try_into().unwrap();
-
         
         let committed_messages: Vec<String>= proof_json["committedMessages"].as_array().unwrap().iter().map(|m| serde_json::from_value(m.clone()).unwrap()).collect();
         let prover_blind = proof_json["proverBlind"].as_str().unwrap();

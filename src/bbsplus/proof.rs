@@ -821,7 +821,7 @@ mod tests {
         //Get Message Signature
         let signature_expected = proof_json["signature"].as_str().unwrap();
 
-        let signature = Signature::<BBSplus<S::Ciphersuite>>::from_bytes(hex::decode(signature_expected).unwrap().as_slice().try_into().unwrap());
+        let signature = Signature::<BBSplus<S::Ciphersuite>>::from_bytes(hex::decode(signature_expected).unwrap().as_slice().try_into().unwrap()).unwrap();
         let bbs_signature = signature.bbsPlusSignature();
         
         let header = hex::decode(header_hex).unwrap();

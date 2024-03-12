@@ -42,17 +42,24 @@ impl BBSplusSignature {
         bytes
     }
 
-    pub fn from_bytes(data: &[u8; Self::SIGNATURE_LENGHT]) -> CtOption<Self> {
-        let aa = G1Affine::from_compressed(&<[u8; 48]>::try_from(&data[0..48]).unwrap())
+    pub fn from_bytes(data: &[u8; Self::SIGNATURE_LENGHT]) -> Result<Self, Error> {
+        let a_opt = G1Affine::from_compressed(&<[u8; 48]>::try_from(&data[0..48]).unwrap())
             .map(G1Projective::from);
-        let e_bytes = <[u8; 32]>::try_from(&data[48..80]).unwrap();
-        let ee = Scalar::from_be_bytes(&e_bytes);
-        // let s_bytes = <[u8; 32]>::try_from(&data[80..112]).unwrap();
-        // let ss = Scalar::from_be_bytes(&s_bytes);
 
-        aa.and_then(|a| {
-            ee.and_then(|e| CtOption::new(Self{ a, e }, Choice::from(1)))
-        })
+        if a_opt.is_none().into() {
+            return Err(Error::DeserializationError("Invalid signature".to_owned()));
+        }
+        let a = a_opt.unwrap();
+
+        let e_bytes = <[u8; 32]>::try_from(&data[48..80]).unwrap();
+        let e_opt = Scalar::from_be_bytes(&e_bytes);
+
+        if e_opt.is_none().into() {
+            return Err(Error::DeserializationError("Invalid signature".to_owned()));
+        }
+        let e = e_opt.unwrap();
+
+        Ok(Self { a, e })
     }
 }
 
@@ -109,30 +116,33 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         self.bbsPlusSignature().to_bytes()
     }
 
-    pub fn from_bytes(data: &[u8; BBSplusSignature::SIGNATURE_LENGHT]) -> Self {
-        Self::BBSplus(BBSplusSignature::from_bytes(data).unwrap())
+    pub fn from_bytes(data: &[u8; BBSplusSignature::SIGNATURE_LENGHT]) -> Result<Self, Error> {
+        Ok(Self::BBSplus(BBSplusSignature::from_bytes(data)?))
     }
 
 
 
-    pub fn update_signature(&self, sk: &BBSplusSecretKey, generators: &Generators, old_message: &BBSplusMessage, new_message: &BBSplusMessage, update_index: usize) -> Self {
+    pub fn update_signature(&self, sk: &BBSplusSecretKey, generators: &Generators, old_message: &BBSplusMessage, new_message: &BBSplusMessage, update_index: usize) -> Result<Self, Error> {
 
-        if generators.values.len()+1 <= update_index {
-            panic!("len(generators) <= update_index");
+        if generators.values.len() <= update_index + 1 {
+            return Err(Error::UpdateSignatureError("len(generators) <= update_index".to_owned()));
         }
+
         let H_points = &generators.values[1..];
-        let H_i = H_points.get(update_index).expect("index overflow");
-        let SK_plus_e = sk.0 + self.e();
-        let mut B = self.a() * SK_plus_e;
+        let H_i = H_points.get(update_index).ok_or(Error::Unspecified)?;
+        let sk_e = sk.0 + self.e();
+        let mut B = self.a() * sk_e;
         B = B + (-H_i * old_message.value);
         B = B + (H_i * new_message.value);
-        let A = B * SK_plus_e.invert().unwrap();
+
+        let sk_e_inv = Option::<Scalar>::from(sk_e.invert()).ok_or(Error::UpdateSignatureError("Invert scalar failed".to_owned()))?;
+        let A = B * sk_e_inv;
 
         if A == G1Projective::IDENTITY{
-            panic!("A == IDENTITY G1");
+            return Err(Error::UpdateSignatureError("A == IDENTITY G1".to_owned()));
         }
 
-        return Self::BBSplus(BBSplusSignature { a: A, e: self.e() })
+        return Ok(Self::BBSplus(BBSplusSignature { a: A, e: self.e() }))
     }
 }
 
