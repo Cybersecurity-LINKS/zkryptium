@@ -16,9 +16,9 @@ use std::os::windows::process;
 
 use bls12_381_plus::{G1Affine, G1Projective, Scalar};
 use serde::{Deserialize, Serialize};
-use crate::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, errors::Error, schemes::{algorithms::BBSplus, generics::Commitment}, utils::{message::{BBSplusMessage, Message}, util::bbsplus_utils::{calculate_blind_challenge, subgroup_check_g1, ScalarExt}}};
+use crate::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, errors::Error, schemes::{algorithms::BBSplus, generics::Commitment}, utils::{message::{BBSplusMessage, Message}, util::bbsplus_utils::{calculate_blind_challenge, get_random, subgroup_check_g1, ScalarExt}}};
 use super::{generators, keys::BBSplusPublicKey, proof::BBSplusZKPoK};
-use elliptic_curve::hash2curve::{ExpandMsg, Expander};
+use elliptic_curve::{hash2curve::{ExpandMsg, Expander}, scalar};
 use bls12_381_plus::group::Curve;
 
 #[cfg(not(test))]
@@ -62,7 +62,7 @@ impl BBSplusCommitment {
 
 impl <CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
 
-    pub fn commit(committed_messages: Option<&[Vec<u8>]>) -> Result<(Self, SecretProverBlind), Error>
+    pub fn commit(committed_messages: Option<&[Vec<u8>]>) -> Result<(Self, BlindFactor), Error>
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
@@ -94,7 +94,7 @@ impl <CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
             return Err(Error::NotEnoughGenerators)
         }
 
-        let blind_generators = &generators.values[1..];
+        let blind_generators = &generators.values[1..M+1];
 
         if verify_commitment::<CS>(commitment, &proof, &blind_generators, api_id).is_ok() {
             Ok((commitment, M))
@@ -117,10 +117,15 @@ impl <CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
 
 }
 
+#[derive(Debug)]
+pub struct BlindFactor(pub(crate) Scalar);
 
-pub struct SecretProverBlind(Scalar);
+impl BlindFactor {
 
-impl SecretProverBlind {
+    pub fn random() -> Self {
+       Self(get_random())
+    }
+
     pub fn to_bytes(&self) -> [u8; 32]{
         self.0.to_be_bytes()
     }
@@ -143,9 +148,9 @@ impl SecretProverBlind {
 /// * `api_id` (OPTIONAL), octet string. If not supplied it defaults to the empty octet string ("").
 /// 
 /// # Output:
-/// ([`BBSplusCommitment`], [`SecretProverBlind`]), a tuple comprising from a commitmentment + proof and a random scalar in tha order.
+/// ([`BBSplusCommitment`], [`BlindFactor`]), a tuple (commitment + proof, secret_prover_blind).
 /// 
-fn commit<CS>(committed_messages: Option<&[Vec<u8>]>, api_id: Option<&[u8]>) -> Result<(BBSplusCommitment, SecretProverBlind), Error>
+fn commit<CS>(committed_messages: Option<&[Vec<u8>]>, api_id: Option<&[u8]>) -> Result<(BBSplusCommitment, BlindFactor), Error>
 where
     CS: BbsCiphersuite,
     CS::Expander: for<'a> ExpandMsg<'a>,
@@ -159,13 +164,13 @@ where
     let generators = Generators::create::<CS>(M+2, Some(api_id)).values;
 
     let Q2 = generators[1];
-    let Js = &generators[2..];
+    let Js = &generators[2..M+2];
 
     #[cfg(not(test))]
     let random_scalars = calculate_random_scalars(M + 2);
 
     #[cfg(test)]
-    let random_scalars = seeded_random_scalars::<CS>(M + 2, Some(b"3.141592653589793238462643383279"), Some(CS::COMMIT_DST));
+    let random_scalars = seeded_random_scalars::<CS>(M + 2, CS::SEED_MOCKED_SCALAR, CS::COMMIT_DST);
 
     let secret_prover_blind = random_scalars[0];
     let s_tilde = random_scalars[1];
@@ -197,10 +202,10 @@ where
 
     let proof = BBSplusZKPoK::new(s_cap, m_cap, challenge);
     let commitment_with_proof = BBSplusCommitment{ commitment, proof};
-    let secret = SecretProverBlind(secret_prover_blind);
+    let secret_prover_blind = BlindFactor(secret_prover_blind);
 
 
-    Ok((commitment_with_proof, secret))
+    Ok((commitment_with_proof, secret_prover_blind))
 }
 
 
@@ -283,16 +288,12 @@ mod tests {
         let prover_blind = proof_json["proverBlind"].as_str().unwrap();
         let commitment_with_proof = proof_json["commitmentWithProof"].as_str().unwrap();
 
-        println!("blind: {}", prover_blind);
-
         let committed_messages: Vec<Vec<u8>> = committed_messages.iter().map(|m| hex::decode(m).unwrap()).collect();
 
         let expected_result = proof_json["result"]["valid"].as_bool().unwrap();
 
         let (commitment_with_proof_result, secret) = Commitment::<BBSplus<S::Ciphersuite>>::commit(Some(&committed_messages)).unwrap();
 
-        println!("------- {}", hex::encode(commitment_with_proof_result.to_bytes()));
-        println!("+++++++++ {}", commitment_with_proof);
         let commitment_with_proof_result_oct = commitment_with_proof_result.to_bytes();
         assert_eq!(hex::encode(&commitment_with_proof_result_oct), commitment_with_proof);
 

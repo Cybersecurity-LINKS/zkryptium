@@ -22,7 +22,7 @@ pub mod bbsplus_utils {
     use rand::rngs::OsRng;
     use bls12_381_plus::{Scalar, G1Projective, G2Projective};
     use elliptic_curve::{hash2curve::{ExpandMsg, Expander}, group::Curve};
-    use crate::{bbsplus::generators::Generators, errors::Error, utils::message::BBSplusMessage};
+    use crate::{bbsplus::{commitment::BlindFactor, generators::Generators}, errors::Error, utils::message::BBSplusMessage};
     use crate::{bbsplus::ciphersuites::BbsCiphersuite, bbsplus::keys::BBSplusPublicKey};
 
     const NONCE_LENGTH: usize = 16;
@@ -217,12 +217,13 @@ pub mod bbsplus_utils {
         let domain_dst = [api_id, CS::H2S].concat();
 
         let mut dom_octs: Vec<u8> = Vec::new();
-        dom_octs.extend_from_slice(&L.to_be_bytes());
+        let L_i2osp = i2osp(L, 8);
+        dom_octs.extend_from_slice(&L_i2osp);
         dom_octs.extend_from_slice(&Q1.to_affine().to_compressed());
 
         H_points.iter().map(|&p| p.to_affine().to_compressed()).for_each(|a| dom_octs.extend_from_slice(&a));
 
-        dom_octs.extend_from_slice(CS::API_ID);
+        dom_octs.extend_from_slice(api_id);
 
         let mut dom_input: Vec<u8> = Vec::new();
         dom_input.extend_from_slice(&pk.to_bytes());
@@ -239,6 +240,7 @@ pub mod bbsplus_utils {
     pub trait ScalarExt {
         fn to_bytes_be(&self) -> [u8; 32];
         fn from_bytes_be(bytes: &[u8; 32]) -> Result<Scalar, Error>;
+        fn encode(&self) -> String;
     }
 
     impl ScalarExt for Scalar {
@@ -259,6 +261,10 @@ pub mod bbsplus_utils {
             }
 
             Ok(s.unwrap())
+        }
+
+        fn encode(&self) -> String {
+            hex::encode(self.to_bytes_be())
         }
     }
 
@@ -355,15 +361,15 @@ pub mod bbsplus_utils {
 
 
     #[cfg(test)]
-    pub fn seeded_random_scalars<CS>(count: usize, seed: Option<&[u8]>, dst: Option<&[u8]>) -> Vec<Scalar> 
+    pub fn seeded_random_scalars<CS>(count: usize, seed: &[u8], dst: &[u8]) -> Vec<Scalar> 
     where
         CS: BbsCiphersuite,
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
-        let binding = hex::decode("332e313431353932363533353839373933323338343632363433333833323739").unwrap();
-        let seed = seed.unwrap_or(&binding);
-        let binding2 = [CS::API_ID, CS::MOCKED_SCALAR].concat();
-        let dst = dst.unwrap_or(&binding2); 
+        // let binding = hex::decode("332e313431353932363533353839373933323338343632363433333833323739").unwrap();
+        // let seed = seed.unwrap_or(&binding);
+        // let binding2 = [CS::API_ID, CS::MOCKED_SCALAR].concat();
+        // let dst = dst.unwrap_or(&binding2); 
 
         let out_len = CS::EXPAND_LEN * count;
         let mut v = vec![0u8; out_len];
@@ -422,6 +428,37 @@ pub mod bbsplus_utils {
         generators.iter().for_each(|&i| c_arr.extend_from_slice(&i.to_affine().to_compressed()));
 
         hash_to_scalar_new::<CS>(&c_arr, &blind_challenge_dst)
+    }
+
+
+    pub(crate) fn get_disclosed_data(messages: &[Vec<u8>], committed_messages: &[Vec<u8>], disclosed_indexes: &[usize], disclosed_commitment_indexes: &[usize], secret_prover_blind: &BlindFactor) -> (Vec<Vec<u8>>, Vec<usize>) {
+        let M = committed_messages.len();
+
+        let comm_used: usize = if secret_prover_blind.0 == Scalar::ZERO { 0 } else { 1 };
+        
+        let mut indexes = Vec::new();
+
+        for &i in disclosed_commitment_indexes {
+            indexes.push(i + comm_used);
+        }
+
+        for &j in disclosed_indexes {
+            indexes.push(M + j + comm_used);
+        }
+
+        indexes.iter().for_each(|i| println!("i = {}", i));
+
+        let mut disclosed_messages: Vec<Vec<u8>> = Vec::new();
+        // disclosed_indexes.iter().map(|&i| messages[i].clone()).collect();
+
+        // let disclosed_committed_messages: Vec<Vec<u8>> = disclosed_commitment_indexes.iter().map(|&j| committed_messages[j].clone()).collect();
+        disclosed_commitment_indexes.iter().for_each(|&j| disclosed_messages.push(committed_messages[j].clone()));
+        disclosed_indexes.iter().for_each(|&i| disclosed_messages.push(messages[i].clone()));
+
+        // disclosed_messages.extend_from_slice(&disclosed_committed_messages);
+
+        (disclosed_messages, indexes)
+
     }
 
 }

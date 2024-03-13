@@ -25,33 +25,32 @@ use super::{generators, keys::{BBSplusPublicKey, BBSplusSecretKey}};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusSignature {
-    pub a: G1Projective,
+    pub A: G1Projective,
     pub e: Scalar,
-    // pub s: Scalar,
 }
 
 impl BBSplusSignature {
 
-    pub const SIGNATURE_LENGHT: usize = 80;
-    
-    pub fn to_bytes(&self) -> [u8; Self::SIGNATURE_LENGHT] {
-        let mut bytes = [0u8; Self::SIGNATURE_LENGHT];
-        bytes[0..48].copy_from_slice(&self.a.to_affine().to_compressed());
+    pub const BYTES: usize = 80;
+
+    pub fn to_bytes(&self) -> [u8; Self::BYTES] {
+        let mut bytes = [0u8; Self::BYTES];
+        bytes[0..G1Projective::COMPRESSED_BYTES].copy_from_slice(&self.A.to_affine().to_compressed());
         let e = self.e.to_be_bytes();
-        bytes[48..80].copy_from_slice(&e[..]);
+        bytes[G1Projective::COMPRESSED_BYTES..Self::BYTES].copy_from_slice(&e);
         bytes
     }
 
-    pub fn from_bytes(data: &[u8; Self::SIGNATURE_LENGHT]) -> Result<Self, Error> {
-        let a_opt = G1Affine::from_compressed(&<[u8; 48]>::try_from(&data[0..48]).unwrap())
+    pub fn from_bytes(data: &[u8; Self::BYTES]) -> Result<Self, Error> {
+        let A_opt = G1Affine::from_compressed(&<[u8; G1Projective::COMPRESSED_BYTES]>::try_from(&data[0..G1Projective::COMPRESSED_BYTES]).unwrap())
             .map(G1Projective::from);
 
-        if a_opt.is_none().into() {
-            return Err(Error::DeserializationError("Invalid signature".to_owned()));
+        if A_opt.is_none().into() {
+            return Err(Error::DeserializationError("Invalid blind signature".to_owned()));
         }
-        let a = a_opt.unwrap();
+        let A: G1Projective = A_opt.unwrap();
 
-        let e_bytes = <[u8; 32]>::try_from(&data[48..80]).unwrap();
+        let e_bytes = <[u8; Scalar::BYTES]>::try_from(&data[G1Projective::COMPRESSED_BYTES..Self::BYTES]).unwrap();
         let e_opt = Scalar::from_be_bytes(&e_bytes);
 
         if e_opt.is_none().into() {
@@ -59,16 +58,18 @@ impl BBSplusSignature {
         }
         let e = e_opt.unwrap();
 
-        Ok(Self { a, e })
+
+        Ok(Self{A, e})
     }
 }
 
 
 
 impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
+
     pub fn a(&self) -> G1Projective {
         match self {
-            Self::BBSplus(inner) => inner.a,
+            Self::BBSplus(inner) => inner.A,
             _ => panic!("Cannot happen!")
         }
     }
@@ -112,11 +113,11 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         }
     }
 
-    pub fn to_bytes(&self) -> [u8; BBSplusSignature::SIGNATURE_LENGHT] {
+    pub fn to_bytes(&self) -> [u8; BBSplusSignature::BYTES] {
         self.bbsPlusSignature().to_bytes()
     }
 
-    pub fn from_bytes(data: &[u8; BBSplusSignature::SIGNATURE_LENGHT]) -> Result<Self, Error> {
+    pub fn from_bytes(data: &[u8; BBSplusSignature::BYTES]) -> Result<Self, Error> {
         Ok(Self::BBSplus(BBSplusSignature::from_bytes(data)?))
     }
 
@@ -142,7 +143,7 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
             return Err(Error::UpdateSignatureError("A == IDENTITY G1".to_owned()));
         }
 
-        return Ok(Self::BBSplus(BBSplusSignature { a: A, e: self.e() }))
+        return Ok(Self::BBSplus(BBSplusSignature { A, e: self.e() }))
     }
 }
 
@@ -188,15 +189,14 @@ where
     let A = B * (sk.0 + e).invert().unwrap();
 
     if A == G1Projective::IDENTITY {
-        panic!("A == Identity_G1");
+        return Err(Error::SignatureGenerationError("A == Identity_G1".to_owned()));
     }
-
     
-    Ok(BBSplusSignature{ a: A, e: e})
+    Ok(BBSplusSignature{ A, e: e})
 }
 
 
-fn core_verify<CS>(pk: &BBSplusPublicKey, signature: &BBSplusSignature, messages: &[BBSplusMessage], generators: Generators, header: Option<&[u8]>, api_id: Option<&[u8]>) -> Result<(), Error> 
+pub(super) fn core_verify<CS>(pk: &BBSplusPublicKey, signature: &BBSplusSignature, messages: &[BBSplusMessage], generators: Generators, header: Option<&[u8]>, api_id: Option<&[u8]>) -> Result<(), Error> 
 where
     CS: BbsCiphersuite,
     CS::Expander: for<'a> ExpandMsg<'a>,
@@ -224,7 +224,7 @@ where
 
     let identity_GT = Gt::IDENTITY;
 
-    let term1 = (&signature.a.to_affine(), &G2Prepared::from(A2.to_affine()));
+    let term1 = (&signature.A.to_affine(), &G2Prepared::from(A2.to_affine()));
     let term2 = (&B.to_affine(), &G2Prepared::from(-BP2.to_affine()));
 
     let pairing = multi_miller_loop(&[term1, term2]).final_exponentiation();

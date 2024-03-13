@@ -21,6 +21,8 @@ pub enum Error {
     KeyGenError(String),
     #[error("Error during computation of a Blind Signature")]
     BlindSignError(String),
+    #[error("Error during computation of a Signature")]
+    SignatureGenerationError(String),
     #[error("Error during hash to scalar computation")]
     HashToScalarError,
     #[error("Error mapping a message to scalar")]
@@ -34,8 +36,10 @@ pub enum Error {
     DeserializationError(String),
     #[error("Signature is not valid")]
     SignatureVerificationError,
-    #[error("Error during computation of a Proof ok Knowledge of a Signature")]
+    #[error("Error during computation of a Proof of Knowledge of a Signature")]
     ProofGenError(String),
+    #[error("Error during computation of a Blind Proof of Knowledge of a Signature")]
+    BlindProofGenError(String),
     #[error("Unknown error")]
     Unspecified,
 

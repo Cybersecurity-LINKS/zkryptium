@@ -13,6 +13,7 @@
 // limitations under the License.
 
 
+
 #[cfg(feature = "bbsplus")]
 mod bbsplus_example {
     use elliptic_curve::hash2curve::ExpandMsg;
@@ -20,12 +21,12 @@ mod bbsplus_example {
     use zkryptium::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, errors::Error, keys::pair::KeyPair, schemes::{algorithms::{BBSplus, Ciphersuite, Scheme}, generics::{BlindSignature, Commitment, PoKSignature, Signature, ZKPoK}}, utils::{message::BBSplusMessage, util::bbsplus_utils::{generate_nonce, get_messages_vec}}};
 
 
-
     pub(crate) fn bbsplus_main<S: Scheme>() -> Result<(), Error>
     where
         S::Ciphersuite: BbsCiphersuite,
         <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
+        
         const msgs: [&str; 3] = ["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02", "87a8bd656d49ee07b8110e1d8fd4f1dcef6fb9bc368c492d9bc8c4f98a739ac6", "96012096adda3f13dd4adbe4eea481a4c4b5717932b73b00e31807d3c5894b90"];
         
         log::info!("Messages: {:?}", msgs);
@@ -64,7 +65,7 @@ mod bbsplus_example {
         let revealed_message_indexes = [0usize, 2usize];
 
         //Holder generates SPoK
-        let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(signature.bbsPlusSignature(), issuer_pk, Some(&msgs_scalars), Some(&revealed_message_indexes), Some(&header), Some(&nonce_verifier)).unwrap();  
+        let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(issuer_pk, signature.bbsPlusSignature(), Some(&header), Some(&nonce_verifier), Some(&msgs_scalars), Some(&revealed_message_indexes) ).unwrap();  
 
         //Verifier verifies SPok
 

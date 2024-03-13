@@ -16,55 +16,15 @@
 use std::panic;
 use bls12_381_plus::{G1Projective, Scalar, G1Affine};
 use elliptic_curve::{group::Curve, subtle::{CtOption, Choice}, hash2curve::ExpandMsg};
+use ff::Field;
 use serde::{Deserialize, Serialize};
 use crate::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, errors::Error, schemes::{algorithms::BBSplus, generics::{BlindSignature, Commitment, Signature, ZKPoK}}, utils::{message::BBSplusMessage, util::bbsplus_utils::{calculate_domain, calculate_domain_new, hash_to_scalar_new, hash_to_scalar_old, ScalarExt}}};
-use super::{commitment::BBSplusCommitment, keys::{BBSplusSecretKey, BBSplusPublicKey}, signature::BBSplusSignature};
-
-
-
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub struct BBSplusBlindSignature {
-    pub(crate) A: G1Projective,
-    pub(crate) e: Scalar,
-}
-
-impl BBSplusBlindSignature {
-    pub const BYTES: usize = G1Projective::COMPRESSED_BYTES + Scalar::BYTES;
-
-    pub fn to_bytes(&self) -> [u8; Self::BYTES] {
-        let mut bytes = [0u8; Self::BYTES];
-        bytes[0..G1Projective::COMPRESSED_BYTES].copy_from_slice(&self.A.to_affine().to_compressed());
-        let e = self.e.to_be_bytes();
-        bytes[G1Projective::COMPRESSED_BYTES..Self::BYTES].copy_from_slice(&e[..]);
-        bytes
-    }
-
-    pub fn from_bytes(data: &[u8; Self::BYTES]) -> Result<Self, Error> {
-        let A_opt = G1Affine::from_compressed(&<[u8; G1Projective::COMPRESSED_BYTES]>::try_from(&data[0..G1Projective::COMPRESSED_BYTES]).unwrap())
-            .map(G1Projective::from);
-
-        if A_opt.is_none().into() {
-            return Err(Error::DeserializationError("Invalid blind signature".to_owned()));
-        }
-        let A: G1Projective = A_opt.unwrap();
-
-        let e_bytes = <[u8; Scalar::BYTES]>::try_from(&data[G1Projective::COMPRESSED_BYTES..Self::BYTES]).unwrap();
-        let e_opt = Scalar::from_be_bytes(&e_bytes);
-
-        if e_opt.is_none().into() {
-            return Err(Error::DeserializationError("Invalid signature".to_owned()));
-        }
-        let e = e_opt.unwrap();
-
-
-        Ok(Self{A, e})
-    }
-}
+use super::{commitment::{BBSplusCommitment, BlindFactor}, keys::{BBSplusPublicKey, BBSplusSecretKey}, signature::{core_verify, BBSplusSignature}};
 
 
 impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
 
-    pub fn blind_sign(sk: &BBSplusSecretKey, pk: &BBSplusPublicKey, commitment_with_proof: Option<&[u8]>, header: Option<&[u8]>, messages: Option<&[Vec<u8>]>, signer_blind: Option<Scalar>) -> Result<Self, Error>{
+    pub fn blind_sign(sk: &BBSplusSecretKey, pk: &BBSplusPublicKey, commitment_with_proof: Option<&[u8]>, header: Option<&[u8]>, messages: Option<&[Vec<u8>]>, signer_blind: Option<&BlindFactor>) -> Result<Self, Error>{
         let messages = messages.unwrap_or(&[]);
         let L = messages.len();
         let commitment_with_proof = commitment_with_proof.unwrap_or(&[]);
@@ -93,6 +53,32 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
 
     }
 
+    pub fn verify(&self, pk: &BBSplusPublicKey, header: Option<&[u8]>, messages: Option<&[Vec<u8>]>, committed_messages: Option<&[Vec<u8>]>, secret_prover_blind: Option<&BlindFactor>, signer_blind: Option<&BlindFactor>) -> Result<(), Error>{
+        let messages = messages.unwrap_or(&[]);
+        let committed_messages = committed_messages.unwrap_or(&[]);
+
+        // let L = messages.len();
+        // let M = committed_messages.len();
+
+        let mut message_scalars = Vec::new();
+
+        let secret_prover_blind= secret_prover_blind.unwrap_or(&BlindFactor(Scalar::ZERO));
+
+        if secret_prover_blind.0 != Scalar::ZERO {
+            let signer_blind = signer_blind.unwrap_or(&BlindFactor(Scalar::ZERO));
+            let message = BBSplusMessage::new(secret_prover_blind.0 + signer_blind.0);
+            message_scalars.push(message);
+        }
+
+        let api_id = CS::API_ID_BLIND;
+        message_scalars.extend(BBSplusMessage::messages_to_scalar::<CS>(committed_messages, api_id)?);
+        message_scalars.extend(BBSplusMessage::messages_to_scalar::<CS>(messages, api_id)?);
+
+        let generators = Generators::create::<CS>(message_scalars.len()+1, Some(api_id));
+
+        core_verify::<CS>(pk, self.bbsPlusBlindSignature(), &message_scalars, generators, header, Some(api_id))
+    }
+
     pub fn A(&self) -> G1Projective {
         match self {
             Self::BBSplus(inner) => inner.A,
@@ -107,19 +93,19 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         }
     }
 
-    pub fn bbsPlusBlindSignature(&self) -> &BBSplusBlindSignature{
+    pub fn bbsPlusBlindSignature(&self) -> &BBSplusSignature{
         match self {
             Self::BBSplus(inner) => inner,
             _ => panic!("Cannot happen!")
         }
     }
 
-    pub fn to_bytes(&self) -> [u8; BBSplusBlindSignature::BYTES] {
+    pub fn to_bytes(&self) -> [u8; BBSplusSignature::BYTES] {
         self.bbsPlusBlindSignature().to_bytes()
     }
 
-    pub fn from_bytes(data: &[u8; BBSplusBlindSignature::BYTES]) -> Result<Self, Error> {
-        Ok(Self::BBSplus(BBSplusBlindSignature::from_bytes(data)?))
+    pub fn from_bytes(data: &[u8; BBSplusSignature::BYTES]) -> Result<Self, Error> {
+        Ok(Self::BBSplus(BBSplusSignature::from_bytes(data)?))
     }
 
 }
@@ -133,8 +119,8 @@ fn core_blind_sign<CS>(
         commitment_with_proof: &[u8],
         header: Option<&[u8]>,
         messages: &[BBSplusMessage],
-        signer_blind: Option<Scalar>,
-        api_id: Option<&[u8]>) -> Result<BBSplusBlindSignature, Error>
+        signer_blind: Option<&BlindFactor>,
+        api_id: Option<&[u8]>) -> Result<BBSplusSignature, Error>
     where
         CS: BbsCiphersuite,
         CS::Expander: for<'a> ExpandMsg<'a>,
@@ -146,27 +132,33 @@ fn core_blind_sign<CS>(
         let (mut commit, M) = Commitment::<BBSplus<CS>>::deserialize_and_validate_commit(Some(commitment_with_proof), generators, Some(api_id))?;
         let Q1 = generators.values[0];
 
-        let Q2 = if commit.is_identity().into() && M == 0 {
+        let Q2 = if commitment_with_proof.is_empty() {
             G1Projective::IDENTITY
         } else {
             generators.values[1]
         };
 
-        let signer_blind = signer_blind.unwrap_or(Scalar::ZERO);
+        let signer_blind = signer_blind.unwrap_or(&BlindFactor(Scalar::ZERO));
 
         let H_points = &generators.values[M+1..M+L+1]; //TODO: to check
 
-        let domain = calculate_domain_new::<CS>(pk, Q1, H_points, header, Some(api_id))?;
+        let temp_generators = &generators.values[1..M+L+1];
+
+        let domain = calculate_domain_new::<CS>(pk, Q1, temp_generators, header, Some(api_id))?;
 
         let mut e_octs: Vec<u8> = Vec::new();
         e_octs.extend_from_slice(&sk.to_bytes());
         e_octs.extend_from_slice(&domain.to_bytes_be());
         messages.iter().map(|&p| p.value.to_bytes_be()).for_each(|a| e_octs.extend_from_slice(&a));
-        e_octs.extend_from_slice(&signer_blind.to_bytes_be());
+        if signer_blind.0 != Scalar::ZERO {
+            e_octs.extend_from_slice(&signer_blind.to_bytes());
+        }
         e_octs.extend_from_slice(commitment_with_proof);
 
-        let e = hash_to_scalar_new::<CS>(&e_octs, &signature_dst)?;
-        commit += Q2 * signer_blind;
+        let e = hash_to_scalar_new::<CS>(&e_octs, &signature_dst)?; //TODO: modify to support tests
+        if signer_blind.0 != Scalar::ZERO {
+            commit += Q2 * signer_blind.0;
+        }
 
         let mut B = generators.g1_base_point + Q1 * domain;
 
@@ -177,8 +169,101 @@ fn core_blind_sign<CS>(
         B += commit;
 
         let sk_e = sk.0 + e;
-        let A = B * sk_e.invert().unwrap();
+        let sk_e_inv = Option::<Scalar>::from(sk_e.invert()).ok_or(Error::BlindSignError("Invert scalar failed".to_owned()))?;
+        let A = B * sk_e_inv;
 
 
-        Ok(BBSplusBlindSignature{A, e})
+        Ok(BBSplusSignature{A, e})
+    }
+
+
+
+
+    #[cfg(test)]
+    mod tests {
+        use std::fs;
+    
+        use bls12_381_plus::{G1Projective, Scalar};
+        use elliptic_curve::{hash2curve::ExpandMsg, Group};
+        use ff::Field;
+        use rand::{rngs::ThreadRng, Rng};
+    
+        use crate::{bbsplus::{ciphersuites::BbsCiphersuite, commitment::BlindFactor, keys::{BBSplusPublicKey, BBSplusSecretKey}, signature::BBSplusSignature}, schemes::{algorithms::{BBSplus, Scheme, BBS_BLS12381_SHA256, BBS_BLS12381_SHAKE256}, generics::{BlindSignature, Commitment, PoKSignature, Signature}}, utils::util::bbsplus_utils::{get_messages_vec, ScalarExt}};
+    
+    
+        //Blind Sign - SHA256 - UPDATED
+        #[test]
+        fn blind_sign_sha256_1() {
+            blind_sign::<BBS_BLS12381_SHA256>("./fixture_data_blind/bls12-381-sha-256/", "signature/signature001.json");
+        }
+
+        #[test]
+        fn blind_sign_sha256_2() {
+            blind_sign::<BBS_BLS12381_SHA256>("./fixture_data_blind/bls12-381-sha-256/", "signature/signature002.json");
+        }
+
+        #[test]
+        fn blind_sign_sha256_3() {
+            blind_sign::<BBS_BLS12381_SHA256>("./fixture_data_blind/bls12-381-sha-256/", "signature/signature003.json");
+        }
+
+        #[test]
+        fn blind_sign_sha256_4() {
+            blind_sign::<BBS_BLS12381_SHA256>("./fixture_data_blind/bls12-381-sha-256/", "signature/signature004.json");
+        }
+
+        #[test]
+        fn blind_sign_sha256_5() {
+            blind_sign::<BBS_BLS12381_SHA256>("./fixture_data_blind/bls12-381-sha-256/", "signature/signature005.json");
+        }
+
+        #[test]
+        fn blind_sign_sha256_6() {
+            blind_sign::<BBS_BLS12381_SHA256>("./fixture_data_blind/bls12-381-sha-256/", "signature/signature006.json");
+        }
+
+
+        fn blind_sign<S: Scheme>(pathname: &str, filename: &str) 
+        where
+            S::Ciphersuite: BbsCiphersuite,
+            <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
+        {
+            let data = fs::read_to_string([pathname, filename].concat()).expect("Unable to read file");
+            let proof_json: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
+            println!("{}", proof_json["caseName"]);
+            
+            let sk_hex = proof_json["signerKeyPair"]["secretKey"].as_str().unwrap();
+            let pk_hex = proof_json["signerKeyPair"]["publicKey"].as_str().unwrap();
+
+            let sk = BBSplusSecretKey::from_bytes(&hex::decode(sk_hex).unwrap());
+            let pk = BBSplusPublicKey::from_bytes(&hex::decode(pk_hex).unwrap());
+
+            let committed_messages: Option<Vec<String>>= proof_json["committedMessages"].as_array().and_then(|cm| cm.iter().map(|m| serde_json::from_value(m.clone()).unwrap()).collect());
+            let prover_blind = proof_json["proverBlind"].as_str().map(|b| BlindFactor::from_bytes(&hex::decode(b).unwrap().try_into().unwrap()).unwrap()); //TODO: to be fixed
+            
+            let commitment_with_proof = proof_json["commitmentWithProof"].as_str().map(|c| hex::decode(c).unwrap());
+
+            let committed_messages: Option<Vec<Vec<u8>>> = match committed_messages {
+                Some(cm) => Some(cm.iter().map(|m| hex::decode(m).unwrap()).collect()),
+                None => None,
+            };
+
+            let signer_blind: Option<[u8; 32]> = proof_json["signerBlind"].as_str().and_then(|s| hex::decode(s).ok()).and_then(|b| b.try_into().ok());
+            let header = hex::decode(proof_json["header"].as_str().unwrap()).unwrap();
+            let messages: Vec<String> = proof_json["messages"].as_array().unwrap().iter().map(|m| serde_json::from_value(m.clone()).unwrap()).collect();
+            let messages: Vec<Vec<u8>> = messages.iter().map(|m| hex::decode(m).unwrap()).collect();
+            let signer_blind = signer_blind.and_then(|b| BlindFactor::from_bytes(&b).ok());
+            let signature = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(&sk, &pk, commitment_with_proof.as_deref(), Some(&header), Some(&messages), signer_blind.as_ref()).unwrap();
+            let expected_signature = proof_json["signature"].as_str().unwrap();
+            let signature_oct= signature.to_bytes();
+
+            assert_eq!(hex::encode(&signature_oct), expected_signature);
+
+            let result = signature.verify(&pk, Some(&header), Some(&messages), committed_messages.as_deref(), prover_blind.as_ref(), signer_blind.as_ref()).is_ok();
+
+            let expected_result = proof_json["result"]["valid"].as_bool().unwrap();
+
+            assert_eq!(result, expected_result);
+        }
+
     }

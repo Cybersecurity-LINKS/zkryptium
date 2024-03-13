@@ -20,13 +20,13 @@ use super::algorithms::Scheme;
 use crate::cl03::{blind::CL03BlindSignature, commitment::CL03Commitment, proof::{CL03PoKSignature, CL03ZKPoK}, signature::CL03Signature};
 
 #[cfg(feature = "bbsplus")]
-use crate::bbsplus::{blind::BBSplusBlindSignature, commitment::BBSplusCommitment, proof::{BBSplusPoKSignature, BBSplusZKPoK}, signature::BBSplusSignature};
+use crate::bbsplus::{commitment::BBSplusCommitment, proof::{BBSplusPoKSignature, BBSplusZKPoK}, signature::BBSplusSignature};
 
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum BlindSignature<S: Scheme> {
     #[cfg(feature = "bbsplus")]
-    BBSplus(BBSplusBlindSignature),
+    BBSplus(BBSplusSignature),
     #[cfg(feature = "cl03")]
     CL03(CL03BlindSignature),
     _Unreachable(std::marker::PhantomData<S>)
