@@ -12,14 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::collections::VecDeque;
 
 use bls12_381_plus::G1Projective;
 use elliptic_curve::group::Curve;
 use elliptic_curve::hash2curve::{ExpandMsg, Expander};
 use serde::{Serialize, Deserialize};
 use serde::ser::{Serializer, SerializeStruct};
-use crate::bbsplus::keys::BBSplusPublicKey;
 use crate::utils::util::bbsplus_utils::i2osp;
 use super::ciphersuites::BbsCiphersuite;
 
@@ -29,8 +27,6 @@ use super::ciphersuites::BbsCiphersuite;
 #[derive(Clone, PartialEq, Eq, Debug, Deserialize)]
 pub struct Generators {
     pub g1_base_point: G1Projective,
-    // pub q1: G1Projective,
-    // pub q2: G1Projective,
     pub values: Vec<G1Projective>
 }
 
@@ -46,18 +42,24 @@ impl Serialize for Generators {
         state.serialize_field("BP",
             &hex::encode(self.g1_base_point.to_affine().to_compressed()))?;
 
-        // state.serialize_field("Q1",
-        //     &hex::encode(self.q1.to_affine().to_compressed()))?;
-        // state.serialize_field("Q2", 
-        //     &hex::encode(self.q2.to_affine().to_compressed()))?;
-
-        state.serialize_field("MsgGenerators", &result)?;
+        state.serialize_field("Generators", &result)?;
         state.end()
     }
 }
 
 impl Generators {
 
+
+    /// # Description
+    /// Create Generators an P1 (A fixed point in the G1 subgroup)
+    /// 
+    /// # Inputs:
+    /// * `count` (REQUIRED), unsigned integer. Number of generators to create.
+    /// * `api_id` (OPTIONAL), octet string. If not supplied it defaults to the empty octet string ("").
+    /// 
+    /// # Output:
+    /// * [`Generators`], containing an array of generators and P1
+    ///  
     pub fn create<CS>(count: usize, api_id: Option<&[u8]>) -> Generators
     where
         CS: BbsCiphersuite,
@@ -67,7 +69,6 @@ impl Generators {
 
         Self { 
             g1_base_point: G1Projective::from_compressed_hex(CS::P1).unwrap(), 
-            // q1: generators[0].clone(),  
             values: generators[0..].to_vec() 
         }
     }
@@ -76,7 +77,7 @@ impl Generators {
 
 
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-generators-calculation -> generators = create_generators(count, api_id)
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-generators-calculation
 /// 
 /// # Description
 /// Generators creation

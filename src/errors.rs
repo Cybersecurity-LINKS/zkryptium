@@ -15,14 +15,18 @@
 
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Clone,Debug)]
 pub enum Error {
     #[error("Error during keypair generation")]
     KeyGenError(String),
+    #[error("Invalid key")]
+    KeyDeserializationError,
     #[error("Error during computation of a Blind Signature")]
     BlindSignError(String),
     #[error("Error during computation of a Signature")]
     SignatureGenerationError(String),
+    #[error("Not a valid Signature")]
+    InvalidSignature,
     #[error("Error during hash to scalar computation")]
     HashToScalarError,
     #[error("Error mapping a message to scalar")]
@@ -54,7 +58,9 @@ pub enum Error {
     #[error("This should NOT happen!")]
     UnespectedError,
 
-    #[error("Failed to verify the commitment proof")]
+    #[error("Invalid commitment")]
+    InvalidCommitment,
+    #[error("Invalid commitment proof")]
     InvalidCommitmentProof,
 
     #[error("Failed to compute the blind challenge")]

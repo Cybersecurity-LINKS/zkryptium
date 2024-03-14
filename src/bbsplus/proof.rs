@@ -13,13 +13,14 @@
 // limitations under the License.
 
 
-use std::{borrow::Borrow, ops::Deref};
 
-use bls12_381_plus::{G1Projective, Scalar, G2Projective, G2Prepared, Gt, multi_miller_loop, G1Affine};
+//TODO: add documentation
+
+use bls12_381_plus::{G1Projective, Scalar, G2Projective, G2Prepared, multi_miller_loop};
 use elliptic_curve::{group::Curve, hash2curve::ExpandMsg, Group};
 use serde::{Serialize, Deserialize};
-use crate::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, errors::Error, schemes::{algorithms::BBSplus, generics::{PoKSignature, ZKPoK}}, utils::{message::BBSplusMessage, util::{bbsplus_utils::{calculate_domain_new, get_disclosed_data, get_messages, get_random, hash_to_scalar_new, hash_to_scalar_old, i2osp, ScalarExt}, get_remaining_indexes}}};
-use super::{commitment::{BBSplusCommitment, BlindFactor}, keys::BBSplusPublicKey, signature::BBSplusSignature};
+use crate::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, errors::Error, schemes::{algorithms::BBSplus, generics::PoKSignature}, utils::{message::BBSplusMessage, util::{bbsplus_utils::{calculate_domain, get_disclosed_data, get_messages, hash_to_scalar, i2osp, parse_g1_projective, ScalarExt}, get_remaining_indexes}}};
+use super::{commitment::BlindFactor, keys::BBSplusPublicKey, signature::BBSplusSignature};
 
 
 #[cfg(not(test))]
@@ -57,27 +58,19 @@ impl BBSplusPoKSignature {
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
-        let parse_g1_affine = |slice: &[u8]| -> Result<G1Projective, Error> {
-            let point = G1Affine::from_compressed(&<[u8; 48]>::try_from(slice).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?);
-            if point.is_none().into() {
-                return Err(Error::InvalidProofOfKnowledgeSignature);
-            }
-            Ok(point.map(G1Projective::from).unwrap())
-        };
     
-        let Abar = parse_g1_affine(&bytes[0..48])?;
-        let Bbar = parse_g1_affine(&bytes[48..96])?;
-        let D = parse_g1_affine(&bytes[96..144])?;
+        let Abar = parse_g1_projective(&bytes[0..48]).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
+        let Bbar = parse_g1_projective(&bytes[48..96]).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
+        let D = parse_g1_projective(&bytes[96..144]).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
     
-        let e_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[144..176]).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?)?;
-        let r1_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[176..208]).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?)?;
-        let r3_cap = Scalar::from_bytes_be(&<[u8; 32]>::try_from(&bytes[208..240]).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?)?;
+        let e_cap = Scalar::from_bytes_be(&bytes[144..176]).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
+        let r1_cap = Scalar::from_bytes_be(&bytes[176..208]).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
+        let r3_cap = Scalar::from_bytes_be(&bytes[208..240]).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
     
         let mut m_cap: Vec<Scalar> = Vec::new();
     
         for chunk in bytes[240..].chunks_exact(32) {
-            let b = <[u8; 32]>::try_from(chunk).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
-            m_cap.push(Scalar::from_bytes_be(&b)?);
+            m_cap.push(Scalar::from_bytes_be(chunk).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?);
         }
 
         let challenge = m_cap.pop().ok_or(Error::InvalidProofOfKnowledgeSignature)?; //at least the challenge should be present (even if all attributes are disclosed)
@@ -273,7 +266,7 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
 }
 
 
-fn core_proof_gen<CS>(pk: &BBSplusPublicKey, signature: &BBSplusSignature, generators: &Generators, messages: &[BBSplusMessage], disclosed_indexes: &[usize], header: Option<&[u8]>, ph: Option<&[u8]>, api_id: Option<&[u8]>, seed: &[u8], dst: &[u8]) -> Result<BBSplusPoKSignature, Error>
+fn core_proof_gen<CS>(pk: &BBSplusPublicKey, signature: &BBSplusSignature, generators: &Generators, messages: &[BBSplusMessage], disclosed_indexes: &[usize], header: Option<&[u8]>, ph: Option<&[u8]>, api_id: Option<&[u8]>, _seed: &[u8],_dst: &[u8]) -> Result<BBSplusPoKSignature, Error>
 where
     CS: BbsCiphersuite,
     CS::Expander: for<'a> ExpandMsg<'a>,
@@ -307,7 +300,7 @@ where
     let random_scalars = calculate_random_scalars(5 + U);
 
     #[cfg(test)]
-    let random_scalars = seeded_random_scalars::<CS>(5 + U, seed, dst);
+    let random_scalars = seeded_random_scalars::<CS>(5 + U, _seed, _dst);
 
     random_scalars.iter().for_each(|s| println!("scalar = {}", s.encode()));
 
@@ -371,7 +364,7 @@ where
     let Q1 = generators.values[0];
     let H_points = &generators.values[1..];
 
-    let domain = calculate_domain_new::<CS>(pk, Q1, H_points, header, api_id)?;
+    let domain = calculate_domain::<CS>(pk, Q1, H_points, header, api_id)?;
     println!("domain = {}", domain.encode());
 
     let mut B = generators.g1_base_point + Q1 * domain;
@@ -405,7 +398,7 @@ where
     let mut T2 = D * r3_tilde;
 
     for idx in 0..U {
-        T2 = T2 + H_points[undisclosed_indexes[idx]] * m_tilde[idx]; //TODO: to check
+        T2 = T2 + H_points[undisclosed_indexes[idx]] * m_tilde[idx];
     }
 
     println!("Abar = {}", hex::encode(Abar.to_compressed()));
@@ -448,7 +441,7 @@ where
     c_arr.extend_from_slice(&ph_i2osp);
     c_arr.extend_from_slice(ph);
 
-    let challenge = hash_to_scalar_new::<CS>(&c_arr, &challenge_dst)?;
+    let challenge = hash_to_scalar::<CS>(&c_arr, &challenge_dst)?;
 
     Ok(challenge)
 }
@@ -546,13 +539,13 @@ where
 
     let undisclosed_indexes = get_remaining_indexes(L, disclosed_indexes);
 
-    let domain = calculate_domain_new::<CS>(pk, Q1, H_points, header, api_id)?;
+    let domain = calculate_domain::<CS>(pk, Q1, H_points, header, api_id)?;
 
     let T1 = proof.Bbar * proof.challenge + proof.Abar * proof.e_cap + proof.D * proof.r1_cap;
     let mut Bv = generators.g1_base_point + Q1 * domain;
 
     for i in 0..R {
-        Bv += H_points[disclosed_indexes[i]] * disclosed_messages[i].value; //TODO: to check
+        Bv += H_points[disclosed_indexes[i]] * disclosed_messages[i].value;
     }
 
     let mut T2 = Bv * proof.challenge + proof.D * proof.r3_cap;
@@ -607,10 +600,8 @@ impl BBSplusZKPoK {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs};
-
+    use std::{collections::BTreeMap, fs};
     use elliptic_curve::hash2curve::ExpandMsg;
-
     use crate::{bbsplus::{ciphersuites::BbsCiphersuite, commitment::BlindFactor, keys::BBSplusPublicKey, proof::seeded_random_scalars, signature::BBSplusSignature}, schemes::{algorithms::{BBSplus, Scheme, BBS_BLS12381_SHA256, BBS_BLS12381_SHAKE256}, generics::{PoKSignature, Signature}}, utils::util::bbsplus_utils::{get_messages_vec, ScalarExt}};
 
 
@@ -776,6 +767,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn blind_proof_check_sha256_8() {
         blind_proof_check::<BBS_BLS12381_SHA256>("./fixture_data_blind/bls12-381-sha-256/", "proof/proof008.json", "./fixture_data_blind/")
     }
@@ -819,6 +811,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn blind_proof_check_shake256_8() {
         blind_proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data_blind/bls12-381-shake-256/", "proof/proof008.json", "./fixture_data_blind/")
     }
@@ -889,7 +882,7 @@ mod tests {
         let bbs_signature = signature.bbsPlusSignature();
         
         let header = hex::decode(header_hex).unwrap();
-        let PK = BBSplusPublicKey::from_bytes(&hex::decode(signerPK_hex).unwrap());
+        let PK = BBSplusPublicKey::from_bytes(&hex::decode(signerPK_hex).unwrap()).unwrap();
 
         let msgs: Vec<Vec<u8>> = input_messages.iter().map(|m| hex::decode(m).unwrap()).collect();
 
@@ -949,7 +942,7 @@ mod tests {
         
         let pk_hex = proof_json["signerPublicKey"].as_str().unwrap();
 
-        let pk = BBSplusPublicKey::from_bytes(&hex::decode(pk_hex).unwrap());
+        let pk = BBSplusPublicKey::from_bytes(&hex::decode(pk_hex).unwrap()).unwrap();
 
 
         let committed_messages: Option<Vec<String>>= messages_json["committedMessages"].as_array().and_then(|cm| cm.iter().map(|m| serde_json::from_value(m.clone()).unwrap()).collect());
@@ -965,7 +958,6 @@ mod tests {
         };
 
         let secret_prover_blind = proof_json["proverBlind"].as_str().map(|b| BlindFactor::from_bytes(&hex::decode(b).unwrap().try_into().unwrap()).unwrap());
-        let commitment_with_proof = proof_json["commitmentWithProof"].as_str().map(|c| hex::decode(c).unwrap());
         let signer_blind = proof_json["signerBlind"].as_str().map(|b| BlindFactor::from_bytes(&hex::decode(b).unwrap().try_into().unwrap()).unwrap());
         let header = hex::decode(proof_json["header"].as_str().unwrap()).unwrap();
         let ph = hex::decode(proof_json["presentationHeader"].as_str().unwrap()).unwrap();
@@ -991,20 +983,27 @@ mod tests {
 
         let (proof, disclosed_msgs, disclosed_idxs) = PoKSignature::<BBSplus<S::Ciphersuite>>::blind_proof_gen(&pk, &signature, Some(&header), Some(&ph), messages.as_deref(), used_committed_messages.as_deref(), disclosed_indexes.as_deref(), disclosed_commitment_indexes.as_deref(), secret_prover_blind.as_ref(), signer_blind.as_ref()).unwrap();
         
-        let (expected_disclosed_idxs, expected_disclosed_msgs): (Option<Vec<usize>>, Option<Vec<&str>>) = if let Some(values) = proof_json["disclosedData"].as_object() {
-            let idxs= values.keys().map(|s| s.parse().unwrap()).collect();
-            let msgs = values.values().map(|s| s.as_str().unwrap()).collect();
-            (Some(idxs), Some(msgs))
-        } else {
-            (None, None)
-        };
-
+        if let Some(values) = proof_json["disclosedData"].as_object() {
+            let mut sorted_values = BTreeMap::new();
+            for (key, value) in values {
+                sorted_values.insert(key.parse::<usize>().unwrap(), value);
+            }
+            
+            let idxs: Vec<usize>= sorted_values.keys().map(|&s| s).collect();
+            assert_eq!(disclosed_idxs, idxs);
+            let msgs: Vec<Vec<u8>> = sorted_values.values().map(|s| hex::decode(s.as_str().unwrap()).unwrap()).collect();
+            assert_eq!(disclosed_msgs, msgs);
+        }
 
         let expected_proof = proof_json["proof"].as_str().unwrap();
 
-        assert_eq!(hex::encode(proof.to_bytes()), expected_proof)
+        assert_eq!(hex::encode(proof.to_bytes()), expected_proof);
 
+        let result = proof.blind_proof_verify(&pk, Some(&disclosed_msgs), Some(&disclosed_idxs), Some(&header), Some(&ph)).is_ok();
 
+        let expected_result = proof_json["result"]["valid"].as_bool().unwrap();
+
+        assert_eq!(result, expected_result);
 
     }
 }

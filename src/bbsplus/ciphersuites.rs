@@ -24,6 +24,7 @@ pub trait BbsCiphersuite: Eq + 'static + Ciphersuite{
     const API_ID_BLIND: &'static [u8];
     const COMMIT_DST: &'static [u8];
     const BLIND_PROOF_DST: &'static [u8];
+    const KEYGEN_DST: &'static [u8] = b"KEYGEN_DST_"; 
     const GENERATOR_SEED: &'static [u8] = b"MESSAGE_GENERATOR_SEED";
     const GENERATOR_SEED_DST: &'static [u8] = b"SIG_GENERATOR_SEED_";
     const GENERATOR_DST: &'static [u8] = b"SIG_GENERATOR_DST_";
@@ -39,26 +40,6 @@ pub trait BbsCiphersuite: Eq + 'static + Ciphersuite{
     const OCTECT_SCALAR_LEN: usize = 32;
     const IKM_LEN: usize = 32;
 
-
-    fn keygen_dst() -> Vec<u8> {
-        [Self::API_ID, b"KEYGEN_DST_"].concat()
-    }
-
-    fn map_msg_to_scalar_as_hash_dst() -> Vec<u8> {
-        [Self::API_ID, b"MAP_MSG_TO_SCALAR_AS_HASH_"].concat()
-    }
-
-    fn generator_seed() -> Vec<u8> {
-        [Self::API_ID, b"MESSAGE_GENERATOR_SEED"].concat()
-    }
-
-    fn generator_seed_dst() -> Vec<u8> {
-        [Self::API_ID, b"SIG_GENERATOR_SEED_"].concat()
-    }
-
-    fn generator_dst() -> Vec<u8> {
-        [Self::API_ID, b"SIG_GENERATOR_DST_"].concat()
-    }
 }
 
 
@@ -91,7 +72,6 @@ impl BbsCiphersuite for Bls12381Sha256 {
     const MOCKED_SCALAR_DST: &'static [u8] = b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_MOCK_RANDOM_SCALARS_DST_";
     const API_ID_BLIND: &'static [u8] = b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_BLIND_H2G_HM2S_";
     const COMMIT_DST: &'static [u8] = b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_COMMIT_MOCK_RANDOM_SCALARS_DST_";
-    // const COMMIT_DST: &'static [u8] = b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_COMMIT_MOCK_RANDOM_SCALARS_DST_";
     const BLIND_PROOF_DST: &'static [u8] = b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_PROOF_MOCK_RANDOM_SCALARS_DST_";
     const GENERATOR_SIG_DST: &'static [u8] = b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_SIG_DET_DST_";
     type Expander= ExpandMsgXmd<Sha256>;

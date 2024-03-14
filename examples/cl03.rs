@@ -24,18 +24,18 @@ mod cl03_example {
         S::Ciphersuite: CLCiphersuite,
         <S::Ciphersuite as Ciphersuite>::HashAlg: Digest
     {
-        const msgs: &[&str] = &["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02", "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f03", "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f04"];
+        const MSGS: &[&str] = &["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02", "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f03", "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f04"];
         
-        log::info!("Messages: {:?}", msgs);
+        log::info!("Messages: {:?}", MSGS);
 
         log::info!("Keypair Generation");
         let issuer_keypair = KeyPair::<CL03<S::Ciphersuite>>::generate();
         
         log::info!("Bases generation");
-        let a_bases = Bases::generate(issuer_keypair.public_key(), msgs.len());
+        let a_bases = Bases::generate(issuer_keypair.public_key(), MSGS.len());
 
 
-        let messages: Vec<CL03Message> = msgs.iter().map(|&m| CL03Message::map_message_to_integer_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap()) ).collect();
+        let messages: Vec<CL03Message> = MSGS.iter().map(|&m| CL03Message::map_message_to_integer_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap()) ).collect();
         
     
         let unrevealed_message_indexes = [0usize];
@@ -60,7 +60,7 @@ mod cl03_example {
 
         //Verifier generates its pk
         log::info!("Generation of a Commitment Public Key for the computation of the SPoK");
-        let verifier_commitment_pk = CL03CommitmentPublicKey::generate::<S::Ciphersuite>(Some(issuer_keypair.public_key().N.clone()), Some(msgs.len()));
+        let verifier_commitment_pk = CL03CommitmentPublicKey::generate::<S::Ciphersuite>(Some(issuer_keypair.public_key().N.clone()), Some(MSGS.len()));
 
         //Holder compute the Signature Proof of Knowledge
         log::info!("Computation of a Zero-Knowledge proof-of-knowledge of a signature");
@@ -68,7 +68,7 @@ mod cl03_example {
         
         //Verifier verifies the Signature Proof of Knowledge
         log::info!("Signature Proof of Knowledge verification...");
-        let valid_proof = signature_pok.proof_verify(&verifier_commitment_pk, issuer_keypair.public_key(), &a_bases, &revealed_messages, &unrevealed_message_indexes, msgs.len());
+        let valid_proof = signature_pok.proof_verify(&verifier_commitment_pk, issuer_keypair.public_key(), &a_bases, &revealed_messages, &unrevealed_message_indexes, MSGS.len());
         
         assert!(valid_proof, "Error! The signature proof of knowledge should PASS!");
         log::info!("Signature Proof of Knowledge is VALID!");

@@ -14,12 +14,11 @@
 
 
 
-use bls12_381_plus::{G1Projective, Scalar, G1Affine, G2Projective, Gt, multi_miller_loop, G2Prepared};
-use ff::Field;
+use bls12_381_plus::{G1Projective, Scalar, G2Projective, Gt, multi_miller_loop, G2Prepared};
 use serde::{Deserialize, Serialize};
-use crate::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, errors::Error, schemes::{algorithms::BBSplus, generics::Signature}, utils::{message::BBSplusMessage, util::bbsplus_utils::{calculate_domain, calculate_domain_new, hash_to_scalar_new, hash_to_scalar_old, serialize}}};
-use elliptic_curve::{hash2curve::ExpandMsg, group::Curve, subtle::{CtOption, Choice}};
-use super::{generators, keys::{BBSplusPublicKey, BBSplusSecretKey}};
+use crate::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, errors::Error, schemes::{algorithms::BBSplus, generics::Signature}, utils::{message::BBSplusMessage, util::bbsplus_utils::{calculate_domain, hash_to_scalar, parse_g1_projective, serialize, ScalarExt}}};
+use elliptic_curve::{hash2curve::ExpandMsg, group::Curve};
+use super::keys::{BBSplusPublicKey, BBSplusSecretKey};
 
 
 
@@ -42,22 +41,9 @@ impl BBSplusSignature {
     }
 
     pub fn from_bytes(data: &[u8; Self::BYTES]) -> Result<Self, Error> {
-        let A_opt = G1Affine::from_compressed(&<[u8; G1Projective::COMPRESSED_BYTES]>::try_from(&data[0..G1Projective::COMPRESSED_BYTES]).unwrap())
-            .map(G1Projective::from);
 
-        if A_opt.is_none().into() {
-            return Err(Error::DeserializationError("Invalid blind signature".to_owned()));
-        }
-        let A: G1Projective = A_opt.unwrap();
-
-        let e_bytes = <[u8; Scalar::BYTES]>::try_from(&data[G1Projective::COMPRESSED_BYTES..Self::BYTES]).unwrap();
-        let e_opt = Scalar::from_be_bytes(&e_bytes);
-
-        if e_opt.is_none().into() {
-            return Err(Error::DeserializationError("Invalid signature".to_owned()));
-        }
-        let e = e_opt.unwrap();
-
+        let A: G1Projective = parse_g1_projective(&data[0..G1Projective::COMPRESSED_BYTES]).map_err(|_| Error::InvalidSignature)?;
+        let e = Scalar::from_bytes_be(&data[G1Projective::COMPRESSED_BYTES..Self::BYTES]).map_err(|_| Error::InvalidSignature)?;
 
         Ok(Self{A, e})
     }
@@ -82,6 +68,18 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
     }
 
 
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-signature-generation-sign
+    /// # Description
+    /// The `sign` API returns a BBS signature from a secret key (SK), over a header and a set of messages.
+    /// 
+    /// # Inputs:
+    /// * `messages` (OPTIONAL), a vector of octet strings representing the messages, it could be an empty vector.
+    /// * `sk` (REQUIRED), a secret key 
+    /// * `pk` (REQUIRED), a public key
+    /// * `header` (OPTIONAL), an octet string containing context and application specific information.
+    /// 
+    /// # Output:
+    /// * new [`Signature::BBSplus`] or [`Error`]
     pub fn sign(messages: Option<&[Vec<u8>]>, sk: &BBSplusSecretKey, pk: &BBSplusPublicKey, header: Option<&[u8]>) -> Result<Self, Error> 
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
@@ -94,6 +92,17 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         Ok(Self::BBSplus(signature))
     }
 
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-signature-verification-veri
+    /// # Description
+    /// The `verify` API validates a BBS signature, given a public key (PK), a header and a set of messages
+    /// # Inputs:
+    /// * `self`, the signature
+    /// * `pk` (REQUIRED), a public key
+    /// * `messages` (OPTIONAL), a vector of octet strings representing the messages, it could be an empty vector.
+    /// * `header` (OPTIONAL), an octet string containing context and application specific information.
+    /// 
+    /// # Output:
+    /// * a result either [`Ok()`] or [`Error`]
     pub fn verify(&self, pk: &BBSplusPublicKey, messages: Option<&[Vec<u8>]>, header: Option<&[u8]>) -> Result<(), Error> 
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
@@ -123,18 +132,36 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
 
 
 
-    pub fn update_signature(&self, sk: &BBSplusSecretKey, generators: &Generators, old_message: &BBSplusMessage, new_message: &BBSplusMessage, update_index: usize) -> Result<Self, Error> {
+    //TODO test update
+    /// # Description
+    /// Update signature with a new value of a signed message
+    /// 
+    /// # Inputs:
+    /// * `sk` (REQUIRED), Signer private key.
+    /// * `old_message` (REQUIRED), message octet string old value.
+    /// * `new_message` (REQUIRED), message octet string new value.
+    /// * `update_index` (REQUIRED), index of the message to update.
+    /// * `n` (REQUIRED), total number of signed messages.
+    /// 
+    /// # Output:
+    /// * new [`BBSplusSignature`] or [`Error`]
+    pub fn update_signature(&self, sk: &BBSplusSecretKey, old_message: &[u8], new_message: &[u8], update_index: usize, n: usize) -> Result<Self, Error> {
+
+        let generators  = Generators::create::<CS>(n+1, Some(CS::API_ID));
 
         if generators.values.len() <= update_index + 1 {
             return Err(Error::UpdateSignatureError("len(generators) <= update_index".to_owned()));
         }
+        
+        let old_message_scalar = BBSplusMessage::map_message_to_scalar_as_hash::<CS>(old_message, CS::API_ID)?;
+        let new_message_scalar = BBSplusMessage::map_message_to_scalar_as_hash::<CS>(new_message, CS::API_ID)?;
 
         let H_points = &generators.values[1..];
         let H_i = H_points.get(update_index).ok_or(Error::Unspecified)?;
         let sk_e = sk.0 + self.e();
         let mut B = self.a() * sk_e;
-        B = B + (-H_i * old_message.value);
-        B = B + (H_i * new_message.value);
+        B = B + (-H_i * old_message_scalar.value);
+        B = B + (H_i * new_message_scalar.value);
 
         let sk_e_inv = Option::<Scalar>::from(sk_e.invert()).ok_or(Error::UpdateSignatureError("Invert scalar failed".to_owned()))?;
         let A = B * sk_e_inv;
@@ -147,7 +174,20 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
     }
 }
 
-
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-coresign
+/// # Description
+/// This operation computes a deterministic signature from a secret key (SK), a set of generators (points of G1) and optionally a header and a vector of messages.
+/// 
+/// # Inputs:
+/// * `sk` (REQUIRED), a secret key 
+/// * `pk` (REQUIRED), a public key
+/// * `generators` (REQUIRED), vector of pseudo-random points in G1.
+/// * `header` (OPTIONAL), an octet string containing context and application specific information.
+/// * `messages` (REQUIRED), a vector of scalars (`BBSplusMessage`) representing the messages, it could be an empty vector.
+/// * `api_id` (OPTIONAL), an octet string. If not supplied it defaults to theempty octet string ("").
+/// 
+/// # Output:
+/// * new [`BBSplusSignature`] or [`Error`]
 fn core_sign<CS>(sk: &BBSplusSecretKey, pk: &BBSplusPublicKey, generators: Generators, header: Option<&[u8]>, messages: &[BBSplusMessage], api_id: Option<&[u8]>) -> Result<BBSplusSignature, Error>
 where
     CS: BbsCiphersuite,
@@ -167,7 +207,7 @@ where
 
     let signature_dst = [api_id, CS::H2S].concat();
 
-    let domain = calculate_domain_new::<CS>(pk, Q1, H_points, header, Some(api_id))?;
+    let domain = calculate_domain::<CS>(pk, Q1, H_points, header, Some(api_id))?;
 
     //serialize 
     let mut input: Vec<Scalar> = Vec::new();
@@ -175,7 +215,7 @@ where
     input.push(domain);
     messages.iter().for_each(|m| input.push(m.value)); //the to_byte_le() may be needed instead
 
-    let e = hash_to_scalar_new::<CS>(&serialize(&input), &signature_dst)?;
+    let e = hash_to_scalar::<CS>(&serialize(&input), &signature_dst)?;
 
     // B = P1 + Q_1 * domain + H_1 * msg_1 + ... + H_L * msg_L
 
@@ -196,6 +236,20 @@ where
 }
 
 
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-coreverify
+/// # Description
+/// This operation checks that a signature is valid for a given set of generators, header and vector of messages, against a supplied public key (PK). The set of messages MUST be supplied in this operation in the same order they were supplied to `core_sign` when creating the signature.
+///
+/// # Inputs:
+/// * `pk` (REQUIRED), a public key
+/// * `signature` (REQUIRED), a `BBSplusSignature`
+/// * `messages` (REQUIRED), a vector of scalars (`BBSplusMessage`) representing the messages, it could be an empty vector.
+/// * `generators` (REQUIRED), vector of pseudo-random points in G1.
+/// * `header` (OPTIONAL), an octet string containing context and application specific information.
+/// * `api_id` (OPTIONAL), an octet string. If not supplied it defaults to theempty octet string ("").
+/// 
+/// # Output:
+/// * a result either [`Ok()`] or [`Error`]
 pub(super) fn core_verify<CS>(pk: &BBSplusPublicKey, signature: &BBSplusSignature, messages: &[BBSplusMessage], generators: Generators, header: Option<&[u8]>, api_id: Option<&[u8]>) -> Result<(), Error> 
 where
     CS: BbsCiphersuite,
@@ -210,7 +264,7 @@ where
     let Q1 = generators.values[0];
     let H_points: &[G1Projective] = &generators.values[1..];
 
-    let domain = calculate_domain_new::<CS>(pk, Q1, H_points, header, api_id)?;
+    let domain = calculate_domain::<CS>(pk, Q1, H_points, header, api_id)?;
 
     let mut B = generators.g1_base_point + Q1 * domain;
 

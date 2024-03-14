@@ -22,12 +22,10 @@ mod bbsplus_tests {
     
     use std::fs;
     use bbsplus::ciphersuites::BbsCiphersuite;
-    use bls12_381_plus::Scalar;
     use elliptic_curve::{hash2curve::ExpandMsg, group::Curve};
     use schemes::algorithms::Scheme;
-    use zkryptium::{bbsplus::{self, generators::Generators, keys::{BBSplusPublicKey, BBSplusSecretKey}}, keys::pair::KeyPair, schemes::{self, algorithms::{BBSplus}, generics::{BlindSignature, Commitment, PoKSignature, Signature, ZKPoK}}, utils::{message::{BBSplusMessage, Message}, util::bbsplus_utils::{get_messages_vec, hash_to_scalar_new, ScalarExt}}};
+    use zkryptium::{bbsplus::{self, generators::Generators, keys::{BBSplusPublicKey, BBSplusSecretKey}}, keys::pair::KeyPair, schemes::{self, algorithms::BBSplus, generics::Signature}, utils::{message::BBSplusMessage, util::bbsplus_utils::{hash_to_scalar, ScalarExt}}};
     use zkryptium::schemes::algorithms::{BBS_BLS12381_SHA256, BBS_BLS12381_SHAKE256};
-    use elliptic_curve::hash2curve::Expander;
     
     
     
@@ -173,33 +171,6 @@ mod bbsplus_tests {
     }
 
 
-    // //ZKPoK (BlindMessagesProofGen) - SHA2563
-    // #[test]
-    // fn zkpok_sha256() {
-    //     blind_messages_proof_gen::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/");
-    // }
-
-    // #[test]
-    // //ZKPoK (BlindMessagesProofGen) - SHAKE256
-    // fn zkpok_shake256() {
-    //     blind_messages_proof_gen::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/");
-    // }
-
-
-
-    // //Blind Signature and ZKPoK - SHA256
-    // #[test]
-    // fn blind_sign_sha256() {
-    //     blind_sign::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/");
-    // }
-
-    // //Blind Signature and ZKPoK - SHAKE256
-    // #[test]
-    // fn blind_sign_shake256() {
-    //     blind_sign::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/");
-    // }
-
-
     // //Update Blinded Signature - SHA256
     // #[test]
     // fn update_blind_signature_sha256() {
@@ -283,7 +254,6 @@ mod bbsplus_tests {
         let data = fs::read_to_string(filename).expect("Unable to read file");
         let json: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
         eprintln!("{}", json["caseName"]);
-        let dst =  hex::decode(json["dst"].as_str().unwrap()).unwrap();
         let cases = json["cases"].as_array().unwrap();
 
         let mut boolean = true;
@@ -292,7 +262,7 @@ mod bbsplus_tests {
 
             let msg_hex = hex::decode(msg.as_str().unwrap()).unwrap();
 
-            let out = hex::encode(BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&msg_hex, Some(&dst)).unwrap().to_bytes_be());
+            let out = hex::encode(BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&msg_hex, <S::Ciphersuite as BbsCiphersuite>::API_ID).unwrap().to_bytes_be());
             let out_expected = c["scalar"].as_str().unwrap();
 
             if out != out_expected{
@@ -384,8 +354,8 @@ mod bbsplus_tests {
         let RESULT_expected = res["result"]["valid"].as_bool().unwrap();
 
         let header = hex::decode(header_hex).unwrap();
-        let SK = BBSplusSecretKey::from_bytes(&hex::decode(SK_hex).unwrap());
-        let PK = BBSplusPublicKey::from_bytes(&hex::decode(PK_hex).unwrap());
+        let SK = BBSplusSecretKey::from_bytes(&hex::decode(SK_hex).unwrap()).unwrap();
+        let PK = BBSplusPublicKey::from_bytes(&hex::decode(PK_hex).unwrap()).unwrap();
 
         let messages: Vec<Vec<u8>> = msgs_hex.iter().map(|m| hex::decode(m).unwrap()).collect();
 
@@ -448,7 +418,7 @@ mod bbsplus_tests {
         let dst = hex::decode(dst_hex).unwrap();
 
 
-        let scalar = hash_to_scalar_new::<S::Ciphersuite>(&msg, &dst).unwrap();
+        let scalar = hash_to_scalar::<S::Ciphersuite>(&msg, &dst).unwrap();
 
         let mut result = true;
 

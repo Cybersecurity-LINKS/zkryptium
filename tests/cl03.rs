@@ -172,7 +172,6 @@ mod cl03_tests {
         let revealed_messages_wrong : Vec<CL03Message> = wrong_messages.iter().enumerate().filter(|&(i,_)| revealed_message_indexes.contains(&i) ).map(|(_, m)| m.clone()).collect();
 
         let commitment = Commitment::<CL03<S::Ciphersuite>>::commit_with_pk(&messages, cl03_keypair.public_key(), &a_bases, Some(&unrevealed_message_indexes));
-        let wrong_commitment = Commitment::<CL03<S::Ciphersuite>>::commit_with_pk(&wrong_messages, cl03_keypair.public_key(), &a_bases, Some(&unrevealed_message_indexes));
 
         let zkpok = ZKPoK::<CL03<S::Ciphersuite>>::generate_proof(&messages, commitment.cl03Commitment(), None, cl03_keypair.public_key(), &a_bases, None, &unrevealed_message_indexes);
 
@@ -220,7 +219,6 @@ mod cl03_tests {
         let revealed_messages_wrong : Vec<CL03Message> = wrong_messages.iter().enumerate().filter(|&(i,_)| revealed_message_indexes.contains(&i) ).map(|(_, m)| m.clone()).collect();
 
         let commitment = Commitment::<CL03<S::Ciphersuite>>::commit_with_pk(&messages, cl03_keypair.public_key(), &a_bases, Some(&unrevealed_message_indexes));
-        let wrong_commitment = Commitment::<CL03<S::Ciphersuite>>::commit_with_pk(&wrong_messages, cl03_keypair.public_key(), &a_bases, Some(&unrevealed_message_indexes));
 
         let zkpok = ZKPoK::<CL03<S::Ciphersuite>>::generate_proof(&messages, commitment.cl03Commitment(), None, cl03_keypair.public_key(), &a_bases, None, &unrevealed_message_indexes);
 

@@ -16,13 +16,13 @@ use serde::{Serialize, de::DeserializeOwned};
 
 pub trait PublicKey: Serialize + DeserializeOwned + Send + Sync + 'static {
     type Output: ?Sized;
-    // type Params;
+
     fn to_bytes(&self) -> Self::Output;
     fn encode(&self) -> String;
-    // fn get_params(&self) -> Self::Params;
 }
 pub trait PrivateKey: Serialize + DeserializeOwned + Send + Sync + 'static {
     type Output: ?Sized;
+    
     fn to_bytes(&self) -> Self::Output;
     fn encode(&self) -> String;
 }

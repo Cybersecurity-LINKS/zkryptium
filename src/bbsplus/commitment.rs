@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::os::windows::process;
 
-use bls12_381_plus::{G1Affine, G1Projective, Scalar};
+
+use bls12_381_plus::{G1Projective, Scalar};
 use serde::{Deserialize, Serialize};
-use crate::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, errors::Error, schemes::{algorithms::BBSplus, generics::Commitment}, utils::{message::{BBSplusMessage, Message}, util::bbsplus_utils::{calculate_blind_challenge, get_random, subgroup_check_g1, ScalarExt}}};
-use super::{generators, keys::BBSplusPublicKey, proof::BBSplusZKPoK};
-use elliptic_curve::{hash2curve::{ExpandMsg, Expander}, scalar};
+use crate::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, errors::Error, schemes::{algorithms::BBSplus, generics::Commitment}, utils::{message::BBSplusMessage, util::bbsplus_utils::{calculate_blind_challenge, get_random, parse_g1_projective, ScalarExt}}};
+use super::proof::BBSplusZKPoK;
+use elliptic_curve::hash2curve::ExpandMsg;
 use bls12_381_plus::group::Curve;
 
 #[cfg(not(test))]
@@ -43,16 +43,8 @@ impl BBSplusCommitment {
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
-        let parse_g1_affine = |slice: &[u8]| -> Result<G1Projective, Error> {
-            let point = G1Affine::from_compressed(&<[u8; 48]>::try_from(slice).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?);
-            if point.is_none().into() {
-                return Err(Error::InvalidProofOfKnowledgeSignature);
-            }
-            Ok(point.map(G1Projective::from).unwrap())
-        };
-    
-        let commitment = parse_g1_affine(&bytes[0..48])?;
-        let proof = BBSplusZKPoK::from_bytes(&bytes[48..])?;
+        let commitment = parse_g1_projective(&bytes[0..G1Projective::COMPRESSED_BYTES]).map_err(|_| Error::InvalidCommitment)?;
+        let proof = BBSplusZKPoK::from_bytes(&bytes[G1Projective::COMPRESSED_BYTES..]).map_err(|_| Error::InvalidCommitmentProof)?;
 
         Ok(Self { commitment, proof })
 
@@ -62,6 +54,16 @@ impl BBSplusCommitment {
 
 impl <CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
 
+
+    /// # Description
+    /// This operation is used by the Prover to create a commitment to a set of messages (committed_messages), that they intend to include to the blind signature. Note that this operation returns both the serialized combination of the commitment and its proof of correctness (commitment_with_proof), as well as the random scalar used to blind the commitment (secret_prover_blind).
+    /// 
+    /// # Inputs:
+    /// * `committed_messages` (OPTIONAL), a vector of octet strings. If not supplied it defaults to the empty array.
+    /// 
+    /// # Output:
+    /// ([`Commitment::BBSplus`], [`BlindFactor`]), a tuple (commitment + proof, secret_prover_blind) or [`Error`].
+    /// 
     pub fn commit(committed_messages: Option<&[Vec<u8>]>) -> Result<(Self, BlindFactor), Error>
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
@@ -72,7 +74,19 @@ impl <CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
     }
 
 
-
+    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-00#name-commitment-validation-and-d
+    /// 
+    /// # Description
+    /// The following is an API used by the `core_blind_sign` procedure to validate an optional commitment. The commitment input to `core_blind_sign` is optional. If a commitment is not supplied, or if it is the Identity_G1, the following operation will return the Identity_G1 as the commitment point, which will be ignored by all computations during `core_blind_sign`.
+    /// 
+    /// # Inputs:
+    /// * `commitment_with_proof` (OPTIONAL), octet string representing the serialization of [`BBSplusCommitment`]. If it is not supplied it defaults to the empty octet string.
+    /// * `generators` (REQUIRED), vector of points of G1.
+    /// * `api_id` (OPTIONAL), octet string. If not supplied it defaults to the empty octet string ("").
+    /// 
+    /// # Output:
+    /// * ([`G1Projective`], [`usize`]), a tuple comprising from commitment and M; or [`Error`].
+    /// 
     pub fn deserialize_and_validate_commit(commitment_with_proof: Option<&[u8]>, generators: &Generators, api_id: Option<&[u8]> ) -> Result<(G1Projective, usize), Error>{
 
         let commitment_with_proof = commitment_with_proof.unwrap_or(&[]);
@@ -136,19 +150,17 @@ impl BlindFactor {
 }
 
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-generators-calculation -> generators = create_generators(count, api_id)
+/// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-00#name-commitment-computation
 /// 
 /// # Description
 /// This operation is used by the Prover to create a commitment to a set of messages (committed_messages), that they intend to include to the blind signature. Note that this operation returns both the serialized combination of the commitment and its proof of correctness (commitment_with_proof), as well as the random scalar used to blind the commitment (secret_prover_blind).
 /// 
 /// # Inputs:
-/// * `committed_messages` (OPTIONAL), a vector of octet strings. If not
-/// supplied it defaults to the empty
-/// array ("()").
-/// * `api_id` (OPTIONAL), octet string. If not supplied it defaults to the empty octet string ("").
+/// * `committed_messages` (OPTIONAL), a vector of octet strings. If not supplied it defaults to the empty array.
+/// * `api_id` (OPTIONAL), octet string. If not supplied it defaults to the empty octet string.
 /// 
 /// # Output:
-/// ([`BBSplusCommitment`], [`BlindFactor`]), a tuple (commitment + proof, secret_prover_blind).
+/// ([`BBSplusCommitment`], [`BlindFactor`]), a tuple (commitment + proof, secret_prover_blind) or [`Error`].
 /// 
 fn commit<CS>(committed_messages: Option<&[Vec<u8>]>, api_id: Option<&[u8]>) -> Result<(BBSplusCommitment, BlindFactor), Error>
 where
@@ -209,6 +221,20 @@ where
 }
 
 
+/// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-00#name-commitment-verification
+/// 
+/// # Description
+/// This operation is used by the Signer to verify the correctness of a commitment_proof for a supplied commitment, over a list of points of G1 called the blind_generators, used to compute that commitment.
+/// 
+/// # Inputs:
+/// * `commitment` (REQUIRED), a commitment.
+/// * `commitment_proof` (REQUIRED), a commitment_proof [`BBSplusZKPoK`].
+/// * `blind_generators` (REQUIRED), vector of pseudo-random points in G1.
+/// * `api_id` (OPTIONAL), octet string. If not supplied it defaults to the empty octet string.
+/// 
+/// # Output:
+/// a result [`Ok`] or [`Error`].
+/// 
 fn verify_commitment<CS>(commitment: G1Projective, commitment_proof: &BBSplusZKPoK, blind_generators: &[G1Projective], api_id: Option<&[u8]>) -> Result<(), Error> 
 where
     CS: BbsCiphersuite,

@@ -13,13 +13,13 @@
 // limitations under the License.
 
 
+//TODO: add documentation
+
 use std::panic;
-use bls12_381_plus::{G1Projective, Scalar, G1Affine};
-use elliptic_curve::{group::Curve, subtle::{CtOption, Choice}, hash2curve::ExpandMsg};
-use ff::Field;
-use serde::{Deserialize, Serialize};
-use crate::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, errors::Error, schemes::{algorithms::BBSplus, generics::{BlindSignature, Commitment, Signature, ZKPoK}}, utils::{message::BBSplusMessage, util::bbsplus_utils::{calculate_domain, calculate_domain_new, hash_to_scalar_new, hash_to_scalar_old, ScalarExt}}};
-use super::{commitment::{BBSplusCommitment, BlindFactor}, keys::{BBSplusPublicKey, BBSplusSecretKey}, signature::{core_verify, BBSplusSignature}};
+use bls12_381_plus::{G1Projective, Scalar};
+use elliptic_curve::hash2curve::ExpandMsg;
+use crate::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, errors::Error, schemes::{algorithms::BBSplus, generics::{BlindSignature, Commitment}}, utils::{message::BBSplusMessage, util::bbsplus_utils::{calculate_domain, hash_to_scalar, ScalarExt}}};
+use super::{commitment::BlindFactor, keys::{BBSplusPublicKey, BBSplusSecretKey}, signature::{core_verify, BBSplusSignature}};
 
 
 impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
@@ -56,9 +56,6 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     pub fn verify(&self, pk: &BBSplusPublicKey, header: Option<&[u8]>, messages: Option<&[Vec<u8>]>, committed_messages: Option<&[Vec<u8>]>, secret_prover_blind: Option<&BlindFactor>, signer_blind: Option<&BlindFactor>) -> Result<(), Error>{
         let messages = messages.unwrap_or(&[]);
         let committed_messages = committed_messages.unwrap_or(&[]);
-
-        // let L = messages.len();
-        // let M = committed_messages.len();
 
         let mut message_scalars = Vec::new();
 
@@ -140,11 +137,11 @@ fn core_blind_sign<CS>(
 
         let signer_blind = signer_blind.unwrap_or(&BlindFactor(Scalar::ZERO));
 
-        let H_points = &generators.values[M+1..M+L+1]; //TODO: to check
+        let H_points = &generators.values[M+1..M+L+1];
 
         let temp_generators = &generators.values[1..M+L+1];
 
-        let domain = calculate_domain_new::<CS>(pk, Q1, temp_generators, header, Some(api_id))?;
+        let domain = calculate_domain::<CS>(pk, Q1, temp_generators, header, Some(api_id))?;
 
         let mut e_octs: Vec<u8> = Vec::new();
         e_octs.extend_from_slice(&sk.to_bytes());
@@ -155,7 +152,7 @@ fn core_blind_sign<CS>(
         }
         e_octs.extend_from_slice(commitment_with_proof);
 
-        let e = hash_to_scalar_new::<CS>(&e_octs, &signature_dst)?; //TODO: modify to support tests
+        let e = hash_to_scalar::<CS>(&e_octs, &signature_dst)?; //TODO: Not sure where the Signature DST ("BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_SIGNATURE_MOCK_RANDOM_SCALARS_DST_") in the fixtures is used
         if signer_blind.0 != Scalar::ZERO {
             commit += Q2 * signer_blind.0;
         }
@@ -182,13 +179,8 @@ fn core_blind_sign<CS>(
     #[cfg(test)]
     mod tests {
         use std::fs;
-    
-        use bls12_381_plus::{G1Projective, Scalar};
-        use elliptic_curve::{hash2curve::ExpandMsg, Group};
-        use ff::Field;
-        use rand::{rngs::ThreadRng, Rng};
-    
-        use crate::{bbsplus::{ciphersuites::BbsCiphersuite, commitment::BlindFactor, keys::{BBSplusPublicKey, BBSplusSecretKey}, signature::BBSplusSignature}, schemes::{algorithms::{BBSplus, Scheme, BBS_BLS12381_SHA256, BBS_BLS12381_SHAKE256}, generics::{BlindSignature, Commitment, PoKSignature, Signature}}, utils::util::bbsplus_utils::{get_messages_vec, ScalarExt}};
+        use elliptic_curve::hash2curve::ExpandMsg;
+        use crate::{bbsplus::{ciphersuites::BbsCiphersuite, commitment::BlindFactor, keys::{BBSplusPublicKey, BBSplusSecretKey}}, schemes::{algorithms::{BBSplus, Scheme, BBS_BLS12381_SHA256}, generics::BlindSignature}};
     
     
         //Blind Sign - SHA256 - UPDATED
@@ -235,11 +227,11 @@ fn core_blind_sign<CS>(
             let sk_hex = proof_json["signerKeyPair"]["secretKey"].as_str().unwrap();
             let pk_hex = proof_json["signerKeyPair"]["publicKey"].as_str().unwrap();
 
-            let sk = BBSplusSecretKey::from_bytes(&hex::decode(sk_hex).unwrap());
-            let pk = BBSplusPublicKey::from_bytes(&hex::decode(pk_hex).unwrap());
+            let sk = BBSplusSecretKey::from_bytes(&hex::decode(sk_hex).unwrap()).unwrap();
+            let pk = BBSplusPublicKey::from_bytes(&hex::decode(pk_hex).unwrap()).unwrap();
 
             let committed_messages: Option<Vec<String>>= proof_json["committedMessages"].as_array().and_then(|cm| cm.iter().map(|m| serde_json::from_value(m.clone()).unwrap()).collect());
-            let prover_blind = proof_json["proverBlind"].as_str().map(|b| BlindFactor::from_bytes(&hex::decode(b).unwrap().try_into().unwrap()).unwrap()); //TODO: to be fixed
+            let prover_blind = proof_json["proverBlind"].as_str().map(|b| BlindFactor::from_bytes(&hex::decode(b).unwrap().try_into().unwrap()).unwrap());
             
             let commitment_with_proof = proof_json["commitmentWithProof"].as_str().map(|c| hex::decode(c).unwrap());
 

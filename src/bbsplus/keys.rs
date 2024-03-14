@@ -16,7 +16,7 @@
 use bls12_381_plus::{Scalar, G2Projective, G2Affine};
 use elliptic_curve::{group::Curve, hash2curve::ExpandMsg};
 use serde::{Serialize, Deserialize};
-use crate::{keys::{traits::{PublicKey, PrivateKey}, pair::KeyPair}, schemes::algorithms::BBSplus, errors::Error, utils::util::bbsplus_utils::{i2osp, hash_to_scalar_new}};
+use crate::{errors::Error, keys::{pair::KeyPair, traits::{PrivateKey, PublicKey}}, schemes::algorithms::BBSplus, utils::util::bbsplus_utils::{hash_to_scalar, i2osp, parse_g2_projective_compressed, parse_g2_projective_uncompressed}};
 use super::ciphersuites::BbsCiphersuite;
 
 
@@ -39,7 +39,7 @@ impl BBSplusPublicKey{
         (x, y)
     }
 
-    pub fn from_coordinates(x: &[u8; Self::COORDINATE_LEN], y: &[u8; Self::COORDINATE_LEN]) -> Self {
+    pub fn from_coordinates(x: &[u8; Self::COORDINATE_LEN], y: &[u8; Self::COORDINATE_LEN]) -> Result<Self, Error> {
         let mut uncompressed = [0u8; G2Affine::UNCOMPRESSED_BYTES];
         uncompressed[..Self::COORDINATE_LEN].copy_from_slice(x);
         uncompressed[Self::COORDINATE_LEN..].copy_from_slice(y);
@@ -50,9 +50,9 @@ impl BBSplusPublicKey{
         self.0.to_affine().to_uncompressed()
     }
 
-    fn from_bytes_uncompressed(bytes: &[u8; G2Affine::UNCOMPRESSED_BYTES]) -> Self {
-        let g2 = G2Projective::from(G2Affine::from_uncompressed(&bytes).unwrap());
-        Self(g2)
+    fn from_bytes_uncompressed(bytes: &[u8; G2Affine::UNCOMPRESSED_BYTES]) -> Result<Self, Error> {
+        let g2 = parse_g2_projective_uncompressed(bytes).map_err(|_| Error::KeyDeserializationError)?;
+        Ok(Self(g2))
     }
 
     pub fn to_bytes(&self) -> [u8; G2Affine::COMPRESSED_BYTES] {
@@ -64,10 +64,9 @@ impl BBSplusPublicKey{
         hex::encode(pk_bytes)
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> Self{
-        let bytes: [u8; G2Affine::COMPRESSED_BYTES] = bytes.try_into().expect("Invalid number of bytes to be coverted into a BBSplus public key! (max 96 bytes)");
-        let g2 = G2Projective::from(G2Affine::from_compressed(&bytes).unwrap());
-        Self(g2)
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error>{
+        let g2 = parse_g2_projective_compressed(&bytes[0..G2Affine::COMPRESSED_BYTES]).map_err(|_| Error::KeyDeserializationError)?;
+        Ok(Self(g2))
     }
 }
 
@@ -76,22 +75,10 @@ impl BBSplusPublicKey{
 pub struct BBSplusSecretKey(pub Scalar);
 
 impl BBSplusSecretKey{
-    //in BE order
+    /// In Big Endian order
     pub fn to_bytes(&self) -> [u8; Scalar::BYTES] {
         let bytes = self.0.to_be_bytes();
         bytes
-    }
-
-    pub fn to_bytes_le(&self) -> [u8; Scalar::BYTES] {
-        let bytes = self.0.to_le_bytes();
-        bytes
-    }
-
-    pub fn from_bytes_le(bytes: &[u8]) -> Self {
-        let bytes: [u8; Scalar::BYTES] = bytes.try_into().expect("Invalid number of bytes to be coverted into a BBSplus private key! (max 32 bytes)");
-        let s = Scalar::from_le_bytes(&bytes).unwrap();
-
-        Self(s)
     }
 
     pub fn encode(&self) -> String {
@@ -99,11 +86,14 @@ impl BBSplusSecretKey{
         hex::encode(sk_bytes)
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> Self {
-        let bytes: [u8; Scalar::BYTES] = bytes.try_into().expect("Invalid number of bytes to be coverted into a BBSplus private key! (max 32 bytes)");
-        let s = Scalar::from_be_bytes(&bytes).unwrap();
-
-        Self(s)
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        let bytes: [u8; Scalar::BYTES] = bytes.try_into().map_err(|_| Error::KeyDeserializationError)?;
+        let s = Scalar::from_be_bytes(&bytes);
+        if s.is_none().into() {
+            return Err(Error::KeyDeserializationError);
+        }
+        
+        Ok(Self(s.unwrap()))
     }
 }
 
@@ -111,7 +101,7 @@ impl BBSplusSecretKey{
 
 impl PublicKey for BBSplusPublicKey{
     type Output = [u8; 96];
-    // type Params = G2Projective;
+
     fn to_bytes(&self) -> Self::Output {
         self.to_bytes()
     }
@@ -120,17 +110,13 @@ impl PublicKey for BBSplusPublicKey{
         let pk_bytes = self.to_bytes();
         hex::encode(pk_bytes)
     }
-
-    // fn get_params(&self) -> Self::Params {
-    //     self.0
-    // }
 }
 
 
 
 impl PrivateKey for BBSplusSecretKey{
     type Output = [u8; 32];
-    //in BE order
+    /// In Big Endian order
     fn to_bytes(&self) -> Self::Output{
         self.to_bytes()
     }
@@ -143,8 +129,20 @@ impl PrivateKey for BBSplusSecretKey{
 
 
 
-impl <CS: BbsCiphersuite> KeyPair<BBSplus<CS>>{ 
-    
+impl <CS: BbsCiphersuite> KeyPair<BBSplus<CS>>{
+
+
+
+    /// # Description
+    /// This operation generates a keypair (SK, PK) deterministically from a secret octet string (key_material)
+    /// 
+    /// # Inputs:
+    /// * `key_material` (REQUIRED), a secret octet string.
+    /// * `key_info` (OPTIONAL), an octet string. Defaults to an empty string if not supplied.
+    /// * `key_dst` (OPTIONAL), an octet string representing the domain separation tag. Defaults to the octet string [`BbsCiphersuite::API_ID`] || "KEYGEN_DST_"
+    /// # Output:
+    /// * a keypair [`KeyPair`]
+    ///  
     pub fn generate(key_material: &[u8], key_info: Option<&[u8]>, key_dst: Option<&[u8]>) -> Result<Self, Error>
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
@@ -193,7 +191,7 @@ where
         return Err(Error::KeyGenError("length(key_info) > 65535".to_owned()))
     }
 
-    let key_dst_default = CS::keygen_dst();
+    let key_dst_default = [ CS::API_ID, CS::KEYGEN_DST].concat();
     let key_dst = key_dst.unwrap_or(&key_dst_default);
 
 
@@ -201,7 +199,7 @@ where
     let derive_input = [key_material, &i2osp(key_info.len(), 2), key_info].concat();
 
     // SK = hash_to_scalar(derive_input, key_dst)
-    let sk = hash_to_scalar_new::<CS>(&derive_input, key_dst)?;
+    let sk = hash_to_scalar::<CS>(&derive_input, key_dst)?;
     Ok(sk)
 }
 

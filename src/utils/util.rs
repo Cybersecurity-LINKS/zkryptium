@@ -16,16 +16,42 @@
 
 #[cfg(feature = "bbsplus")]
 pub mod bbsplus_utils {
-    use std::{any::{TypeId, Any}, borrow::Borrow};
+    use std::any::{TypeId, Any};
     use ff::Field;
-    use rand::{random, RngCore};
+    use rand::RngCore;
     use rand::rngs::OsRng;
-    use bls12_381_plus::{Scalar, G1Projective, G2Projective};
+    use bls12_381_plus::{G1Affine, G1Projective, G2Affine, G2Projective, Scalar};
     use elliptic_curve::{hash2curve::{ExpandMsg, Expander}, group::Curve};
-    use crate::{bbsplus::{commitment::BlindFactor, generators::Generators}, errors::Error, utils::message::BBSplusMessage};
+    use crate::{bbsplus::commitment::BlindFactor, errors::Error, utils::message::BBSplusMessage};
     use crate::{bbsplus::ciphersuites::BbsCiphersuite, bbsplus::keys::BBSplusPublicKey};
 
     const NONCE_LENGTH: usize = 16;
+
+
+    pub(crate) fn parse_g2_projective_compressed(slice: &[u8]) -> Result<G2Projective, Error> {
+        let point = G2Affine::from_compressed(&<[u8; G2Affine::COMPRESSED_BYTES]>::try_from(slice).map_err(|_| Error::DeserializationError("Invalid G2 point".to_owned()))?);
+        if point.is_none().into() {
+            return Err(Error::DeserializationError("Invalid G2 point".to_owned()));
+        }
+        Ok(point.map(G2Projective::from).unwrap())
+    }
+
+    pub(crate) fn parse_g2_projective_uncompressed(slice: &[u8]) -> Result<G2Projective, Error> {
+        let point = G2Affine::from_uncompressed(&<[u8; G2Affine::UNCOMPRESSED_BYTES]>::try_from(slice).map_err(|_| Error::DeserializationError("Invalid G2 point".to_owned()))?);
+        if point.is_none().into() {
+            return Err(Error::DeserializationError("Invalid G2 point".to_owned()));
+        }
+        Ok(point.map(G2Projective::from).unwrap())
+    }
+
+
+    pub(crate) fn parse_g1_projective(slice: &[u8]) -> Result<G1Projective, Error> {
+        let point = G1Affine::from_compressed(&<[u8; G1Affine::COMPRESSED_BYTES]>::try_from(slice).map_err(|_| Error::DeserializationError("Invalid G1 point".to_owned()))?);
+        if point.is_none().into() {
+            return Err(Error::DeserializationError("Invalid G1 point".to_owned()));
+        }
+        Ok(point.map(G1Projective::from).unwrap())
+    }
 
     pub fn generate_nonce() -> Vec<u8> {
         let mut rng = OsRng::default();
@@ -51,8 +77,8 @@ pub mod bbsplus_utils {
     }
     
 
-    // UPDATE
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-hash-to-scalar -> hashed_scalar = hash_to_scalar(msg_octets, dst)
+    
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-hash-to-scalar
     /// 
     /// # Description
     /// This operation describes how to hash an arbitrary octet string to a scalar values in the multiplicative group of integers mod r
@@ -62,9 +88,9 @@ pub mod bbsplus_utils {
     /// * `dst` (REQUIRED), an octet string representing a domain separation tag.
     /// 
     /// # Output:
-    /// * a [`Scalar`].
+    /// * a [`Scalar`] or [`Error`]. or [`Error`]..
     /// 
-    pub fn hash_to_scalar_new<CS: BbsCiphersuite>(msg_octects: &[u8], dst: &[u8]) -> Result<Scalar, Error>
+    pub fn hash_to_scalar<CS: BbsCiphersuite>(msg_octects: &[u8], dst: &[u8]) -> Result<Scalar, Error>
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
@@ -81,128 +107,25 @@ pub mod bbsplus_utils {
         // OS2IP(uniform_bytes) mod r
         Ok(Scalar::from_okm(uniform_bytes.as_slice().try_into().map_err(|_| Error::HashToScalarError)?))
 
-        
-
     }
 
-
-    pub fn hash_to_scalar<C: BbsCiphersuite>(msg_octects: &[u8], dst: Option<&[u8]>) -> Scalar 
-    where
-        C::Expander: for<'a> ExpandMsg<'a>,
-    {
-        let binding = [C::ID, b"H2S_"].concat();
-        let default_dst = binding.as_slice();
-        let dst = dst.unwrap_or(default_dst);
-
-        let mut counter: u8 = 0;
-        let mut hashed_scalar = Scalar::from(0u32);
-
-        let mut uniform_bytes = vec!(0u8; C::EXPAND_LEN);
-
-        let mut msg_prime: Vec<u8>;
-
-        while hashed_scalar == Scalar::from(0u32) {
-
-            // msg_prime = [msg_octects, &[counter; 1][..], &[0u8, 0u8, 0u8, 1u8][..]].concat();
-            msg_prime = [msg_octects, &[counter; 1][..]].concat(); //from UPDATED STANDARD
-            C::Expander::expand_message(&[msg_prime.as_slice()], &[dst], C::EXPAND_LEN).unwrap().fill_bytes(&mut uniform_bytes);
-            hashed_scalar = Scalar::from_okm(uniform_bytes.as_slice().try_into().unwrap());
-
-            counter = counter + 1;
-        }
-
-        hashed_scalar
-    }
-
-
-    pub fn hash_to_scalar_old<C: BbsCiphersuite>(msg_octects: &[u8], count: usize, dst: Option<&[u8]>) -> Vec<Scalar> 
-    where
-        C::Expander: for<'a> ExpandMsg<'a>,
-    {
-        let binding = [C::ID, "H2S_".as_bytes()].concat();
-        let default_dst = binding.as_slice();
-        let dst = dst.unwrap_or(default_dst);
-
-        let mut t: u8 = 0;
-        let len_in_bytes = count * C::EXPAND_LEN;
-        // let mut hashed_scalar = Scalar::from(0);
-
-        let mut uniform_bytes = vec!(0u8; len_in_bytes);
-
-        let mut msg_prime: Vec<u8>;
-        let mut scalars: Vec<Scalar> = Vec::new();
-
-        let mut repeat = true;
-        while repeat {
-            repeat = false;
-            msg_prime = [msg_octects, &[t; 1][..], &[0u8, 0u8, 0u8, count.try_into().unwrap()][..]].concat();
-            C::Expander::expand_message(&[msg_prime.as_slice()], &[dst], len_in_bytes).unwrap().fill_bytes(&mut uniform_bytes);
-            for i in 0..count {
-                let tv = &uniform_bytes[i*C::EXPAND_LEN..(i+1)*C::EXPAND_LEN];
-                let scalar_i = Scalar::from_okm(tv.try_into().unwrap());
-                if scalar_i == Scalar::from(0u32) {
-                    t = t + 1;
-                    repeat = true;
-                    break;
-                }
-                else {
-                    scalars.push(scalar_i);
-                }
-            }
-        }
-        scalars
-    }
-
-
-    pub fn subgroup_check_g1(p: G1Projective) -> bool {
-        if p.is_on_curve().into() /*&& p.is_identity().into()*/ {
-            true
-        }
-        else {
-            false
-        }
-    }
-
-
-    pub(crate) fn calculate_domain<CS: BbsCiphersuite>(pk: &BBSplusPublicKey, q1: G1Projective, q2: G1Projective, h_points: &[G1Projective], header: Option<&[u8]>) -> Scalar
-    where
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
-        let header = header.unwrap_or(b"");
-
-        let L = h_points.len();
-
-        //da non mettere perchè in rust non potrà mai superare usize::MAX che è molto minore di 2^64 (questo perchè è type based, in python ci puoi mettere invece quello che vuoi e non ci sono queste limitazioni)
-        // if header.len() > 2usize.pow(64)-1 || L > 2usize.pow(64)-1 {
-        //     panic!("len(header) > 2^64 - 1 or L > 2^64 - 1");
-        // } 
-
-        let mut dom_octs: Vec<u8> = Vec::new();
-        dom_octs.extend_from_slice(&L.to_be_bytes());
-        dom_octs.extend_from_slice(&q1.to_affine().to_compressed());
-        dom_octs.extend_from_slice(&q2.to_affine().to_compressed());
-
-        h_points.iter().map(|&p| p.to_affine().to_compressed()).for_each(|a| dom_octs.extend_from_slice(&a));
-
-        dom_octs.extend_from_slice(CS::ID);
-
-        let mut dom_input: Vec<u8> = Vec::new();
-        dom_input.extend_from_slice(&pk.to_bytes());
-        dom_input.extend_from_slice(&dom_octs);
-
-        let header_i2osp: [u8; 8] = (header.len() as u64).to_be_bytes();
-
-        dom_input.extend_from_slice(&header_i2osp);
-        dom_input.extend_from_slice(header);
-
-        // let domain = hash_to_scalar::<CS>(&dom_input, None);
-        let domain = hash_to_scalar_old::<CS>(&dom_input, 1, None)[0];
-        domain
-    }
-
-
-    //UPDATED
-    pub(crate) fn calculate_domain_new<CS: BbsCiphersuite>(pk: &BBSplusPublicKey, Q1: G1Projective, H_points: &[G1Projective], header: Option<&[u8]>, api_id: Option<&[u8]>) -> Result<Scalar, Error>
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-domain-calculation
+    /// 
+    /// # Description
+    /// This operation calculates the domain value, a scalar representing the distillation of all essential contextual information for a signature. The same domain value must be calculated by all parties (the Signer, the Prover and the Verifier) for both the signature and proofs to be validated.
+    /// 
+    /// # Inputs:
+    /// 
+    /// * `pk` (REQUIRED), an octet string, representing the public key of theSigner.
+    /// * `Q1` (REQUIRED), point of G1 (the first point returned from create_generators).
+    /// * `H_Points` (REQUIRED), array of points of G1.
+    /// * `header` (OPTIONAL), an octet string. If not supplied, it must default to the empty octet string ("").
+    /// * `api_id` (OPTIONAL), octet string. If not supplied it defaults to the empty octet string ("").
+    /// 
+    /// # Output:
+    /// * a [`Scalar`] or [`Error`]..
+    /// 
+    pub(crate) fn calculate_domain<CS: BbsCiphersuite>(pk: &BBSplusPublicKey, Q1: G1Projective, H_points: &[G1Projective], header: Option<&[u8]>, api_id: Option<&[u8]>) -> Result<Scalar, Error>
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
@@ -234,30 +157,27 @@ pub mod bbsplus_utils {
         dom_input.extend_from_slice(&header_i2osp);
         dom_input.extend_from_slice(header);
 
-        hash_to_scalar_new::<CS>(&dom_input, &domain_dst)
+        hash_to_scalar::<CS>(&dom_input, &domain_dst)
     }
 
     pub trait ScalarExt {
         fn to_bytes_be(&self) -> [u8; 32];
-        fn from_bytes_be(bytes: &[u8; 32]) -> Result<Scalar, Error>;
+        fn from_bytes_be(bytes: &[u8]) -> Result<Scalar, Error>;
         fn encode(&self) -> String;
     }
 
     impl ScalarExt for Scalar {
         fn to_bytes_be(&self) -> [u8; 32] {
             let bytes = self.to_be_bytes();
-            // bytes.reverse();
             bytes
         }
 
-        fn from_bytes_be(bytes: &[u8; 32]) -> Result<Self, Error> {
-            let mut bytes_le = [0u8; 32];
-            bytes_le.copy_from_slice(bytes);
-            // bytes_le.reverse();
-            let s = Scalar::from_be_bytes(&bytes_le);
+        fn from_bytes_be(bytes: &[u8]) -> Result<Self, Error> {
+            let be_bytes = <[u8; Scalar::BYTES]>::try_from(bytes).map_err(|_| Error::DeserializationError("Not a valid Scalar".to_owned()))?;
+            let s = Scalar::from_be_bytes(&be_bytes);
 
             if s.is_none().into() {
-                return Err(Error::InvalidProofOfKnowledgeSignature);
+                return Err(Error::DeserializationError("Not a valid Scalar".to_owned()));
             }
 
             Ok(s.unwrap())
@@ -345,6 +265,19 @@ pub mod bbsplus_utils {
         Scalar::random(rng)
     }
 
+
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-random-scalars
+    /// 
+    /// # Description
+    /// This operation returns the requested number of pseudo-random scalars, using the `get_random` function
+    /// 
+    /// # Inputs:
+    /// 
+    /// * `count` (REQUIRED), usize. The number of scalars to return.
+    /// 
+    /// # Output:
+    /// * a [`Vec<Scalar>`].
+    /// 
     #[cfg(not(test))]
     pub fn calculate_random_scalars(count: usize) -> Vec<Scalar> 
     {
@@ -360,6 +293,20 @@ pub mod bbsplus_utils {
 
 
 
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-mocked-random-scalars
+    /// 
+    /// # Description
+    /// The seeded_random_scalars will deterministically calculate count random-looking scalars from a single SEED, given a domain separation tag (DST).
+    /// 
+    /// # Inputs:
+    /// 
+    /// * `count` (REQUIRED), usize. The number of scalars to return.
+    /// * `seed` (REQUIRED), an octet string. The random seed from which to generate the scalars.
+    /// * `dst` (REQUIRED), octet string representing a domain separation tag.
+    /// 
+    /// # Output:
+    /// * a [`Vec<Scalar>`].
+    /// 
     #[cfg(test)]
     pub fn seeded_random_scalars<CS>(count: usize, seed: &[u8], dst: &[u8]) -> Vec<Scalar> 
     where
@@ -390,8 +337,8 @@ pub mod bbsplus_utils {
     }
 
 
-    // UPDATE
-    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-00#name-blind-challenge-calculation -> challenge = calculate_blind_challenge(C, Cbar, generators, api_id)
+
+    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-00#name-blind-challenge-calculation
     /// 
     /// # Description
     /// Utility function to generate a challenge
@@ -399,13 +346,11 @@ pub mod bbsplus_utils {
     /// # Inputs:
     /// * `C` (REQUIRED), a point of G1.
     /// * `Cbar` (REQUIRED), a point of G1.
-    /// * `generators` (REQUIRED), an array of points from G1, of length at
-    /// least 1.
-    /// * `api_id` (OPTIONAL), octet string. If not supplied it defaults to the
-    /// empty octet string ("").
+    /// * `generators` (REQUIRED), an array of points from G1, of length at least 1.
+    /// * `api_id` (OPTIONAL), octet string. If not supplied it defaults to the empty octet string ("").
     /// 
     /// # Output:
-    /// * a [`Scalar`].
+    /// * a [`Scalar`] or [`Error`].
     /// 
     pub fn calculate_blind_challenge<CS>(C: G1Projective, Cbar: G1Projective, generators: &[G1Projective], api_id: Option<&[u8]>) -> Result<Scalar, Error> 
     where
@@ -427,10 +372,26 @@ pub mod bbsplus_utils {
         c_arr.extend_from_slice(&i2osp(M, 8));
         generators.iter().for_each(|&i| c_arr.extend_from_slice(&i.to_affine().to_compressed()));
 
-        hash_to_scalar_new::<CS>(&c_arr, &blind_challenge_dst)
+        hash_to_scalar::<CS>(&c_arr, &blind_challenge_dst)
     }
 
 
+    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-00#name-present-and-verify-a-bbs-pr
+    /// 
+    /// 
+    /// # Description:
+    /// To avoid revealing which messages are committed to the signature, and which were known to the Signer to the proof Verifier, after calculating a BBS proof, the Prover will need to combine the disclosed committed messages as well as the disclosed messages known to the Signer to a single disclosed messages list. The same holds for the disclosed message indexes, where the ones corresponding to committed messages and the ones corresponding to messages known by the Signer should be combined together.
+    /// 
+    /// # Inputs:
+    /// * `messages`, vector of octet strings.
+    /// * `committed_messages`, vector of octet strings.
+    /// * `disclosed_indexes` , vector of unsigned integers in ascending order. Indexes of disclosed messages. 
+    /// * `disclosed_commitment_indexes`, vector of unsigned integers in ascending order. Indexes of disclosed messages.
+    ///
+    /// # Outputs:
+    ///
+    /// * a tuple `(Vec<Vec<u8>>, Vec<usize>)`, two vectors, one corresponding to the disclosed messages and one to the disclosed indexes.
+    /// 
     pub(crate) fn get_disclosed_data(messages: &[Vec<u8>], committed_messages: &[Vec<u8>], disclosed_indexes: &[usize], disclosed_commitment_indexes: &[usize], secret_prover_blind: &BlindFactor) -> (Vec<Vec<u8>>, Vec<usize>) {
         let M = committed_messages.len();
 
@@ -449,13 +410,8 @@ pub mod bbsplus_utils {
         indexes.iter().for_each(|i| println!("i = {}", i));
 
         let mut disclosed_messages: Vec<Vec<u8>> = Vec::new();
-        // disclosed_indexes.iter().map(|&i| messages[i].clone()).collect();
-
-        // let disclosed_committed_messages: Vec<Vec<u8>> = disclosed_commitment_indexes.iter().map(|&j| committed_messages[j].clone()).collect();
         disclosed_commitment_indexes.iter().for_each(|&j| disclosed_messages.push(committed_messages[j].clone()));
         disclosed_indexes.iter().for_each(|&i| disclosed_messages.push(messages[i].clone()));
-
-        // disclosed_messages.extend_from_slice(&disclosed_committed_messages);
 
         (disclosed_messages, indexes)
 

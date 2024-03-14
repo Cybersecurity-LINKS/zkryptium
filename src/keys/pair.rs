@@ -41,16 +41,6 @@ where S: Scheme
     {
         println!("writhing to file...");
 
-        // #[derive(Deserialize, Serialize, Debug)]
-        // #[allow(non_snake_case)]
-        // struct FileToWrite {
-        //     keyPair: Self
-        // }
-
-        // let key_pair_to_write: FileToWrite = FileToWrite { 
-        //     keyPair: key_pair
-        // };
-
         let file = file.unwrap_or(String::from("../fixtures/fixture_data/keyPair.json"));
         let current_path = env::current_dir().unwrap();
         let file_to_write = current_path.join(file);
