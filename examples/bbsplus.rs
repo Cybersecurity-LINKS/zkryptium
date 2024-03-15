@@ -18,7 +18,7 @@
 mod bbsplus_example {
     use elliptic_curve::hash2curve::ExpandMsg;
     use rand::Rng;
-    use zkryptium::{bbsplus::ciphersuites::BbsCiphersuite, errors::Error, keys::pair::KeyPair, schemes::{algorithms::{BBSplus, Scheme}, generics::{PoKSignature, Signature}}, utils::util::bbsplus_utils::{generate_nonce, get_messages_vec}};
+    use zkryptium::{bbsplus::ciphersuites::BbsCiphersuite, errors::Error, keys::pair::KeyPair, schemes::{algorithms::{BBSplus, Scheme}, generics::{PoKSignature, Signature}}, utils::util::bbsplus_utils::{generate_random_secret, get_messages_vec}};
 
 
     pub(crate) fn bbsplus_main<S: Scheme>() -> Result<(), Error>
@@ -60,9 +60,8 @@ mod bbsplus_example {
         log::info!("Signature is VALID");
 
 
-
         //Holder receive nonce from Verifier
-        let nonce_verifier = generate_nonce();
+        let nonce_verifier = generate_random_secret(32);
         log::info!("Generate Nonce...");
         log::info!("Nonce: {}", hex::encode(&nonce_verifier));
 

@@ -17,7 +17,7 @@
 mod bbsplus_example {
     use elliptic_curve::hash2curve::ExpandMsg;
     use rand::Rng;
-    use zkryptium::{utils::util::bbsplus_utils::generate_nonce, keys::pair::KeyPair, bbsplus::ciphersuites::BbsCiphersuite, schemes::algorithms::{BBSplus, Scheme}, schemes::generics::{Commitment, BlindSignature, PoKSignature}, errors::Error};
+    use zkryptium::{bbsplus::ciphersuites::BbsCiphersuite, errors::Error, keys::pair::KeyPair, schemes::{algorithms::{BBSplus, Scheme}, generics::{BlindSignature, Commitment, PoKSignature}}, utils::util::bbsplus_utils::generate_random_secret};
 
 
 
@@ -71,7 +71,7 @@ mod bbsplus_example {
 
         //Holder receive nonce from Verifier
         log::info!("Generate Nonce...");
-        let nonce_verifier = generate_nonce();
+        let nonce_verifier = generate_random_secret(32);
         log::info!("Verifier sends Nonce to the Holder: {}", hex::encode(&nonce_verifier));
 
         //Holder generates SPoK
@@ -80,10 +80,6 @@ mod bbsplus_example {
         let disclosed_indexes = [0usize, 2usize];
         let disclosed_commitment_indexes = [1usize];
         let (poks, all_disclosed_messages, all_disclosed_indexes) = PoKSignature::<BBSplus<S::Ciphersuite>>::blind_proof_gen(issuer_pk, &blind_signature.to_bytes(), Some(&header), Some(&nonce_verifier), Some(&messages), Some(&committed_messages), Some(&disclosed_indexes), Some(&disclosed_commitment_indexes), Some(&secret_prover_blind), None)?;
-
-        //TODO: cambiare input di blind_proof_gen (no BBSplusSignature ma &[u8])
-        //TODO: provare a usare clausola where AsRef dove prende in input un vettore
-
 
         //Verifier verifies SPok
         log::info!("Signature Proof of Knowledge verification...");

@@ -18,14 +18,11 @@
 pub mod bbsplus_utils {
     use std::any::{TypeId, Any};
     use ff::Field;
-    use rand::RngCore;
-    use rand::rngs::OsRng;
+    use rand::{thread_rng, RngCore};
     use bls12_381_plus::{G1Affine, G1Projective, G2Affine, G2Projective, Scalar};
     use elliptic_curve::{hash2curve::{ExpandMsg, Expander}, group::Curve};
     use crate::{bbsplus::commitment::BlindFactor, errors::Error, utils::message::bbsplus_message::BBSplusMessage};
     use crate::{bbsplus::ciphersuites::BbsCiphersuite, bbsplus::keys::BBSplusPublicKey};
-
-    const NONCE_LENGTH: usize = 16;
 
 
     pub(crate) fn parse_g2_projective_compressed(slice: &[u8]) -> Result<G2Projective, Error> {
@@ -53,12 +50,19 @@ pub mod bbsplus_utils {
         Ok(point.map(G1Projective::from).unwrap())
     }
 
-    pub fn generate_nonce() -> Vec<u8> {
-        let mut rng = OsRng::default();
-        let mut nonce = vec![0; NONCE_LENGTH];
-        rng.fill_bytes(&mut nonce);
 
-        nonce
+    /// # Description
+    /// Generate a random secret of `n` bytes
+    /// # Input
+    /// * `n` (REQUIRED), number of bytes
+    /// 
+    /// # Output
+    /// * Vec<u8>, a secret
+    pub fn generate_random_secret(n: usize) -> Vec<u8> {
+        let mut rng = thread_rng();
+        let mut secret = vec![0; n]; // Initialize a vector of length n with zeros
+        rng.fill_bytes(&mut secret); // Fill the vector with random bytes
+        secret
     }
 
 
