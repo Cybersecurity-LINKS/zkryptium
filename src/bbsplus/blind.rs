@@ -13,7 +13,7 @@
 // limitations under the License.
 
 
-//TODO: add documentation
+
 
 use std::panic;
 use bls12_381_plus::{G1Projective, Scalar};
@@ -24,6 +24,23 @@ use super::{commitment::BlindFactor, keys::{BBSplusPublicKey, BBSplusSecretKey},
 
 impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
 
+
+    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-00#name-blind-signature-generation
+    /// 
+    /// # Description
+    /// This operation returns a BBS blind signature from a secret key (SK), over a header, a set of messages and optionally a commitment value. If supplied, the commitment value must be accompanied by its proof of correctness (commitment_with_proof). The issuer can also further randomize the supplied commitment, by supplying a random scalar (signer_blind)
+    /// 
+    /// # Inputs:
+    /// * `sk` (REQUIRED), a secret key
+    /// * `pk` (REQUIRED), a public key
+    /// * `commitment_with_proof` (OPTIONAL), an octet string, representing a serialized commitment and commitment_proof. If not supplied, it defaults to the empty string ("").
+    /// * `header` (OPTIONAL), an octet string containing context and application specific information.
+    /// * `messages` (OPTIONAL), a vector of octet strings. If not supplied, it defaults to the empty array.
+    /// * `signer_blind` (OPTIONAL), a random scalar value ([`BlindFactor`]).
+    /// 
+    /// # Output:
+    /// a [`BlindSignature::BBSplus`] or [`Error`].
+    /// 
     pub fn blind_sign(sk: &BBSplusSecretKey, pk: &BBSplusPublicKey, commitment_with_proof: Option<&[u8]>, header: Option<&[u8]>, messages: Option<&[Vec<u8>]>, signer_blind: Option<&BlindFactor>) -> Result<Self, Error>{
         let messages = messages.unwrap_or(&[]);
         let L = messages.len();
@@ -53,6 +70,25 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
 
     }
 
+
+    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-00#name-blind-signature-verificatio
+    /// 
+    /// # Description
+    /// This operation validates a blind BBS signature ([`BBSplusSignature`]), given the Signer's public key (PK), a header (header), a set of known to the Signer messages (messages) and if used, a set of committed messages (committed_messages), the `secret_prover_blind` as returned by the [`Commitment::commit`] operation and a blind factor supplied by the Signer (`signer_blind`).
+    /// This operation makes use of the [`core_verify`] operation
+    /// 
+    /// # Inputs:
+    /// * `self`, a signature
+    /// * `pk` (REQUIRED), a public key
+    /// * `header` (OPTIONAL), an octet string containing context and application specific information.
+    /// * `messages` (OPTIONAL), a vector of octet strings messages supplied by the Signer.  If not supplied, it defaults to the empty array.
+    /// * `committed_messages` (OPTIONAL), a vector of octet strings messages committed by the Prover.
+    /// * `secret_prover_blind` (OPTIONAL), a scalar value ([`BlindFactor`]).
+    /// * `signer_blind` (OPTIONAL), a scalar value ([`BlindFactor`]).
+    /// 
+    /// # Output:
+    /// a result: [`Ok`] or [`Error`].
+    ///
     pub fn verify(&self, pk: &BBSplusPublicKey, header: Option<&[u8]>, messages: Option<&[Vec<u8>]>, committed_messages: Option<&[Vec<u8>]>, secret_prover_blind: Option<&BlindFactor>, signer_blind: Option<&BlindFactor>) -> Result<(), Error>{
         let messages = messages.unwrap_or(&[]);
         let committed_messages = committed_messages.unwrap_or(&[]);
@@ -108,7 +144,24 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
 }
 
 
-
+/// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-00#name-core-blind-sign
+/// 
+/// # Description
+/// This operation computes a blind BBS signature, from a secret key (SK), a set of generators (points of G1), a supplied commitment with its proof of correctness (commitment_with_proof), a header (header) and a set of messages (messages). The operation also accepts a random scalar (signer_blind). 
+/// 
+/// # Inputs:
+/// * `sk` (REQUIRED), a secret key
+/// * `pk` (REQUIRED), a public key
+/// * `generators` (REQUIRED), vector of pseudo-random points in G1.
+/// * `commitment_with_proof` (REQUIRED), an octet string, representing a serialized commitment and commitment_proof. It could be an empty octet string.
+/// * `header` (OPTIONAL), an octet string containing context and application specific information.
+/// * `messages` (REQUIRED), a vector of scalar values ([`BBSplusMessage`]). It could be empty.
+/// * `signer_blind` (OPTIONAL), a random scalar value ([`BlindFactor`]).
+/// * `api_id` (OPTIONAL), an octet string ([`BbsCiphersuite::API_ID_BLIND`])
+/// 
+/// # Output:
+/// a [`BBSplusSignature`] or [`Error`].
+/// 
 fn core_blind_sign<CS>(
         sk: &BBSplusSecretKey,
         pk: &BBSplusPublicKey,
@@ -180,38 +233,38 @@ fn core_blind_sign<CS>(
     mod tests {
         use std::fs;
         use elliptic_curve::hash2curve::ExpandMsg;
-        use crate::{bbsplus::{ciphersuites::BbsCiphersuite, commitment::BlindFactor, keys::{BBSplusPublicKey, BBSplusSecretKey}}, schemes::{algorithms::{BBSplus, Scheme, BBS_BLS12381_SHA256}, generics::BlindSignature}};
+        use crate::{bbsplus::{ciphersuites::BbsCiphersuite, commitment::BlindFactor, keys::{BBSplusPublicKey, BBSplusSecretKey}}, schemes::{algorithms::{BBSplus, Scheme, BbsBls12381Sha256}, generics::BlindSignature}};
     
     
         //Blind Sign - SHA256 - UPDATED
         #[test]
         fn blind_sign_sha256_1() {
-            blind_sign::<BBS_BLS12381_SHA256>("./fixture_data_blind/bls12-381-sha-256/", "signature/signature001.json");
+            blind_sign::<BbsBls12381Sha256>("./fixture_data_blind/bls12-381-sha-256/", "signature/signature001.json");
         }
 
         #[test]
         fn blind_sign_sha256_2() {
-            blind_sign::<BBS_BLS12381_SHA256>("./fixture_data_blind/bls12-381-sha-256/", "signature/signature002.json");
+            blind_sign::<BbsBls12381Sha256>("./fixture_data_blind/bls12-381-sha-256/", "signature/signature002.json");
         }
 
         #[test]
         fn blind_sign_sha256_3() {
-            blind_sign::<BBS_BLS12381_SHA256>("./fixture_data_blind/bls12-381-sha-256/", "signature/signature003.json");
+            blind_sign::<BbsBls12381Sha256>("./fixture_data_blind/bls12-381-sha-256/", "signature/signature003.json");
         }
 
         #[test]
         fn blind_sign_sha256_4() {
-            blind_sign::<BBS_BLS12381_SHA256>("./fixture_data_blind/bls12-381-sha-256/", "signature/signature004.json");
+            blind_sign::<BbsBls12381Sha256>("./fixture_data_blind/bls12-381-sha-256/", "signature/signature004.json");
         }
 
         #[test]
         fn blind_sign_sha256_5() {
-            blind_sign::<BBS_BLS12381_SHA256>("./fixture_data_blind/bls12-381-sha-256/", "signature/signature005.json");
+            blind_sign::<BbsBls12381Sha256>("./fixture_data_blind/bls12-381-sha-256/", "signature/signature005.json");
         }
 
         #[test]
         fn blind_sign_sha256_6() {
-            blind_sign::<BBS_BLS12381_SHA256>("./fixture_data_blind/bls12-381-sha-256/", "signature/signature006.json");
+            blind_sign::<BbsBls12381Sha256>("./fixture_data_blind/bls12-381-sha-256/", "signature/signature006.json");
         }
 
 

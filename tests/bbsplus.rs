@@ -25,7 +25,7 @@ mod bbsplus_tests {
     use elliptic_curve::{hash2curve::ExpandMsg, group::Curve};
     use schemes::algorithms::Scheme;
     use zkryptium::{bbsplus::{self, generators::Generators, keys::{BBSplusPublicKey, BBSplusSecretKey}}, keys::pair::KeyPair, schemes::{self, algorithms::BBSplus, generics::Signature}, utils::{message::BBSplusMessage, util::bbsplus_utils::{hash_to_scalar, ScalarExt}}};
-    use zkryptium::schemes::algorithms::{BBS_BLS12381_SHA256, BBS_BLS12381_SHAKE256};
+    use zkryptium::schemes::algorithms::{BbsBls12381Sha256, BbsBls12381Shake256};
     
     
     
@@ -33,14 +33,14 @@ mod bbsplus_tests {
     
     #[test]
     fn keypair_sha256() { //UPDATED!
-        key_pair_gen::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/keyPair.json");
+        key_pair_gen::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/keyPair.json");
     }
 
     //KEYPAIR - SHAKE256
 
     #[test]
     fn keypair_shake256() { //UPDATED!
-        key_pair_gen::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/keyPair.json");
+        key_pair_gen::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/keyPair.json");
     }
 
 
@@ -48,126 +48,126 @@ mod bbsplus_tests {
 
     #[test]
     fn map_message_to_scalar_as_hash_sha256() { //UPDATED!
-        map_message_to_scalar_as_hash::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/MapMessageToScalarAsHash.json");
+        map_message_to_scalar_as_hash::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/MapMessageToScalarAsHash.json");
     }
 
     //MAP MESSAGE TO SCALAR - SHAKE256
 
     #[test]
     fn map_message_to_scalar_as_hash_shake256() {//UPDATED!
-        map_message_to_scalar_as_hash::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/MapMessageToScalarAsHash.json");
+        map_message_to_scalar_as_hash::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/MapMessageToScalarAsHash.json");
     }
 
 
     //GENERATORS - SHA256
     #[test]
     fn message_generators_sha256() { //UPDATED
-        message_generators::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/generators.json");
+        message_generators::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/generators.json");
     }
 
     //GENERATORS - SHAKE256
 
     #[test]
     fn message_generators_shake256() { //UPDATED
-        message_generators::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/generators.json");
+        message_generators::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/generators.json");
     }
 
 
     //MSG SIGNATURE - UPDATED
     #[test]
     fn msg_signature_sha256_1() {
-        msg_signature::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "signature/signature001.json");
+        msg_signature::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "signature/signature001.json");
     }
     #[test]
     fn msg_signature_sha256_2() {
-        msg_signature::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "signature/signature002.json");
+        msg_signature::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "signature/signature002.json");
     }
     #[test]
     fn msg_signature_sha256_3() {
-        msg_signature::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "signature/signature003.json");
+        msg_signature::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "signature/signature003.json");
     }
     #[test]
     fn msg_signature_sha256_4() {
-        msg_signature::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json");
+        msg_signature::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "signature/signature004.json");
     }
     #[test]
     fn msg_signature_sha256_5() {
-        msg_signature::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "signature/signature005.json");
+        msg_signature::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "signature/signature005.json");
     }
     #[test]
     fn msg_signature_sha256_6() {
-        msg_signature::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "signature/signature006.json");
+        msg_signature::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "signature/signature006.json");
     }
     #[test]
     fn msg_signature_sha256_7() {
-        msg_signature::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "signature/signature007.json");
+        msg_signature::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "signature/signature007.json");
     }
     #[test]
     fn msg_signature_sha256_8() {
-        msg_signature::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "signature/signature008.json");
+        msg_signature::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "signature/signature008.json");
     }
     #[test]
     fn msg_signature_sha256_9() {
-        msg_signature::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "signature/signature009.json");
+        msg_signature::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "signature/signature009.json");
     }
 
 
     //MSG SIGNATURE - SHAKE256 - UPDATED
     #[test]
     fn msg_signature_shake256_1() {
-        msg_signature::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "signature/signature001.json");
+        msg_signature::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "signature/signature001.json");
     }
     #[test]
     fn msg_signature_shake256_2() {
-        msg_signature::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "signature/signature002.json");
+        msg_signature::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "signature/signature002.json");
     }
     #[test]
     fn msg_signature_shake256_3() {
-        msg_signature::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "signature/signature003.json");
+        msg_signature::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "signature/signature003.json");
     }
     #[test]
     fn msg_signature_shake256_4() {
-        msg_signature::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json");
+        msg_signature::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "signature/signature004.json");
     }
     #[test]
     fn msg_signature_shake256_5() {
-        msg_signature::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "signature/signature005.json");
+        msg_signature::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "signature/signature005.json");
     }
     #[test]
     fn msg_signature_shake256_6() {
-        msg_signature::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "signature/signature006.json");
+        msg_signature::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "signature/signature006.json");
     }
     #[test]
     fn msg_signature_shake256_7() {
-        msg_signature::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "signature/signature007.json");
+        msg_signature::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "signature/signature007.json");
     }
     #[test]
     fn msg_signature_shake256_8() {
-        msg_signature::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "signature/signature008.json");
+        msg_signature::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "signature/signature008.json");
     }
     #[test]
     fn msg_signature_shake256_9() {
-        msg_signature::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "signature/signature009.json");
+        msg_signature::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "signature/signature009.json");
     }
 
     //h2s - SHA256 - UPDATED
     #[test]
     fn h2s_sha256_1() {
-        h2s::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "h2s.json");
+        h2s::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "h2s.json");
     }
     #[test]
     fn h2s_sha256_2() {
-        h2s::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "h2s.json");
+        h2s::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "h2s.json");
     }
 
     //h2s - SHAKE256 -> UPDATED
     #[test]
     fn h2s_shake256_1() {
-        h2s::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "h2s.json");
+        h2s::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "h2s.json");
     }
     #[test]
     fn h2s_shake256_2() {
-        h2s::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "h2s.json");
+        h2s::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "h2s.json");
     }
 
 

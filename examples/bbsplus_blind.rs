@@ -133,7 +133,7 @@ mod bbsplus_example {
 fn main() {
     
     use std::env;
-    use zkryptium::schemes::algorithms::{BBS_BLS12381_SHA256, BBS_BLS12381_SHAKE256};
+    use zkryptium::schemes::algorithms::{BbsBls12381Sha256, BbsBls12381Shake256};
     use crate::bbsplus_example::bbsplus_main;
 
 
@@ -156,12 +156,12 @@ fn main() {
         "BLS12-381-SHA-256" => {
             println!("\n");
             log::info!("Ciphersuite: BLS12-381-SHA-256");
-            bbsplus_main::<BBS_BLS12381_SHA256>();
+            bbsplus_main::<BbsBls12381Sha256>();
         }
         "BLS12-381-SHAKE-256" => {
             println!("\n");
             log::info!("Ciphersuite: BLS12-381-SHAKE-256");
-            bbsplus_main::<BBS_BLS12381_SHAKE256>();
+            bbsplus_main::<BbsBls12381Shake256>();
 
         }
         _ => {

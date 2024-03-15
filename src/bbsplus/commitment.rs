@@ -273,31 +273,31 @@ mod tests {
 
     use elliptic_curve::hash2curve::ExpandMsg;
 
-    use crate::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, schemes::{algorithms::{BBSplus, Scheme, BBS_BLS12381_SHA256, BBS_BLS12381_SHAKE256}, generics::Commitment}};
+    use crate::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, schemes::{algorithms::{BBSplus, Scheme, BbsBls12381Sha256, BbsBls12381Shake256}, generics::Commitment}};
 
 
     // Commitment - SHA256
     
     #[test]
     fn commit_sha256_1() {
-        commit::<BBS_BLS12381_SHA256>("./fixture_data_blind/bls12-381-sha-256/", "commit/commit001.json");
+        commit::<BbsBls12381Sha256>("./fixture_data_blind/bls12-381-sha-256/", "commit/commit001.json");
     }
 
     #[test]
     fn commit_sha256_2() {
-        commit::<BBS_BLS12381_SHA256>("./fixture_data_blind/bls12-381-sha-256/", "commit/commit002.json");
+        commit::<BbsBls12381Sha256>("./fixture_data_blind/bls12-381-sha-256/", "commit/commit002.json");
     }
 
     // Commitment - SHAKE256
     
     #[test]
     fn commit_shake256_1() {
-        commit::<BBS_BLS12381_SHAKE256>("./fixture_data_blind/bls12-381-shake-256/", "commit/commit001.json");
+        commit::<BbsBls12381Shake256>("./fixture_data_blind/bls12-381-shake-256/", "commit/commit001.json");
     }
 
     #[test]
     fn commit_shake256_2() {
-        commit::<BBS_BLS12381_SHAKE256>("./fixture_data_blind/bls12-381-shake-256/", "commit/commit002.json");
+        commit::<BbsBls12381Shake256>("./fixture_data_blind/bls12-381-shake-256/", "commit/commit002.json");
     }
 
 

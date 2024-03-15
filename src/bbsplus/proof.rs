@@ -14,7 +14,6 @@
 
 
 
-//TODO: add documentation
 
 use bls12_381_plus::{G1Projective, Scalar, G2Projective, G2Prepared, multi_miller_loop};
 use elliptic_curve::{group::Curve, hash2curve::ExpandMsg, Group};
@@ -85,6 +84,23 @@ impl BBSplusPoKSignature {
 
 impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
 
+
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-proof-generation-proofgen
+    /// 
+    /// # Description
+    /// This operation creates BBS proof, which is a zero-knowledge, proof-of-knowledge of a BBS signature, while optionally disclosing any subset of the signed messages.
+    /// 
+    /// # Inputs:
+    /// * `pk` (REQUIRED), the Signer public key.
+    /// * `signature` (REQUIRED), a [`BBSplusSignature`].
+    /// * `header` (OPTIONAL), an octet string containing context and application.
+    /// * `ph` (OPTIONAL), an octet string containing the presentation header.
+    /// * `messages` (OPTIONAL), a vector of octet strings representing the signed messages.
+    /// * `disclosed_indexes` (OPTIONAL), vector of unsigned integers in ascending order. Indexes of disclosed messages.
+    /// 
+    /// # Output:
+    /// a PoK of a Signature [`PoKSignature::BBSplus`] or [`Error`].
+    ///
     pub fn proof_gen(pk: &BBSplusPublicKey, signature: &BBSplusSignature, header: Option<&[u8]>, ph: Option<&[u8]>, messages: Option<&[Vec<u8>]>, disclosed_indexes: Option<&[usize]> ) -> Result<Self, Error>
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
@@ -113,6 +129,27 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     }
 
 
+    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-00#name-proof-generation
+    /// 
+    /// # Description
+    /// This operation creates a BBS proof, which is a zero-knowledge, proof-of-knowledge, of a BBS signature, while optionally disclosing any subset of the signed messages. Note that in contrast to the [`Self::proof_gen`] operation, this operation accepts 2 different lists of messages and disclosed indexes, one for the messages known to the Signer (messages) and the corresponding disclosed indexes (disclosed_indexes) and one for the messages committed by the Prover (committed_messages) and the corresponding disclosed indexes (disclosed_commitment_indexes).
+    /// To Verify a proof however, the Verifier expects only one list of messages and one list of disclosed indexes. This is done to avoid revealing which of the disclosed messages where committed by the Prover and which are known to the Verifier. 
+    /// 
+    /// # Inputs:
+    /// * `pk` (REQUIRED), the Signer public key.
+    /// * `signature` (REQUIRED), a [`BBSplusSignature`].
+    /// * `header` (OPTIONAL), an octet string containing context and application.
+    /// * `ph` (OPTIONAL), an octet string containing the presentation header.
+    /// * `messages` (OPTIONAL), a vector of octet strings messages supplied by the Signer.  If not supplied, it defaults to the empty array.
+    /// * `committed_messages` (OPTIONAL), a vector of octet strings messages committed by the Prover.
+    /// * `disclosed_indexes` (OPTIONAL), vector of unsigned integers in ascending order. Indexes of disclosed messages.
+    /// * `disclosed_commitment_indexes` (OPTIONAL), vector of unsigned integers in ascending order. Indexes of disclosed committed messages.
+    /// * `secret_prover_blind` (OPTIONAL), a scalar value ([`BlindFactor`]).
+    /// * `signer_blind` (OPTIONAL), a scalar value ([`BlindFactor`]).
+    /// 
+    /// # Output:
+    /// ([`PoKSignature::BBSplus`], [`Vec<Vec<u8>>`], [`Vec<usize>`]) or [`Error`]: a PoK of a Signature, a vector of octet strings representing all the disclosed messages and their indexes.
+    ///
     pub fn blind_proof_gen( pk: &BBSplusPublicKey, signature: &BBSplusSignature, header: Option<&[u8]>, ph: Option<&[u8]>, messages: Option<&[Vec<u8>]>, committed_messages: Option<&[Vec<u8>]>, disclosed_indexes: Option<&[usize]>, disclosed_commitment_indexes: Option<&[usize]>, secret_prover_blind: Option<&BlindFactor>, signer_blind: Option<&BlindFactor> ) -> Result<(Self, Vec<Vec<u8>>, Vec<usize>), Error>
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
@@ -178,7 +215,24 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     }
 
 
-    pub fn proof_verify(&self, pk: &BBSplusPublicKey, disclosed_messages: Option<&[Vec<u8>]>, disclosed_indexes: Option<&[usize]>, header: Option<&[u8]>, ph: Option<&[u8]>, ) -> Result<(), Error> 
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-proof-verification-proofver
+    /// 
+    /// # Description
+    /// The ProofVerify operation validates a BBS proof, given the Signer's public key (PK), a header and presentation header values, the disclosed messages and the indexes those messages had in the original vector of signed messages.
+    /// Inside is using the [`BbsCiphersuite::API_ID`] api_id.
+    ///  
+    /// # Inputs:
+    /// * `self`, a proof.
+    /// * `pk` (REQUIRED), the Signer public key.
+    /// * `disclosed_messages` (OPTIONAL), a vector of octet string representing the messages disclosed to the Verifier.
+    /// * `disclosed_indexes` (OPTIONAL), vector of usize in ascending order. Indexes of disclosed messages.
+    /// * `header` (OPTIONAL), an octet string containing context and application.
+    /// * `ph` (OPTIONAL), an octet string containing the presentation header.
+    /// 
+    /// # Output:
+    /// a result: [`Ok`] or [`Error`].
+    ///
+    pub fn proof_verify(&self, pk: &BBSplusPublicKey, disclosed_messages: Option<&[Vec<u8>]>, disclosed_indexes: Option<&[usize]>, header: Option<&[u8]>, ph: Option<&[u8]> ) -> Result<(), Error> 
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
@@ -209,6 +263,12 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         result
     }
 
+
+    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-00#name-proof-verification
+    /// 
+    /// # Description
+    /// It is the same as [`Self::proof_verify`] but inside i using a different api_id parameter ([`BbsCiphersuite::API_ID_BLIND`])
+    /// 
     pub fn blind_proof_verify(&self, pk: &BBSplusPublicKey, disclosed_messages: Option<&[Vec<u8>]>, disclosed_indexes: Option<&[usize]>, header: Option<&[u8]>, ph: Option<&[u8]>, ) -> Result<(), Error> 
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
@@ -240,15 +300,6 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         result
     }
 
-        // A_prime: G1Projective, //48
-        // A_bar: G1Projective, //48
-        // D: G1Projective, //48
-        // c: Scalar, //32
-        // e_cap: Scalar, //32
-        // r2_cap: Scalar, //32
-        // r3_cap: Scalar, //32
-        // s_cap: Scalar, //32
-        // m_cap: Vec<Scalar> //32 * len(m_cap)
     pub fn to_bytes(&self) -> Vec<u8> {
         self.to_bbsplus_proof().to_bytes()
     }
@@ -266,6 +317,24 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
 }
 
 
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-coreproofgen
+/// 
+/// # Description
+/// This operation computes a zero-knowledge proof-of-knowledge of a signature, while optionally selectively disclosing from the original set of signed messages. The Prover may also supply a presentation header (ph).
+/// 
+/// # Inputs:
+/// * `pk` (REQUIRED), the Signer public key.
+/// * `signature` (REQUIRED), a [`BBSplusSignature`].
+/// * `generators` (REQUIRED), vector of pseudo-random points in G1.
+/// * `header` (OPTIONAL), an octet string containing context and application.
+/// * `ph` (OPTIONAL), an octet string containing the presentation header.
+/// * `messages` (OPTIONAL), a vector of scalars ([`BBSplusMessage`]) representing the signed messages.
+/// * `disclosed_indexes` (OPTIONAL), vector of usize in ascending order. Indexes of disclosed messages.
+/// * `api_id` (OPTIONAL), an octet string.
+/// 
+/// # Output:
+/// a PoK of a Signature [`BBSplusPoKSignature`] or [`Error`].
+///
 fn core_proof_gen<CS>(pk: &BBSplusPublicKey, signature: &BBSplusSignature, generators: &Generators, messages: &[BBSplusMessage], disclosed_indexes: &[usize], header: Option<&[u8]>, ph: Option<&[u8]>, api_id: Option<&[u8]>, _seed: &[u8],_dst: &[u8]) -> Result<BBSplusPoKSignature, Error>
 where
     CS: BbsCiphersuite,
@@ -344,6 +413,26 @@ struct ProofInitResult {
     domain: Scalar
 }
 
+
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-proof-initialization
+/// 
+/// # Description
+/// This operation initializes the proof and returns one of the inputs passed to the challenge calculation operation ([`proof_challenge_calculate`]), during the [`core_proof_gen`] operation.
+/// The inputted messages MUST be supplied to this operation in the same order they had when inputted to the `core_sign` operation
+/// 
+/// # Inputs:
+/// * `pk` (REQUIRED), the Signer public key.
+/// * `signature` (REQUIRED), a [`BBSplusSignature`].
+/// * `generators` (REQUIRED), vector of pseudo-random points in G1.
+/// * `random_scalars` (REQUIRED), vector of scalar values.
+/// * `header` (OPTIONAL), an octet string containing context and application.
+/// * `messages` (OPTIONAL), a vector of scalars ([`BBSplusMessage`]).
+/// * `undisclosed_indexes` (OPTIONAL), vector of usize in ascending order. Indexes of undisclosed messages.
+/// * `api_id` (OPTIONAL), an octet string.
+/// 
+/// # Output:
+/// a [`ProofInitResult`] or [`Error`].
+///
 fn proof_init<CS>(pk: &BBSplusPublicKey, signature: &BBSplusSignature, generators: &Generators, random_scalars: &[Scalar], header: Option<&[u8]>, messages: &[BBSplusMessage], undisclosed_indexes: &[usize], api_id: Option<&[u8]>) -> Result<ProofInitResult, Error>
 where
     CS: BbsCiphersuite,
@@ -391,9 +480,6 @@ where
     let Abar = signature.A * (r1 * r2);
     let Bbar = D * r1 - Abar * signature.e;
 
-
-
-
     let T1 = Abar * e_tilde + D * r1_tilde;
     let mut T2 = D * r3_tilde;
 
@@ -409,7 +495,22 @@ where
     Ok(ProofInitResult{ Abar, Bbar, D, T1, T2, domain })
 }
 
-
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-challenge-calculation
+/// 
+/// # Description
+/// This operation calculates the challenge scalar value, used during the [`core_proof_gen`] and [`core_proof_verify`], as part of the Fiat-Shamir heuristic, for making the proof protocol non-interactive (in a interactive setting, the challenge would be a random value supplied by the Verifier). 
+/// 
+/// # Inputs:
+/// * `init_res` (REQUIRED), [`ProofInitResult`] returned after initializing the proof generation or verification operations, consisting of 5 points of G1 and a scalar value, in that order.
+/// * `header` (OPTIONAL), an octet string containing context and application.
+/// * `dsclosed_messages` (OPTIONAL), a vector of scalars ([`BBSplusMessage`]) representing the disclosed messages to the Verifier.
+/// * `disclosed_indexes` (OPTIONAL), vector of usize in ascending order. Indexes of disclosed messages.
+/// * `ph` (OPTIONAL), an octet string containing the presentation header.
+/// * `api_id` (OPTIONAL), an octet string.
+/// 
+/// # Output:
+/// a challenge ([`Scalar`]) or [`Error`].
+///
 fn proof_challenge_calculate<CS>(init_res: &ProofInitResult, disclosed_indexes: &[usize], disclosed_messages: &[BBSplusMessage], ph: Option<&[u8]>, api_id: Option<&[u8]>) -> Result<Scalar, Error>
 where
     CS: BbsCiphersuite
@@ -447,6 +548,21 @@ where
 }
 
 
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-proof-finalization
+/// 
+/// # Description
+/// This operation finalizes the proof calculation during the [`core_proof_gen`] operation and returns the PoK [`BBSplusPoKSignature`]. 
+/// 
+/// # Inputs:
+/// * `init_res` (REQUIRED), [`ProofInitResult`] returned after initializing the proof generation or verification operations, consisting of 5 points of G1 and a scalar value, in that order.
+/// * `challenge` (REQUIRED), a scalar value.
+/// * `e` (REQUIRED), a scalar value.
+/// * `random_scalars` (REQUIRED), a vector of random scalars.
+/// * `dsclosed_messages` (OPTIONAL), a vector of scalars ([`BBSplusMessage`]) representing the disclosed messages to the Verifier.
+/// 
+/// # Output:
+/// a proof ([`BBSplusPoKSignature`]) or [`Error`].
+///
 fn proof_finalize(init_res: &ProofInitResult, challenge: Scalar, e: Scalar, random_scalars: &[Scalar], undisclosed_messages: &[BBSplusMessage]) -> Result<BBSplusPoKSignature, Error>
 {
 
@@ -476,6 +592,25 @@ fn proof_finalize(init_res: &ProofInitResult, challenge: Scalar, e: Scalar, rand
 }
 
 
+
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-coreproofverify
+/// 
+/// # Description
+/// This operation checks that a proof is valid for a header, vector of disclosed messages (disclosed_messages) along side their index corresponding to their original position when signed (disclosed_indexes) and presentation header (ph) against a public key (PK).
+/// 
+/// # Inputs:
+/// * `pk` (REQUIRED), the Signer public key.
+/// * `proof` (REQUIRED), a [`BBSplusPoKSignature`].
+/// * `generators` (REQUIRED), vector of pseudo-random points in G1.
+/// * `header` (OPTIONAL), an octet string containing context and application.
+/// * `ph` (OPTIONAL), an octet string containing the presentation header.
+/// * `disclosed_messages` (OPTIONAL), a vector of scalars ([`BBSplusMessage`]) representing the messages disclosed to the Verifier.
+/// * `disclosed_indexes` (OPTIONAL), vector of unsigned integers in ascending order. Indexes of disclosed messages.
+/// * `api_id` (OPTIONAL), an octet string.
+/// 
+/// # Output:
+/// a result: [`Ok`] or [`Error`].
+///
 fn core_proof_verify<CS>(pk: &BBSplusPublicKey, proof: &BBSplusPoKSignature, generators: &Generators, header: Option<&[u8]>, ph: Option<&[u8]>, disclosed_messages: &[BBSplusMessage], disclosed_indexes: &[usize], api_id: Option<&[u8]>) -> Result<(), Error>
 where
     CS: BbsCiphersuite
@@ -511,6 +646,23 @@ where
 }
 
 
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-proof-verification-initiali
+/// 
+/// # Description
+/// This operation initializes the proof verification operation and returns part of the input that will be passed to the challenge calculation operation ([`proof_challenge_calculate`]), during the [`core_proof_verify`] operation. 
+/// 
+/// # Inputs:
+/// * `pk` (REQUIRED), the Signer public key.
+/// * `proof` (REQUIRED), a [`BBSplusPoKSignature`].
+/// * `generators` (REQUIRED), vector of pseudo-random points in G1.
+/// * `header` (OPTIONAL), an octet string containing context and application.
+/// * `disclosed_messages` (REQUIRED), a vector of scalars ([`BBSplusMessage`]) representing the messages disclosed to the Verifier. It could be empty.
+/// * `disclosed_indexes` (REQUIRED), vector of unsigned integers in ascending order. Indexes of disclosed messages. It could be empty.
+/// * `api_id` (OPTIONAL), an octet string.
+/// 
+/// # Output:
+/// a [`ProofInitResult`] or [`Error`].
+///
 fn proof_verify_init<CS>(pk: &BBSplusPublicKey, proof: &BBSplusPoKSignature, generators: &Generators, header: Option<&[u8]>, disclosed_messages: &[BBSplusMessage], disclosed_indexes: &[usize], api_id: Option<&[u8]>) -> Result<ProofInitResult, Error>
 where
     CS: BbsCiphersuite
@@ -558,6 +710,8 @@ where
 }
 
 
+
+/// Represents a Commitment proof
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplusZKPoK {
     pub(crate) s_cap: Scalar, 
@@ -602,73 +756,73 @@ impl BBSplusZKPoK {
 mod tests {
     use std::{collections::BTreeMap, fs};
     use elliptic_curve::hash2curve::ExpandMsg;
-    use crate::{bbsplus::{ciphersuites::BbsCiphersuite, commitment::BlindFactor, keys::BBSplusPublicKey, proof::seeded_random_scalars, signature::BBSplusSignature}, schemes::{algorithms::{BBSplus, Scheme, BBS_BLS12381_SHA256, BBS_BLS12381_SHAKE256}, generics::{PoKSignature, Signature}}, utils::util::bbsplus_utils::{get_messages_vec, ScalarExt}};
+    use crate::{bbsplus::{ciphersuites::BbsCiphersuite, commitment::BlindFactor, keys::BBSplusPublicKey, proof::seeded_random_scalars, signature::BBSplusSignature}, schemes::{algorithms::{BBSplus, Scheme, BbsBls12381Sha256, BbsBls12381Shake256}, generics::{PoKSignature, Signature}}, utils::util::bbsplus_utils::{get_messages_vec, ScalarExt}};
 
 
     //mocked_rng - SHA256 - UPDATED
     #[test]
     fn mocked_rng_sha256() {
-        mocked_rng::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "mockedRng.json");
+        mocked_rng::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "mockedRng.json");
     }
 
     //mocked_rng - SHAKE256 - UPDATED
     #[test]
     fn mocked_rng_shake256() {
-        mocked_rng::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "mockedRng.json");
+        mocked_rng::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "mockedRng.json");
     }
 
     //SIGNATURE POK - SHA256
     #[test]
     fn proof_check_sha256_1() {
-        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "proof/proof001.json")
+        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof001.json")
     }
     #[test]
     fn proof_check_sha256_2() {
-        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "proof/proof002.json")
+        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof002.json")
     }
     #[test]
     fn proof_check_sha256_3() {
-        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "proof/proof003.json")
+        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof003.json")
     }
     #[test]
     fn proof_check_sha256_4() {
-        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "proof/proof004.json")
+        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof004.json")
     }
     #[test]
     fn proof_check_sha256_5() {
-        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "proof/proof005.json")
+        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof005.json")
     }
     #[test]
     fn proof_check_sha256_6() {
-        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "proof/proof006.json")
+        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof006.json")
     }
     #[test]
     fn proof_check_sha256_7() {
-        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "proof/proof007.json")
+        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof007.json")
     }
     #[test]
     fn proof_check_sha256_8() {
-        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "proof/proof008.json")
+        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof008.json")
     }
     #[test]
     fn proof_check_sha256_9() {
-        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "proof/proof009.json")
+        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof009.json")
     }
     #[test]
     fn proof_check_sha256_10() {
-        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "proof/proof010.json")
+        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof010.json")
     }
     #[test]
     fn proof_check_sha256_11() {
-        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "proof/proof011.json")
+        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof011.json")
     }
     #[test]
     fn proof_check_sha256_12() {
-        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "proof/proof012.json")
+        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof012.json")
     }
     #[test]
     fn proof_check_sha256_13() {
-        proof_check::<BBS_BLS12381_SHA256>("./fixture_data/bls12-381-sha-256/", "proof/proof013.json")
+        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof013.json")
     }
 
 
@@ -677,55 +831,55 @@ mod tests {
 
     #[test]
     fn proof_check_shake256_1() {
-        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "proof/proof001.json")
+        proof_check::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "proof/proof001.json")
     }
     #[test]
     fn proof_check_shake256_2() {
-        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "proof/proof002.json")
+        proof_check::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "proof/proof002.json")
     }
     #[test]
     fn proof_check_shake256_3() {
-        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "proof/proof003.json")
+        proof_check::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "proof/proof003.json")
     }
     #[test]
     fn proof_check_shake256_4() {
-        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "proof/proof004.json")
+        proof_check::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "proof/proof004.json")
     }
     #[test]
     fn proof_check_shake256_5() {
-        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "proof/proof005.json")
+        proof_check::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "proof/proof005.json")
     }
     #[test]
     fn proof_check_shake256_6() {
-        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "proof/proof006.json")
+        proof_check::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "proof/proof006.json")
     }
     #[test]
     fn proof_check_shake256_7() {
-        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "proof/proof007.json")
+        proof_check::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "proof/proof007.json")
     }
     #[test]
     fn proof_check_shake256_8() {
-        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "proof/proof008.json")
+        proof_check::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "proof/proof008.json")
     }
     #[test]
     fn proof_check_shake256_9() {
-        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "proof/proof009.json")
+        proof_check::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "proof/proof009.json")
     }
     #[test]
     fn proof_check_shake256_10() {
-        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "proof/proof010.json")
+        proof_check::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "proof/proof010.json")
     }
     #[test]
     fn proof_check_shake256_11() {
-        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "proof/proof011.json")
+        proof_check::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "proof/proof011.json")
     }
     #[test]
     fn proof_check_shake256_12() {
-        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "proof/proof012.json")
+        proof_check::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "proof/proof012.json")
     }
     #[test]
     fn proof_check_shake256_13() {
-        proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data/bls12-381-shake-256/", "proof/proof013.json")
+        proof_check::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "proof/proof013.json")
     }
 
 
@@ -733,43 +887,43 @@ mod tests {
 
     #[test]
     fn blind_proof_check_sha256_1() {
-        blind_proof_check::<BBS_BLS12381_SHA256>("./fixture_data_blind/bls12-381-sha-256/", "proof/proof001.json", "./fixture_data_blind/")
+        blind_proof_check::<BbsBls12381Sha256>("./fixture_data_blind/bls12-381-sha-256/", "proof/proof001.json", "./fixture_data_blind/")
     }
 
     #[test]
     fn blind_proof_check_sha256_2() {
-        blind_proof_check::<BBS_BLS12381_SHA256>("./fixture_data_blind/bls12-381-sha-256/", "proof/proof002.json", "./fixture_data_blind/")
+        blind_proof_check::<BbsBls12381Sha256>("./fixture_data_blind/bls12-381-sha-256/", "proof/proof002.json", "./fixture_data_blind/")
     }
 
     #[test]
     fn blind_proof_check_sha256_3() {
-        blind_proof_check::<BBS_BLS12381_SHA256>("./fixture_data_blind/bls12-381-sha-256/", "proof/proof003.json", "./fixture_data_blind/")
+        blind_proof_check::<BbsBls12381Sha256>("./fixture_data_blind/bls12-381-sha-256/", "proof/proof003.json", "./fixture_data_blind/")
     }
 
     #[test]
     fn blind_proof_check_sha256_4() {
-        blind_proof_check::<BBS_BLS12381_SHA256>("./fixture_data_blind/bls12-381-sha-256/", "proof/proof004.json", "./fixture_data_blind/")
+        blind_proof_check::<BbsBls12381Sha256>("./fixture_data_blind/bls12-381-sha-256/", "proof/proof004.json", "./fixture_data_blind/")
     }
 
     #[test]
     fn blind_proof_check_sha256_5() {
-        blind_proof_check::<BBS_BLS12381_SHA256>("./fixture_data_blind/bls12-381-sha-256/", "proof/proof005.json", "./fixture_data_blind/")
+        blind_proof_check::<BbsBls12381Sha256>("./fixture_data_blind/bls12-381-sha-256/", "proof/proof005.json", "./fixture_data_blind/")
     }
 
     #[test]
     fn blind_proof_check_sha256_6() {
-        blind_proof_check::<BBS_BLS12381_SHA256>("./fixture_data_blind/bls12-381-sha-256/", "proof/proof006.json", "./fixture_data_blind/")
+        blind_proof_check::<BbsBls12381Sha256>("./fixture_data_blind/bls12-381-sha-256/", "proof/proof006.json", "./fixture_data_blind/")
     }
 
     #[test]
     fn blind_proof_check_sha256_7() {
-        blind_proof_check::<BBS_BLS12381_SHA256>("./fixture_data_blind/bls12-381-sha-256/", "proof/proof007.json", "./fixture_data_blind/")
+        blind_proof_check::<BbsBls12381Sha256>("./fixture_data_blind/bls12-381-sha-256/", "proof/proof007.json", "./fixture_data_blind/")
     }
 
     #[test]
     #[ignore]
     fn blind_proof_check_sha256_8() {
-        blind_proof_check::<BBS_BLS12381_SHA256>("./fixture_data_blind/bls12-381-sha-256/", "proof/proof008.json", "./fixture_data_blind/")
+        blind_proof_check::<BbsBls12381Sha256>("./fixture_data_blind/bls12-381-sha-256/", "proof/proof008.json", "./fixture_data_blind/")
     }
 
 
@@ -777,43 +931,43 @@ mod tests {
 
     #[test]
     fn blind_proof_check_shake256_1() {
-        blind_proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data_blind/bls12-381-shake-256/", "proof/proof001.json", "./fixture_data_blind/")
+        blind_proof_check::<BbsBls12381Shake256>("./fixture_data_blind/bls12-381-shake-256/", "proof/proof001.json", "./fixture_data_blind/")
     }
 
     #[test]
     fn blind_proof_check_shake256_2() {
-        blind_proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data_blind/bls12-381-shake-256/", "proof/proof002.json", "./fixture_data_blind/")
+        blind_proof_check::<BbsBls12381Shake256>("./fixture_data_blind/bls12-381-shake-256/", "proof/proof002.json", "./fixture_data_blind/")
     }
 
     #[test]
     fn blind_proof_check_shake256_3() {
-        blind_proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data_blind/bls12-381-shake-256/", "proof/proof003.json", "./fixture_data_blind/")
+        blind_proof_check::<BbsBls12381Shake256>("./fixture_data_blind/bls12-381-shake-256/", "proof/proof003.json", "./fixture_data_blind/")
     }
 
     #[test]
     fn blind_proof_check_shake256_4() {
-        blind_proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data_blind/bls12-381-shake-256/", "proof/proof004.json", "./fixture_data_blind/")
+        blind_proof_check::<BbsBls12381Shake256>("./fixture_data_blind/bls12-381-shake-256/", "proof/proof004.json", "./fixture_data_blind/")
     }
 
     #[test]
     fn blind_proof_check_shake256_5() {
-        blind_proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data_blind/bls12-381-shake-256/", "proof/proof005.json", "./fixture_data_blind/")
+        blind_proof_check::<BbsBls12381Shake256>("./fixture_data_blind/bls12-381-shake-256/", "proof/proof005.json", "./fixture_data_blind/")
     }
 
     #[test]
     fn blind_proof_check_shake256_6() {
-        blind_proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data_blind/bls12-381-shake-256/", "proof/proof006.json", "./fixture_data_blind/")
+        blind_proof_check::<BbsBls12381Shake256>("./fixture_data_blind/bls12-381-shake-256/", "proof/proof006.json", "./fixture_data_blind/")
     }
 
     #[test]
     fn blind_proof_check_shake256_7() {
-        blind_proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data_blind/bls12-381-shake-256/", "proof/proof007.json", "./fixture_data_blind/")
+        blind_proof_check::<BbsBls12381Shake256>("./fixture_data_blind/bls12-381-shake-256/", "proof/proof007.json", "./fixture_data_blind/")
     }
 
     #[test]
     #[ignore]
     fn blind_proof_check_shake256_8() {
-        blind_proof_check::<BBS_BLS12381_SHAKE256>("./fixture_data_blind/bls12-381-shake-256/", "proof/proof008.json", "./fixture_data_blind/")
+        blind_proof_check::<BbsBls12381Shake256>("./fixture_data_blind/bls12-381-shake-256/", "proof/proof008.json", "./fixture_data_blind/")
     }
 
 
