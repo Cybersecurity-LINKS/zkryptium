@@ -92,7 +92,7 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     /// 
     /// # Inputs:
     /// * `pk` (REQUIRED), the Signer public key.
-    /// * `signature` (REQUIRED), a [`BBSplusSignature`].
+    /// * `signature` (REQUIRED), an octet string.
     /// * `header` (OPTIONAL), an octet string containing context and application.
     /// * `ph` (OPTIONAL), an octet string containing the presentation header.
     /// * `messages` (OPTIONAL), a vector of octet strings representing the signed messages.
@@ -101,10 +101,11 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     /// # Output:
     /// a PoK of a Signature [`PoKSignature::BBSplus`] or [`Error`].
     ///
-    pub fn proof_gen(pk: &BBSplusPublicKey, signature: &BBSplusSignature, header: Option<&[u8]>, ph: Option<&[u8]>, messages: Option<&[Vec<u8>]>, disclosed_indexes: Option<&[usize]> ) -> Result<Self, Error>
+    pub fn proof_gen(pk: &BBSplusPublicKey, signature: &[u8], header: Option<&[u8]>, ph: Option<&[u8]>, messages: Option<&[Vec<u8>]>, disclosed_indexes: Option<&[usize]> ) -> Result<Self, Error>
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
+        let signature = BBSplusSignature::from_bytes(signature.try_into().map_err(|_| Error::InvalidSignature)?)?;
         let messages = messages.unwrap_or(&[]);
         let disclosed_indexes = disclosed_indexes.unwrap_or(&[]);
 
@@ -113,7 +114,7 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
 
         let proof = core_proof_gen::<CS>(
             pk, 
-            signature, 
+            &signature, 
             &generators, 
             &message_scalars, 
             disclosed_indexes, 
@@ -137,7 +138,7 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     /// 
     /// # Inputs:
     /// * `pk` (REQUIRED), the Signer public key.
-    /// * `signature` (REQUIRED), a [`BBSplusSignature`].
+    /// * `signature` (REQUIRED), an octet string.
     /// * `header` (OPTIONAL), an octet string containing context and application.
     /// * `ph` (OPTIONAL), an octet string containing the presentation header.
     /// * `messages` (OPTIONAL), a vector of octet strings messages supplied by the Signer.  If not supplied, it defaults to the empty array.
@@ -150,10 +151,11 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     /// # Output:
     /// ([`PoKSignature::BBSplus`], [`Vec<Vec<u8>>`], [`Vec<usize>`]) or [`Error`]: a PoK of a Signature, a vector of octet strings representing all the disclosed messages and their indexes.
     ///
-    pub fn blind_proof_gen( pk: &BBSplusPublicKey, signature: &BBSplusSignature, header: Option<&[u8]>, ph: Option<&[u8]>, messages: Option<&[Vec<u8>]>, committed_messages: Option<&[Vec<u8>]>, disclosed_indexes: Option<&[usize]>, disclosed_commitment_indexes: Option<&[usize]>, secret_prover_blind: Option<&BlindFactor>, signer_blind: Option<&BlindFactor> ) -> Result<(Self, Vec<Vec<u8>>, Vec<usize>), Error>
+    pub fn blind_proof_gen( pk: &BBSplusPublicKey, signature: &[u8], header: Option<&[u8]>, ph: Option<&[u8]>, messages: Option<&[Vec<u8>]>, committed_messages: Option<&[Vec<u8>]>, disclosed_indexes: Option<&[usize]>, disclosed_commitment_indexes: Option<&[usize]>, secret_prover_blind: Option<&BlindFactor>, signer_blind: Option<&BlindFactor> ) -> Result<(Self, Vec<Vec<u8>>, Vec<usize>), Error>
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
+        let signature = BBSplusSignature::from_bytes(signature.try_into().map_err(|_| Error::InvalidSignature)?)?;
         let messages = messages.unwrap_or(&[]);
         let committed_messages = committed_messages.unwrap_or(&[]);
         let L = messages.len();
@@ -198,7 +200,7 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
 
         let proof = core_proof_gen::<CS>(
             pk, 
-            signature, 
+            &signature, 
             &generators, 
             &message_scalars,
             &disclosed_indexes, 
@@ -1016,14 +1018,13 @@ mod tests {
         let signature_expected = proof_json["signature"].as_str().unwrap();
 
         let signature = Signature::<BBSplus<S::Ciphersuite>>::from_bytes(hex::decode(signature_expected).unwrap().as_slice().try_into().unwrap()).unwrap();
-        let bbs_signature = signature.bbsPlusSignature();
         
         let header = hex::decode(header_hex).unwrap();
         let PK = BBSplusPublicKey::from_bytes(&hex::decode(signerPK_hex).unwrap()).unwrap();
 
         let msgs: Vec<Vec<u8>> = input_messages.iter().map(|m| hex::decode(m).unwrap()).collect();
 
-        let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(&PK, bbs_signature, Some(&header), Some(&ph), Some(&msgs), Some(&revealed_message_indexes)).unwrap();  
+        let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(&PK, &signature.to_bytes(), Some(&header), Some(&ph), Some(&msgs), Some(&revealed_message_indexes)).unwrap();  
         let my_encoded_proof =  hex::encode(&proof.to_bytes());
         let result0 = proof_expected == my_encoded_proof;
         let result1 = result0 == result_expected;
@@ -1118,7 +1119,7 @@ mod tests {
           used_committed_messages = committed_messages;
         }
 
-        let (proof, disclosed_msgs, disclosed_idxs) = PoKSignature::<BBSplus<S::Ciphersuite>>::blind_proof_gen(&pk, &signature, Some(&header), Some(&ph), messages.as_deref(), used_committed_messages.as_deref(), disclosed_indexes.as_deref(), disclosed_commitment_indexes.as_deref(), secret_prover_blind.as_ref(), signer_blind.as_ref()).unwrap();
+        let (proof, disclosed_msgs, disclosed_idxs) = PoKSignature::<BBSplus<S::Ciphersuite>>::blind_proof_gen(&pk, &signature.to_bytes(), Some(&header), Some(&ph), messages.as_deref(), used_committed_messages.as_deref(), disclosed_indexes.as_deref(), disclosed_commitment_indexes.as_deref(), secret_prover_blind.as_ref(), signer_blind.as_ref()).unwrap();
         
         if let Some(values) = proof_json["disclosedData"].as_object() {
             let mut sorted_values = BTreeMap::new();

@@ -70,7 +70,7 @@ mod bbsplus_example {
 
         //Holder generates SPoK
         log::info!("Proof of Knowledge of the Signature Generation...");
-        let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(issuer_pk, signature.bbsPlusSignature(), Some(&header), Some(&nonce_verifier), Some(&messages), Some(&disclosed_indexes) ).unwrap();  
+        let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(issuer_pk, &signature.to_bytes(), Some(&header), Some(&nonce_verifier), Some(&messages), Some(&disclosed_indexes) ).unwrap();  
 
         //Verifier verifies SPok
         let disclosed_messages = get_messages_vec(&messages, &disclosed_indexes);

@@ -79,7 +79,7 @@ mod bbsplus_example {
 
         let disclosed_indexes = [0usize, 2usize];
         let disclosed_commitment_indexes = [1usize];
-        let (poks, all_disclosed_messages, all_disclosed_indexes) = PoKSignature::<BBSplus<S::Ciphersuite>>::blind_proof_gen(issuer_pk, blind_signature.bbsPlusBlindSignature(), Some(&header), Some(&nonce_verifier), Some(&messages), Some(&committed_messages), Some(&disclosed_indexes), Some(&disclosed_commitment_indexes), Some(&secret_prover_blind), None)?;
+        let (poks, all_disclosed_messages, all_disclosed_indexes) = PoKSignature::<BBSplus<S::Ciphersuite>>::blind_proof_gen(issuer_pk, &blind_signature.to_bytes(), Some(&header), Some(&nonce_verifier), Some(&messages), Some(&committed_messages), Some(&disclosed_indexes), Some(&disclosed_commitment_indexes), Some(&secret_prover_blind), None)?;
 
         //TODO: cambiare input di blind_proof_gen (no BBSplusSignature ma &[u8])
         //TODO: provare a usare clausola where AsRef dove prende in input un vettore
