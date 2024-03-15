@@ -12,35 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
+use super::ciphersuites::BbsCiphersuite;
+use crate::utils::util::bbsplus_utils::i2osp;
 use bls12_381_plus::G1Projective;
 use elliptic_curve::group::Curve;
 use elliptic_curve::hash2curve::{ExpandMsg, Expander};
-use serde::{Serialize, Deserialize};
-use serde::ser::{Serializer, SerializeStruct};
-use crate::utils::util::bbsplus_utils::i2osp;
-use super::ciphersuites::BbsCiphersuite;
-
-
-
+use serde::ser::{SerializeStruct, Serializer};
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, PartialEq, Eq, Debug, Deserialize)]
 pub struct Generators {
     pub g1_base_point: G1Projective,
-    pub values: Vec<G1Projective>
+    pub values: Vec<G1Projective>,
 }
 
 impl Serialize for Generators {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: Serializer
+        S: Serializer,
     {
-        let result: Vec<String> = self.values.iter()
-            .map(|item| hex::encode(item.to_affine().to_compressed())).collect();
+        let result: Vec<String> = self
+            .values
+            .iter()
+            .map(|item| hex::encode(item.to_affine().to_compressed()))
+            .collect();
 
         let mut state = serializer.serialize_struct("Generators", 4)?;
-        state.serialize_field("BP",
-            &hex::encode(self.g1_base_point.to_affine().to_compressed()))?;
+        state.serialize_field(
+            "BP",
+            &hex::encode(self.g1_base_point.to_affine().to_compressed()),
+        )?;
 
         state.serialize_field("Generators", &result)?;
         state.end()
@@ -48,15 +49,13 @@ impl Serialize for Generators {
 }
 
 impl Generators {
-
-
     /// # Description
     /// Create Generators an P1 (A fixed point in the G1 subgroup)
-    /// 
+    ///
     /// # Inputs:
     /// * `count` (REQUIRED), unsigned integer. Number of generators to create.
     /// * `api_id` (OPTIONAL), octet string. If not supplied it defaults to the empty octet string ("").
-    /// 
+    ///
     /// # Output:
     /// * [`Generators`], containing an array of generators and P1
     ///  
@@ -67,21 +66,18 @@ impl Generators {
     {
         let generators = create_generators::<CS>(count, api_id);
 
-        Self { 
-            g1_base_point: G1Projective::from_compressed_hex(CS::P1).unwrap(), 
-            values: generators[0..].to_vec() 
+        Self {
+            g1_base_point: G1Projective::from_compressed_hex(CS::P1).unwrap(),
+            values: generators[0..].to_vec(),
         }
     }
-
 }
 
-
-
 /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-generators-calculation
-/// 
+///
 /// # Description
 /// Generators creation
-/// 
+///
 /// # Inputs:
 /// * `count` (REQUIRED), unsigned integer. Number of generators to create.
 /// * `api_id` (OPTIONAL), octet string. If not supplied it defaults to the empty octet string ("").
@@ -93,42 +89,41 @@ where
     CS: BbsCiphersuite,
     CS::Expander: for<'a> ExpandMsg<'a>,
 {
-
     let api_id = api_id.unwrap_or(&[]);
 
     let seed_dst = [api_id, CS::GENERATOR_SEED_DST].concat();
     let generator_dst = [api_id, CS::GENERATOR_DST].concat();
     let generator_seed = [api_id, CS::GENERATOR_SEED].concat();
 
-    let mut v = vec!(0u8; CS::EXPAND_LEN);
-    CS::Expander::expand_message(&[&generator_seed], &[&seed_dst], CS::EXPAND_LEN).unwrap().fill_bytes(&mut v);
+    let mut v = vec![0u8; CS::EXPAND_LEN];
+    CS::Expander::expand_message(&[&generator_seed], &[&seed_dst], CS::EXPAND_LEN)
+        .unwrap()
+        .fill_bytes(&mut v);
 
-    let mut buffer = vec!(0u8; CS::EXPAND_LEN);
+    let mut buffer = vec![0u8; CS::EXPAND_LEN];
     let mut generators = Vec::new();
-    for i in 1..count+1 {
-
+    for i in 1..count + 1 {
         v = [v, i2osp(i, 8)].concat();
-        CS::Expander::expand_message(&[&v], &[&seed_dst], CS::EXPAND_LEN).unwrap().fill_bytes(&mut buffer);
+        CS::Expander::expand_message(&[&v], &[&seed_dst], CS::EXPAND_LEN)
+            .unwrap()
+            .fill_bytes(&mut buffer);
         v = buffer.clone();
         let generator = G1Projective::hash::<CS::Expander>(&v, &generator_dst);
         generators.push(generator);
     }
-    
+
     generators
 }
 
-
 #[cfg(test)]
 mod tests {
-    
-    use std::fs;
-    use crate::bbsplus::ciphersuites::BbsCiphersuite;
-    use elliptic_curve::{hash2curve::ExpandMsg, group::Curve};
-    use crate::schemes::algorithms::Scheme;
-    use crate::bbsplus::generators::Generators;
-    use crate::schemes::algorithms::{BbsBls12381Sha256, BbsBls12381Shake256};
-    
 
+    use crate::bbsplus::ciphersuites::BbsCiphersuite;
+    use crate::bbsplus::generators::Generators;
+    use crate::schemes::algorithms::Scheme;
+    use crate::schemes::algorithms::{BbsBls12381Sha256, BbsBls12381Shake256};
+    use elliptic_curve::{group::Curve, hash2curve::ExpandMsg};
+    use std::fs;
 
     //GENERATORS - SHA256
     #[test]
@@ -140,11 +135,12 @@ mod tests {
 
     #[test]
     fn message_generators_shake256() {
-        message_generators::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/generators.json");
+        message_generators::<BbsBls12381Shake256>(
+            "./fixture_data/bls12-381-shake-256/generators.json",
+        );
     }
 
-
-    fn message_generators<S: Scheme>(filename: &str) 
+    fn message_generators<S: Scheme>(filename: &str)
     where
         S::Ciphersuite: BbsCiphersuite,
         <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
@@ -159,7 +155,10 @@ mod tests {
         }
 
         println!("{}", generators_expected.len());
-        let generators = Generators::create::<S::Ciphersuite>(generators_expected.len() + 1, Some(<S::Ciphersuite as BbsCiphersuite>::API_ID));
+        let generators = Generators::create::<S::Ciphersuite>(
+            generators_expected.len() + 1,
+            Some(<S::Ciphersuite as BbsCiphersuite>::API_ID),
+        );
         println!("{}", generators.values.len());
 
         let Q1 = generators.values[0];
@@ -190,21 +189,25 @@ mod tests {
             eprintln!("  Computed: {}", Q1);
         }
 
-
-        generators_expected.iter().enumerate().for_each(|(i, expected_g)| {
-            let g = hex::encode(message_generators.get(i).expect("index overflow").to_affine().to_compressed());
-            if *expected_g != g{
-                result = false;
-                eprintln!("  GENERATOR {}: {}", i, result);
-                eprintln!("  Expected: {}", *expected_g);
-                eprintln!("  Computed: {}", g);
-            }
-        });
-
+        generators_expected
+            .iter()
+            .enumerate()
+            .for_each(|(i, expected_g)| {
+                let g = hex::encode(
+                    message_generators
+                        .get(i)
+                        .expect("index overflow")
+                        .to_affine()
+                        .to_compressed(),
+                );
+                if *expected_g != g {
+                    result = false;
+                    eprintln!("  GENERATOR {}: {}", i, result);
+                    eprintln!("  Expected: {}", *expected_g);
+                    eprintln!("  Computed: {}", g);
+                }
+            });
 
         assert_eq!(result, true);
-
     }
-
-
 }

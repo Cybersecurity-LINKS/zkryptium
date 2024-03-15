@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod ciphersuites;
-pub mod sigma_protocols;
-pub mod range_proof;
 pub mod bases;
-pub mod keys;
 pub mod blind;
+pub mod ciphersuites;
 pub mod commitment;
-pub mod signature;
+pub mod keys;
 pub mod proof;
+pub mod range_proof;
+pub mod sigma_protocols;
+pub mod signature;

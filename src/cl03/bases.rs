@@ -12,19 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
-use rug::Integer;
-use serde::{Serialize, Deserialize};
-use crate::utils::random::random_qr;
 use super::keys::CL03PublicKey;
-
-
+use crate::utils::random::random_qr;
+use rug::Integer;
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Bases(pub Vec<Integer>);
 
 impl Bases {
-    pub fn generate(pk: &CL03PublicKey, n_attributes: usize) -> Self{
+    pub fn generate(pk: &CL03PublicKey, n_attributes: usize) -> Self {
         let mut a_bases: Vec<Integer> = Vec::new();
         for _i in 0..n_attributes {
             let a = random_qr(&pk.N);

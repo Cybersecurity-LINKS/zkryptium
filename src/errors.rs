@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 use thiserror::Error;
 
-#[derive(Error, Clone,Debug)]
+#[derive(Error, Clone, Debug)]
 pub enum Error {
     #[error("Error during keypair generation")]
     KeyGenError(String),
@@ -65,6 +64,4 @@ pub enum Error {
 
     #[error("Failed to compute the blind challenge")]
     ChallengeComputationFailed,
-
 }
-

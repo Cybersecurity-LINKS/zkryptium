@@ -16,14 +16,12 @@
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 
-
-pub mod utils;
+pub mod errors;
 pub mod keys;
 pub mod schemes;
-pub mod errors;
+pub mod utils;
 
 #[cfg(feature = "bbsplus")]
 pub mod bbsplus;
 #[cfg(feature = "cl03")]
 pub mod cl03;
-

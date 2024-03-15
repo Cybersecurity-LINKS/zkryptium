@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use serde::{Serialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Serialize};
 
 pub trait PublicKey: Serialize + DeserializeOwned + Send + Sync + 'static {
     type Output: ?Sized;
@@ -22,8 +22,7 @@ pub trait PublicKey: Serialize + DeserializeOwned + Send + Sync + 'static {
 }
 pub trait PrivateKey: Serialize + DeserializeOwned + Send + Sync + 'static {
     type Output: ?Sized;
-    
+
     fn to_bytes(&self) -> Self::Output;
     fn encode(&self) -> String;
 }
-

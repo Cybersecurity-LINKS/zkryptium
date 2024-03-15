@@ -12,24 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
-use std::env;
+use crate::schemes::algorithms::Scheme;
 use serde::Deserialize;
 use serde::Serialize;
-use crate::schemes::algorithms::Scheme;
-
+use std::env;
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub struct KeyPair<S: Scheme>{
+pub struct KeyPair<S: Scheme> {
     pub(crate) public: S::PubKey,
     pub(crate) private: S::PrivKey,
 }
 
-impl <S> KeyPair<S> 
-where S: Scheme
+impl<S> KeyPair<S>
+where
+    S: Scheme,
 {
-
-    pub fn public_key(&self) -> &S::PubKey{
+    pub fn public_key(&self) -> &S::PubKey {
         &self.public
     }
 
@@ -37,8 +35,7 @@ where S: Scheme
         &self.private
     }
 
-    pub fn write_keypair_to_file(&self, file: Option<String>)
-    {
+    pub fn write_keypair_to_file(&self, file: Option<String>) {
         println!("writhing to file...");
 
         let file = file.unwrap_or(String::from("../fixtures/fixture_data/keyPair.json"));
@@ -46,16 +43,12 @@ where S: Scheme
         let file_to_write = current_path.join(file);
 
         std::fs::write(
-            &file_to_write, 
-            serde_json::to_string_pretty(
-                &self
-            ).expect("failed to serializing key pair")
-        ).expect(&format!("failed to write key pair to file: {}", file_to_write.to_str().unwrap()));
+            &file_to_write,
+            serde_json::to_string_pretty(&self).expect("failed to serializing key pair"),
+        )
+        .expect(&format!(
+            "failed to write key pair to file: {}",
+            file_to_write.to_str().unwrap()
+        ));
     }
 }
-
-
-
-
-
-
