@@ -116,3 +116,95 @@ where
     
     generators
 }
+
+
+#[cfg(test)]
+mod tests {
+    
+    use std::fs;
+    use crate::bbsplus::ciphersuites::BbsCiphersuite;
+    use elliptic_curve::{hash2curve::ExpandMsg, group::Curve};
+    use crate::schemes::algorithms::Scheme;
+    use crate::bbsplus::generators::Generators;
+    use crate::schemes::algorithms::{BbsBls12381Sha256, BbsBls12381Shake256};
+    
+
+
+    //GENERATORS - SHA256
+    #[test]
+    fn message_generators_sha256() {
+        message_generators::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/generators.json");
+    }
+
+    //GENERATORS - SHAKE256
+
+    #[test]
+    fn message_generators_shake256() {
+        message_generators::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/generators.json");
+    }
+
+
+    fn message_generators<S: Scheme>(filename: &str) 
+    where
+        S::Ciphersuite: BbsCiphersuite,
+        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
+    {
+        let data = fs::read_to_string(filename).expect("Unable to read file");
+        let res: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
+        eprintln!("Message Generators");
+
+        let mut generators_expected: Vec<&str> = Vec::new();
+        for g in res["MsgGenerators"].as_array().unwrap() {
+            generators_expected.push(g.as_str().unwrap());
+        }
+
+        println!("{}", generators_expected.len());
+        let generators = Generators::create::<S::Ciphersuite>(generators_expected.len() + 1, Some(<S::Ciphersuite as BbsCiphersuite>::API_ID));
+        println!("{}", generators.values.len());
+
+        let Q1 = generators.values[0];
+        let message_generators = &generators.values[1..];
+
+        let expected_BP = res["P1"].as_str().unwrap();
+
+        //check BP
+        let BP = hex::encode(generators.g1_base_point.to_affine().to_compressed());
+
+        let mut result = BP == expected_BP;
+        // println!("{}", result);
+
+        if result == false {
+            eprintln!("{}", result);
+            eprintln!("  GENERATOR BP: {}", result);
+            eprintln!("  Expected: {}", expected_BP);
+            eprintln!("  Computed: {}", BP);
+        }
+
+        let expected_Q1 = res["Q1"].as_str().unwrap();
+        let Q1 = hex::encode(Q1.to_compressed());
+
+        if expected_Q1 != Q1 {
+            result = false;
+            eprintln!("  GENERATOR Q1: {}", result);
+            eprintln!("  Expected: {}", expected_Q1);
+            eprintln!("  Computed: {}", Q1);
+        }
+
+
+        generators_expected.iter().enumerate().for_each(|(i, expected_g)| {
+            let g = hex::encode(message_generators.get(i).expect("index overflow").to_affine().to_compressed());
+            if *expected_g != g{
+                result = false;
+                eprintln!("  GENERATOR {}: {}", i, result);
+                eprintln!("  Expected: {}", *expected_g);
+                eprintln!("  Computed: {}", g);
+            }
+        });
+
+
+        assert_eq!(result, true);
+
+    }
+
+
+}

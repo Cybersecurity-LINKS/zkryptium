@@ -16,7 +16,7 @@
 #[cfg(feature = "cl03")]
 mod cl03_example {
     use digest::Digest;
-    use zkryptium::{schemes::algorithms::{CL03, Scheme, Ciphersuite}, schemes::generics::{Commitment, BlindSignature, PoKSignature, ZKPoK}, cl03::{ciphersuites::CLCiphersuite, bases::Bases, keys::CL03CommitmentPublicKey}, keys::pair::KeyPair, utils::message::CL03Message};
+    use zkryptium::{schemes::algorithms::{CL03, Scheme, Ciphersuite}, schemes::generics::{Commitment, BlindSignature, PoKSignature, ZKPoK}, cl03::{ciphersuites::CLCiphersuite, bases::Bases, keys::CL03CommitmentPublicKey}, keys::pair::KeyPair, utils::message::cl03_message::CL03Message};
 
 
     pub(crate) fn cl03_main<S: Scheme>() 

@@ -16,7 +16,7 @@
 
 use rug::Integer;
 use serde::{Deserialize, Serialize};
-use crate::{utils::message::CL03Message, schemes::algorithms::CL03, cl03::{ciphersuites::CLCiphersuite, bases::Bases}, utils::random::random_bits, schemes::generics::Commitment};
+use crate::{utils::message::cl03_message::CL03Message, schemes::algorithms::CL03, cl03::{ciphersuites::CLCiphersuite, bases::Bases}, utils::random::random_bits, schemes::generics::Commitment};
 use super::keys::{CL03CommitmentPublicKey, CL03PublicKey};
 
 

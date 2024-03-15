@@ -16,7 +16,7 @@
 
 use bls12_381_plus::{G1Projective, Scalar};
 use serde::{Deserialize, Serialize};
-use crate::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, errors::Error, schemes::{algorithms::BBSplus, generics::Commitment}, utils::{message::BBSplusMessage, util::bbsplus_utils::{calculate_blind_challenge, get_random, parse_g1_projective, ScalarExt}}};
+use crate::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, errors::Error, schemes::{algorithms::BBSplus, generics::Commitment}, utils::{message::bbsplus_message::BBSplusMessage, util::bbsplus_utils::{calculate_blind_challenge, get_random, parse_g1_projective, ScalarExt}}};
 use super::proof::BBSplusZKPoK;
 use elliptic_curve::hash2curve::ExpandMsg;
 use bls12_381_plus::group::Curve;

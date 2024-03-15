@@ -18,7 +18,7 @@
 use bls12_381_plus::{G1Projective, Scalar, G2Projective, G2Prepared, multi_miller_loop};
 use elliptic_curve::{group::Curve, hash2curve::ExpandMsg, Group};
 use serde::{Serialize, Deserialize};
-use crate::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, errors::Error, schemes::{algorithms::BBSplus, generics::PoKSignature}, utils::{message::BBSplusMessage, util::{bbsplus_utils::{calculate_domain, get_disclosed_data, get_messages, hash_to_scalar, i2osp, parse_g1_projective, ScalarExt}, get_remaining_indexes}}};
+use crate::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, errors::Error, schemes::{algorithms::BBSplus, generics::PoKSignature}, utils::{message::bbsplus_message::BBSplusMessage, util::{bbsplus_utils::{calculate_domain, get_disclosed_data, get_messages, hash_to_scalar, i2osp, parse_g1_projective, ScalarExt}, get_remaining_indexes}}};
 use super::{commitment::BlindFactor, keys::BBSplusPublicKey, signature::BBSplusSignature};
 
 
@@ -971,7 +971,7 @@ mod tests {
     }
 
 
-    pub(crate) fn mocked_rng<S: Scheme>(pathname: &str, filename: &str) 
+    fn mocked_rng<S: Scheme>(pathname: &str, filename: &str) 
     where
         S::Ciphersuite: BbsCiphersuite,
         <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
@@ -1009,7 +1009,7 @@ mod tests {
         assert!(results, "Failed");
     }
     
-    pub(crate) fn proof_check<S: Scheme>(pathname: &str, proof_filename: &str) 
+    fn proof_check<S: Scheme>(pathname: &str, proof_filename: &str) 
     where
         S::Ciphersuite: BbsCiphersuite,
         <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
@@ -1080,7 +1080,7 @@ mod tests {
     }
 
 
-    pub(crate) fn blind_proof_check<S: Scheme>(pathname: &str, proof_filename: &str, messages_path: &str) 
+    fn blind_proof_check<S: Scheme>(pathname: &str, proof_filename: &str, messages_path: &str) 
     where
         S::Ciphersuite: BbsCiphersuite,
         <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,

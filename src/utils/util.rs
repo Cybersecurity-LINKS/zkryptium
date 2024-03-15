@@ -22,7 +22,7 @@ pub mod bbsplus_utils {
     use rand::rngs::OsRng;
     use bls12_381_plus::{G1Affine, G1Projective, G2Affine, G2Projective, Scalar};
     use elliptic_curve::{hash2curve::{ExpandMsg, Expander}, group::Curve};
-    use crate::{bbsplus::commitment::BlindFactor, errors::Error, utils::message::BBSplusMessage};
+    use crate::{bbsplus::commitment::BlindFactor, errors::Error, utils::message::bbsplus_message::BBSplusMessage};
     use crate::{bbsplus::ciphersuites::BbsCiphersuite, bbsplus::keys::BBSplusPublicKey};
 
     const NONCE_LENGTH: usize = 16;
@@ -415,6 +415,75 @@ pub mod bbsplus_utils {
 
         (disclosed_messages, indexes)
 
+    }
+
+
+
+    #[cfg(test)]
+    mod tests {
+        
+        use std::fs;
+        use crate::bbsplus::ciphersuites::BbsCiphersuite;
+        use elliptic_curve::hash2curve::ExpandMsg;
+        use crate::schemes::algorithms::Scheme;
+        use crate::utils::util::bbsplus_utils::{hash_to_scalar, ScalarExt};
+        use crate::schemes::algorithms::{BbsBls12381Sha256, BbsBls12381Shake256};
+        
+
+        //h2s - SHA256
+        #[test]
+        fn h2s_sha256_1() {
+            h2s::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "h2s.json");
+        }
+        #[test]
+        fn h2s_sha256_2() {
+            h2s::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "h2s.json");
+        }
+
+        //h2s - SHAKE256
+        #[test]
+        fn h2s_shake256_1() {
+            h2s::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "h2s.json");
+        }
+        #[test]
+        fn h2s_shake256_2() {
+            h2s::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "h2s.json");
+        }
+
+
+        fn h2s<S: Scheme>(pathname: &str, filename: &str) 
+        where
+            S::Ciphersuite: BbsCiphersuite,
+            <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
+        {
+            let data = fs::read_to_string([pathname, filename].concat()).expect("Unable to read file");
+            let res: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
+            println!("{}\n", res["caseName"]);
+
+            let msg_hex = res["message"].as_str().unwrap();
+            let dst_hex = res["dst"].as_str().unwrap();
+            let scalar_hex_expected = res["scalar"].as_str().unwrap();
+
+            let msg = hex::decode(msg_hex).unwrap();
+            let dst = hex::decode(dst_hex).unwrap();
+
+
+            let scalar = hash_to_scalar::<S::Ciphersuite>(&msg, &dst).unwrap();
+
+            let mut result = true;
+
+            let scalar_hex = hex::encode(scalar.to_bytes_be());
+
+            if scalar_hex != scalar_hex_expected {
+                result = false;
+                eprintln!("{}", result);
+
+                eprintln!(" Expected scalar: {}", scalar_hex_expected);
+                eprintln!(" Computed scalar: {}", scalar_hex);
+            }
+
+            assert!(result, "Failed");
+        }
     }
 
 }

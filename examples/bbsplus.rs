@@ -18,7 +18,7 @@
 mod bbsplus_example {
     use elliptic_curve::hash2curve::ExpandMsg;
     use rand::Rng;
-    use zkryptium::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, errors::Error, keys::pair::KeyPair, schemes::{algorithms::{BBSplus, Ciphersuite, Scheme}, generics::{BlindSignature, Commitment, PoKSignature, Signature, ZKPoK}}, utils::{message::BBSplusMessage, util::bbsplus_utils::{generate_nonce, get_messages_vec}}};
+    use zkryptium::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, errors::Error, keys::pair::KeyPair, schemes::{algorithms::{BBSplus, Ciphersuite, Scheme}, generics::{BlindSignature, Commitment, PoKSignature, Signature, ZKPoK}}, utils::{message::bbsplus_message::BBSplusMessage, util::bbsplus_utils::{generate_nonce, get_messages_vec}}};
 
 
     pub(crate) fn bbsplus_main<S: Scheme>() -> Result<(), Error>

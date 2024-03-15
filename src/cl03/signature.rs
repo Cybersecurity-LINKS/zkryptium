@@ -15,7 +15,7 @@
 
 use rug::{Integer, ops::Pow, integer::Order};
 use serde::{Deserialize, Serialize};
-use crate::{schemes::algorithms::CL03, utils::message::CL03Message, cl03::{ciphersuites::CLCiphersuite, bases::Bases}, utils::random::{random_prime, random_bits}, schemes::generics::Signature};
+use crate::{schemes::algorithms::CL03, utils::message::cl03_message::CL03Message, cl03::{ciphersuites::CLCiphersuite, bases::Bases}, utils::random::{random_prime, random_bits}, schemes::generics::Signature};
 use super::keys::{CL03PublicKey, CL03SecretKey};
 
 
@@ -124,3 +124,46 @@ impl <CS: CLCiphersuite> Signature<CL03<CS>> {
     }
 }
 
+
+#[cfg(test)]
+mod tests {
+    
+    use digest::Digest;
+    use crate::{keys::pair::KeyPair, schemes::algorithms::{Scheme, CL03, Ciphersuite}, utils::message::cl03_message::CL03Message, schemes::generics::Signature, cl03::bases::Bases};
+    use crate::cl03::ciphersuites::CLCiphersuite;
+    use crate::schemes::algorithms::CL03_CL1024_SHA256;
+
+    
+    //Signature (sign) - CL1024-SHA256
+    #[test]
+    fn signature_cl1024_sha256() {
+        signature::<CL03_CL1024_SHA256>();
+    }
+
+
+    fn signature<S: Scheme>() 
+    where
+        S::Ciphersuite: CLCiphersuite,
+        <S::Ciphersuite as Ciphersuite>::HashAlg: Digest
+    {
+        const msg: &str = "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02";
+        const wrong_msg: &str = "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f03";
+
+        let cl03_keypair = KeyPair::<CL03<S::Ciphersuite>>::generate();
+        let a_bases = Bases::generate(cl03_keypair.public_key(), 1);
+
+        let message = CL03Message::map_message_to_integer_as_hash::<S::Ciphersuite>(&hex::decode(msg).unwrap());
+        
+        let wrong_message = CL03Message::map_message_to_integer_as_hash::<S::Ciphersuite>(&hex::decode(wrong_msg).unwrap());
+
+        let signature = Signature::<CL03<S::Ciphersuite>>::sign(cl03_keypair.public_key(), cl03_keypair.private_key(), &a_bases, &message);
+
+        let valid = signature.verify(cl03_keypair.public_key(), &a_bases, &message);
+
+        assert!(valid, "Error! Signature should be VALID");
+
+        let valid = signature.verify(cl03_keypair.public_key(), &a_bases, &wrong_message);
+
+        assert!(!valid, "Error! Signature should be INVALID");
+    }
+}

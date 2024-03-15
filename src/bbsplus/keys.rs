@@ -219,3 +219,75 @@ fn sk_to_pk(sk: Scalar) -> G2Projective {
     let pk = G2Affine::generator() * sk;
     pk
 }
+
+
+
+#[cfg(test)]
+mod tests {
+    
+    use std::fs;
+    use crate::bbsplus::ciphersuites::BbsCiphersuite;
+    use crate::schemes::algorithms::Scheme;
+    use crate::{keys::pair::KeyPair, schemes::algorithms::BBSplus};
+    use crate::schemes::algorithms::{BbsBls12381Sha256, BbsBls12381Shake256};
+    
+    
+    
+    //KEYPAIR - SHA256
+    
+    #[test]
+    fn keypair_sha256() { 
+        key_pair_gen::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/keyPair.json");
+    }
+
+    //KEYPAIR - SHAKE256
+
+    #[test]
+    fn keypair_shake256() {
+        key_pair_gen::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/keyPair.json");
+    }
+
+
+    fn key_pair_gen<S: Scheme>(filename: &str) 
+    where
+        S::Ciphersuite: BbsCiphersuite
+    {
+        eprintln!("Key Pair");
+        let data = fs::read_to_string(filename).expect("Unable to read file");
+        let data_json: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
+        let IKM         = data_json["keyMaterial"].as_str().unwrap();
+        let KEY_INFO    = data_json["keyInfo"].as_str().unwrap();
+        let KEY_DST = data_json["keyDst"].as_str().unwrap();
+        let SK_expected = data_json["keyPair"]["secretKey"].as_str().unwrap();                  
+        let PK_expected = data_json["keyPair"]["publicKey"].as_str().unwrap();  
+
+        let keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
+            &hex::decode(IKM).unwrap(), 
+            Some(&hex::decode(KEY_INFO).unwrap()), 
+            Some(&hex::decode(KEY_DST).unwrap())
+        ).unwrap();
+        
+        let sk = keypair.private_key().encode();
+        let pk = keypair.public_key().encode();
+
+        let result1 = sk == SK_expected;
+
+        if result1 == false{
+        println!("      keyGen:        {}", result1);
+        println!("      Expected key:  {}", SK_expected);
+        println!("      Generated key: {}", sk);
+        }
+
+        let result2 = pk ==  PK_expected;
+
+        if result2 == false{
+            println!("      skToPk:        {}", result2);
+            println!("      Expected key:  {}", PK_expected);
+            println!("      Generated key: {}", pk);
+            }
+        let result = result1 && result2;
+
+        assert!(result, "Failed");
+
+    }
+}
