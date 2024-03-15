@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//TODO: fix examples
+
 
 #[cfg(feature = "bbsplus")]
 mod bbsplus_example {
     use elliptic_curve::hash2curve::ExpandMsg;
     use rand::Rng;
-    use zkryptium::{bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators}, errors::Error, keys::pair::KeyPair, schemes::{algorithms::{BBSplus, Ciphersuite, Scheme}, generics::{BlindSignature, Commitment, PoKSignature, Signature, ZKPoK}}, utils::{message::bbsplus_message::BBSplusMessage, util::bbsplus_utils::{generate_nonce, get_messages_vec}}};
+    use zkryptium::{bbsplus::ciphersuites::BbsCiphersuite, errors::Error, keys::pair::KeyPair, schemes::{algorithms::{BBSplus, Scheme}, generics::{PoKSignature, Signature}}, utils::util::bbsplus_utils::{generate_nonce, get_messages_vec}};
 
 
     pub(crate) fn bbsplus_main<S: Scheme>() -> Result<(), Error>
@@ -27,12 +27,12 @@ mod bbsplus_example {
         <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
         
-        const msgs: [&str; 3] = ["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02", "87a8bd656d49ee07b8110e1d8fd4f1dcef6fb9bc368c492d9bc8c4f98a739ac6", "96012096adda3f13dd4adbe4eea481a4c4b5717932b73b00e31807d3c5894b90"];
+        const MSGS: [&str; 3] = ["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02", "87a8bd656d49ee07b8110e1d8fd4f1dcef6fb9bc368c492d9bc8c4f98a739ac6", "96012096adda3f13dd4adbe4eea481a4c4b5717932b73b00e31807d3c5894b90"];
         
-        log::info!("Messages: {:?}", msgs);
+        log::info!("Messages: {:?}", MSGS);
         
-        const header_hex: &str = "11223344556677889900aabbccddeeff";
-        let header = hex::decode(header_hex).unwrap();
+        const HEADER_HEX: &str = "11223344556677889900aabbccddeeff";
+        let header = hex::decode(HEADER_HEX).unwrap();
 
         
         let mut rng = rand::thread_rng();
@@ -52,29 +52,33 @@ mod bbsplus_example {
         log::info!("PK: {}", hex::encode(issuer_pk.to_bytes()));
 
 
-        let msgs_scalars: Vec<Vec<u8>> = msgs.iter().map(|m| hex::decode(m).unwrap()).collect();
+        let messages: Vec<Vec<u8>> = MSGS.iter().map(|m| hex::decode(m).unwrap()).collect();
+        log::info!("Signature Computation...");
+        let signature = Signature::<BBSplus<S::Ciphersuite>>::sign(Some(&messages), issuer_sk, issuer_pk, Some(&header)).unwrap();
 
-        
-        let signature = Signature::<BBSplus<S::Ciphersuite>>::sign(Some(&msgs_scalars), issuer_sk, issuer_pk, Some(&header)).unwrap();
+        assert!(signature.verify(issuer_pk, Some(&messages), Some(&header)).is_ok(), "Signature verification FAILED!");
+        log::info!("Signature is VALID");
+
+
 
         //Holder receive nonce from Verifier
         let nonce_verifier = generate_nonce();
         log::info!("Generate Nonce...");
         log::info!("Nonce: {}", hex::encode(&nonce_verifier));
 
-        let revealed_message_indexes = [0usize, 2usize];
+        let disclosed_indexes = [0usize, 2usize];
 
         //Holder generates SPoK
-        let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(issuer_pk, signature.bbsPlusSignature(), Some(&header), Some(&nonce_verifier), Some(&msgs_scalars), Some(&revealed_message_indexes) ).unwrap();  
+        log::info!("Proof of Knowledge of the Signature Generation...");
+        let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(issuer_pk, signature.bbsPlusSignature(), Some(&header), Some(&nonce_verifier), Some(&messages), Some(&disclosed_indexes) ).unwrap();  
 
         //Verifier verifies SPok
-
-        let disclosed_messages = get_messages_vec(&msgs_scalars, &revealed_message_indexes);
+        let disclosed_messages = get_messages_vec(&messages, &disclosed_indexes);
         
-        log::info!("Signature Proof of Knowledge verification...");
-        let proof_result = proof.proof_verify(&issuer_pk, Some(&disclosed_messages), Some(&revealed_message_indexes), Some(&header), Some(&nonce_verifier)).is_ok();
-        assert!(proof_result, "Signature Proof of Knowledge Verification Failed!");
-        log::info!("Signature Proof of Knowledge is VALID!");
+        log::info!("Proof of Knowledge of the Signature verification...");
+        let proof_result = proof.proof_verify(&issuer_pk, Some(&disclosed_messages), Some(&disclosed_indexes), Some(&header), Some(&nonce_verifier)).is_ok();
+        assert!(proof_result, "Proof of Knowledge of the Signature Verification Failed!");
+        log::info!("Proof of Knowledge of the Signature is VALID!");
 
         Ok(())
     }
@@ -108,12 +112,12 @@ fn main() {
         "BLS12-381-SHA-256" => {
             println!("\n");
             log::info!("Ciphersuite: BLS12-381-SHA-256");
-            bbsplus_main::<BbsBls12381Sha256>();
+            let _ = bbsplus_main::<BbsBls12381Sha256>();
         }
         "BLS12-381-SHAKE-256" => {
             println!("\n");
             log::info!("Ciphersuite: BLS12-381-SHAKE-256");
-            bbsplus_main::<BbsBls12381Shake256>();
+            let _ = bbsplus_main::<BbsBls12381Shake256>();
 
         }
         _ => {

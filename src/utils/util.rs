@@ -407,8 +407,6 @@ pub mod bbsplus_utils {
             indexes.push(M + j + comm_used);
         }
 
-        indexes.iter().for_each(|i| println!("i = {}", i));
-
         let mut disclosed_messages: Vec<Vec<u8>> = Vec::new();
         disclosed_commitment_indexes.iter().for_each(|&j| disclosed_messages.push(committed_messages[j].clone()));
         disclosed_indexes.iter().for_each(|&i| disclosed_messages.push(messages[i].clone()));

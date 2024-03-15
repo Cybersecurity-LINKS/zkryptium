@@ -132,7 +132,6 @@ impl <CS: BbsCiphersuite> Signature<BBSplus<CS>> {
 
 
 
-    //TODO test update
     /// # Description
     /// Update signature with a new value of a signed message
     /// 
@@ -495,10 +494,6 @@ mod tests {
 
         let new_message_bytes = hex::decode(new_message).unwrap();
         let old_message_bytes = messages.get(update_index).unwrap();
-
-
-        // let new_message_scalar = BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(&hex::decode(new_message).unwrap(), Some(&dst)).unwrap();
-        // let old_message_scalar = msgs_scalars.get(update_index).unwrap();
 
         let updated_signature = signature.update_signature(sk, &old_message_bytes, &new_message_bytes, update_index, messages.len()).unwrap();
 

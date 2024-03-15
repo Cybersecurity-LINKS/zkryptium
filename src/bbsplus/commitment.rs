@@ -62,7 +62,7 @@ impl <CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
     /// * `committed_messages` (OPTIONAL), a vector of octet strings. If not supplied it defaults to the empty array.
     /// 
     /// # Output:
-    /// ([`Commitment::BBSplus`], [`BlindFactor`]), a tuple (commitment + proof, secret_prover_blind) or [`Error`].
+    /// ([`Commitment::BBSplus`], [`BlindFactor`]), a tuple (**`commitment_with_proof`**, **`secret_prover_blind`**) or [`Error`].
     /// 
     pub fn commit(committed_messages: Option<&[Vec<u8>]>) -> Result<(Self, BlindFactor), Error>
     where

@@ -36,7 +36,7 @@ impl <CS:BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     /// * `commitment_with_proof` (OPTIONAL), an octet string, representing a serialized commitment and commitment_proof. If not supplied, it defaults to the empty string ("").
     /// * `header` (OPTIONAL), an octet string containing context and application specific information.
     /// * `messages` (OPTIONAL), a vector of octet strings. If not supplied, it defaults to the empty array.
-    /// * `signer_blind` (OPTIONAL), a random scalar value ([`BlindFactor`]).
+    /// * `signer_blind` (OPTIONAL), a random scalar value ([`BlindFactor`]) to further randomize the supplied commitment.
     /// 
     /// # Output:
     /// a [`BlindSignature::BBSplus`] or [`Error`].

@@ -195,8 +195,7 @@ impl <CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         let generators = Generators::create::<CS>(message_scalars.len()+1, Some(api_id));
 
         let (disclosed_messages, disclosed_indexes) = get_disclosed_data(messages, committed_messages, disclosed_indexes, disclosed_commitment_indexes, secret_prover_blind);
-        disclosed_messages.iter().for_each(|m| println!("M = {}", hex::encode(m)));
-        disclosed_indexes.iter().for_each(|i| println!("I = {}", i));
+
         let proof = core_proof_gen::<CS>(
             pk, 
             signature, 
@@ -362,8 +361,6 @@ where
 
     let disclosed_messages = get_messages(messages, &disclosed_indexes);
     let undisclosed_messages = get_messages(messages, &undisclosed_indexes);
-
-    println!("U = {}", U);
   
     #[cfg(not(test))]
     let random_scalars = calculate_random_scalars(5 + U);
@@ -371,7 +368,6 @@ where
     #[cfg(test)]
     let random_scalars = seeded_random_scalars::<CS>(5 + U, _seed, _dst);
 
-    random_scalars.iter().for_each(|s| println!("scalar = {}", s.encode()));
 
     let init_res = proof_init::<CS>(
         pk, 
@@ -454,7 +450,6 @@ where
     let H_points = &generators.values[1..];
 
     let domain = calculate_domain::<CS>(pk, Q1, H_points, header, api_id)?;
-    println!("domain = {}", domain.encode());
 
     let mut B = generators.g1_base_point + Q1 * domain;
     for i in 0..L {
@@ -462,21 +457,14 @@ where
     }
 
     let r1 = random_scalars[0];
-    println!("r1 = {}", r1.encode());
     let r2 = random_scalars[1];
-    println!("r2 = {}", r2.encode());
     let e_tilde = random_scalars[2];
-    println!("e_tilde = {}", e_tilde.encode());
     let r1_tilde = random_scalars[3];
-    println!("r1_tilde = {}", r1_tilde.encode());
     let r3_tilde = random_scalars[4];
-    println!("r3_tilde = {}", r3_tilde.encode());
     let m_tilde = &random_scalars[5..(5+U)];
-    m_tilde.iter().enumerate().for_each(|(i,s)| println!("m_tilde_{} = {}", i, s.encode()));
 
 
     let D = B * r2;
-    println!("D = {}", hex::encode(D.to_compressed()));
     let Abar = signature.A * (r1 * r2);
     let Bbar = D * r1 - Abar * signature.e;
 
@@ -486,11 +474,6 @@ where
     for idx in 0..U {
         T2 = T2 + H_points[undisclosed_indexes[idx]] * m_tilde[idx];
     }
-
-    println!("Abar = {}", hex::encode(Abar.to_compressed()));
-    println!("Bbar = {}", hex::encode(Bbar.to_compressed()));
-    println!("T1 = {}", hex::encode(T1.to_compressed()));
-    println!("T2 = {}", hex::encode(T2.to_compressed()));
 
     Ok(ProofInitResult{ Abar, Bbar, D, T1, T2, domain })
 }
