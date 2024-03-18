@@ -53,7 +53,7 @@ impl BBSplusSignature {
             .map_err(|_| Error::InvalidSignature)?;
 
         Ok(Self { A, e })
-    }
+    }   
 }
 
 impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
