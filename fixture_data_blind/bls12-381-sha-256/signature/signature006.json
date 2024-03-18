@@ -1,0 +1,39 @@
+{
+  "caseName": "valid no commitment signature",
+  "mockRngParameters": {
+    "SEED": "3.141592653589793238462643383279",
+    "signature": {
+      "DST": "BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_SIGNATURE_MOCK_RANDOM_SCALARS_DST_",
+      "count": 1
+    }
+  },
+  "signerKeyPair": {
+    "secretKey": "60e55110f76883a13d030b2f6bd11883422d5abde717569fc0731f51237169fc",
+    "publicKey": "a820f230f6ae38503b86c70dc50b61c58a77e45c39ab25c0652bbaa8fa136f2851bd4781c9dcde39fc9d1d52c9e60268061e7d7632171d91aa8d460acee0e96f1e7c4cfb12d3ff9ab5d5dc91c277db75c845d649ef3c4f63aebc364cd55ded0c"
+  },
+  "commitmentWithProof": null,
+  "header": "11223344556677889900aabbccddeeff",
+  "messages": [
+    "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02",
+    "c344136d9ab02da4dd5908bbba913ae6f58c2cc844b802a6f811f5fb075f9b80",
+    "7372e9daa5ed31e6cd5c825eac1b855e84476a1d94932aa348e07b73",
+    "77fe97eb97a1ebe2e81e4e3597a3ee740a66e9ef2412472c",
+    "496694774c5604ab1b2544eababcf0f53278ff50",
+    "515ae153e22aae04ad16f759e07237b4",
+    "d183ddc6e2665aa4e2f088af",
+    "ac55fb33a75909ed",
+    "96012096",
+    ""
+  ],
+  "committedMessages": null,
+  "proverBlind": null,
+  "signerBlind": null,
+  "signature": "8c21175e0465339fd9b32aece83c43402b8b467baf3085028ecb5669e76e093c0db878bfd4e6121b2b86260fd38f11ca37fc2f16f145ba600b240eb96a40960f7aac7416f2390225e7166863db321b16",
+  "result": {
+    "valid": true
+  },
+  "trace": {
+    "B": "853ff87eda30796f5997ec3fb9fffcefa78b0b457ce9f2487b8afaa0ffa5098053dc91a65e0b169d97f7b1123e80ab14",
+    "domain": "160cf879138e86f8f6025c41ec94434432a315c33dc6b90c38f1b21ce101418c"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "caseName": "valid multi prover committed messages, no signer messages signature",
+  "mockRngParameters": {
+    "SEED": "3.141592653589793238462643383279",
+    "commit": {
+      "DST": "BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_H2G_HM2S_COMMIT_MOCK_RANDOM_SCALARS_DST_",
+      "count": 7
+    },
+    "signature": {
+      "DST": "BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_H2G_HM2S_SIGNATURE_MOCK_RANDOM_SCALARS_DST_",
+      "count": 1
+    }
+  },
+  "signerKeyPair": {
+    "secretKey": "2eee0f60a8a3a8bec0ee942bfd46cbdae9a0738ee68f5a64e7238311cf09a079",
+    "publicKey": "92d37d1d6cd38fea3a873953333eab23a4c0377e3e049974eb62bd45949cdeb18fb0490edcd4429adff56e65cbce42cf188b31bddbd619e419b99c2c41b38179eb001963bc3decaae0d9f702c7a8c004f207f46c734a5eae2e8e82833f3e7ea5"
+  },
+  "commitmentWithProof": "a90a9c986623c7df72f1b55f885a7f25070d5b73178f7139fd6e948067e9f748b1cc0d4db3cbb9123a18851714ec9c161b678690dbd0ae67f4bac061bb80824ba208906d581586971c6a32e2a162eddf0ed4a8cc260f2cc9b505fd5ea078d21ae76159866c476cb129ad719511edbac763ec9b34c7943c520f598bacd7775e8345a9b3c2c2490fab27c97f1529ff319b4995ea15ff5e46ec26347d6a6bbf2e4b2a8da145f6afd5444464d86f79cd7df32fcc665b9245e138c752decfb3d507f2024af86b202741bf946e199ac77730a070821d7df69ce563d2d4142572431047dc6b544e4a8280ada8c3c01a2d3f454e4cf1dc293f09e6a5b743f275286ce601f28b1838441265c1c18b4425b8bd3d5c",
+  "header": "11223344556677889900aabbccddeeff",
+  "messages": [],
+  "committedMessages": [
+    "5982967821da3c5983496214df36aa5e58de6fa25314af4cf4c00400779f08c3",
+    "a75d8b634891af92282cc81a675972d1929d3149863c1fc0",
+    "835889a40744813a892eff9deb1edaeb",
+    "e1ca9729410dc6ba",
+    ""
+  ],
+  "proverBlind": "41fb2f74c30256398c927a262602b5ac3ebc6f84d9169476f8fcb1525c93b649",
+  "signerBlind": "49541deb67dc42d5509d39548637959bc43e105fff02c780a308c78e0a1e3c7f",
+  "signature": "b788904003da89dc167016c3d58a296a145c411df7cc616cfeb79db8d07d5361210ef79599453acc7ee706d80e114be369ca4043e008ea4373e1d3d7bb60c11161d1d6d67ad23a808f0ce52677c724dd",
+  "result": {
+    "valid": true
+  },
+  "trace": {
+    "B": "a537c41dd0dac2de5d21296e32e43f07b27e2ea4c1757247c36fdf7d5541d9e97a483e0b729a8b83638f15fba0cbda29",
+    "domain": "2ff95924f5218644c1a5d1722d815146e5b2c195d231421aea572e00527849d2"
+  }
+}

@@ -12,27 +12,56 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::error::Error;
-use std::fmt;
+use thiserror::Error;
 
+#[derive(Error, Clone, Debug)]
+pub enum Error {
+    #[error("Error during keypair generation")]
+    KeyGenError(String),
+    #[error("Invalid key")]
+    KeyDeserializationError,
+    #[error("Error during computation of a Blind Signature")]
+    BlindSignError(String),
+    #[error("Error during computation of a Signature")]
+    SignatureGenerationError(String),
+    #[error("Not a valid Signature")]
+    InvalidSignature,
+    #[error("Error during hash to scalar computation")]
+    HashToScalarError,
+    #[error("Error mapping a message to scalar")]
+    MapMessageToScalarError,
+    #[error("Not enough Generators")]
+    NotEnoughGenerators,
+    /// [More Info](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-coresign) in the `Note` at the end
+    #[error(" A == Identity_G1")]
+    G1IdentityError,
+    #[error("Error during deserialization")]
+    DeserializationError(String),
+    #[error("Signature is not valid")]
+    SignatureVerificationError,
+    #[error("Error during computation of a Proof of Knowledge of a Signature")]
+    ProofGenError(String),
+    #[error("Error during computation of a Blind Proof of Knowledge of a Signature")]
+    BlindProofGenError(String),
+    #[error("Unknown error")]
+    Unspecified,
 
-#[derive(Debug)]
-pub struct BlindSignError(pub String);
+    #[error("Signature update failed")]
+    UpdateSignatureError(String),
 
-impl fmt::Display for BlindSignError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
+    #[error("Invalid Proof of Knowledge of a Signature")]
+    InvalidProofOfKnowledgeSignature,
+    #[error("Proof of Knowledge of a Signature verification failed")]
+    PoKSVerificationError(String),
+
+    #[error("This should NOT happen!")]
+    UnespectedError,
+
+    #[error("Invalid commitment")]
+    InvalidCommitment,
+    #[error("Invalid commitment proof")]
+    InvalidCommitmentProof,
+
+    #[error("Failed to compute the blind challenge")]
+    ChallengeComputationFailed,
 }
-
-#[derive(Debug)]
-pub struct ZKPoKError(pub String);
-
-impl fmt::Display for ZKPoKError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl Error for BlindSignError {}
-impl Error for ZKPoKError{}

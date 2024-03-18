@@ -6,22 +6,18 @@
 
 ## Description
 
-<!-- Provide a short description explaining the what, why, and how of your project. Use the following questions as a guide:
+ZKryptium provides an implementation in accordance with:
+* **BBS+**([draft-irtf-cfrg-bbs-signatures-05](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05)) signature scheme 
+* **Blind BBS Signatures** ([draft-kalos-bbs-blind-signatures-00](https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-00))
+* **CL2003** (https://link.springer.com/chapter/10.1007/3-540-36413-7_20) signature scheme 
 
-- What was your motivation?
-- Why did you build this project? (Note: the answer is not "Because it was a homework assignment.")
-- What problem does it solve?
-- What did you learn? --> 
-ZKryptium offers implementations of the [BBS+](https://identity.foundation/bbs-signature/draft-irtf-cfrg-bbs-signatures.html) and [CL2003](https://link.springer.com/chapter/10.1007/3-540-36413-7_20) signature schemes, enabling the creation of zero-knowledge proofs for both signed attributes and signatures.
-This library has been designed to expose cryptographic primitives, facilitating the development of a Verifiable Credentials (VCs) system capable of supporting:
-- Anonymous Credentials
-- Selective Disclosure Credentials
+
+This library enables the creation of zero-knowledge proofs, exposing cryptographic primitives facilitating the development of a Verifiable Credentials (VCs) system capable of handling both Anonymous Credentials and Selective Disclosure Credentials.
 
 
 
 
 ## Getting Started
-<!-- What are the steps required to install your project? Provide a step-by-step description of how to get the development environment running. -->
 
 ### Requirements
 
@@ -37,7 +33,7 @@ This library has been designed to expose cryptographic primitives, facilitating 
 
 ```toml
 [dependencies]
-zkryptium = { version = "0.1.9", default-features = false, features = ["bbsplus"] }
+zkryptium = { version = "0.2.0", default-features = false, features = ["bbsplus"] }
 ```
 
 ##### CL2003:
@@ -45,12 +41,10 @@ zkryptium = { version = "0.1.9", default-features = false, features = ["bbsplus"
 
 ```toml
 [dependencies]
-zkryptium = { version = "0.1.9", default-features = false, features = ["cl03"] }
+zkryptium = { version = "0.2.0", default-features = false, features = ["cl03"] }
 ```
 
 ### Examples
-
-<!-- Provide instructions and examples for use. Include screenshots as needed. -->
 
 Take a look at the [examples](https://github.com/Cybersecurity-LINKS/ZKryptium/tree/main/examples).
 

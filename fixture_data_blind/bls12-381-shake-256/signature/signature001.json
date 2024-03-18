@@ -1,0 +1,32 @@
+{
+  "caseName": "valid no prover committed messages, no signer messages signature",
+  "mockRngParameters": {
+    "SEED": "3.141592653589793238462643383279",
+    "commit": {
+      "DST": "BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_H2G_HM2S_COMMIT_MOCK_RANDOM_SCALARS_DST_",
+      "count": 2
+    },
+    "signature": {
+      "DST": "BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_H2G_HM2S_SIGNATURE_MOCK_RANDOM_SCALARS_DST_",
+      "count": 1
+    }
+  },
+  "signerKeyPair": {
+    "secretKey": "2eee0f60a8a3a8bec0ee942bfd46cbdae9a0738ee68f5a64e7238311cf09a079",
+    "publicKey": "92d37d1d6cd38fea3a873953333eab23a4c0377e3e049974eb62bd45949cdeb18fb0490edcd4429adff56e65cbce42cf188b31bddbd619e419b99c2c41b38179eb001963bc3decaae0d9f702c7a8c004f207f46c734a5eae2e8e82833f3e7ea5"
+  },
+  "commitmentWithProof": "95a6f21801b2010a9016c590cd6f0d59682e908a46cdc9856eea2c5000545626fc755c13ce93a71e371b0ae05491326302a8e40b4fc1197d75c46d2114c711d9186e4af0498dab260ae56f81dbc59f7b2a9f4883479ce40e765a32b6481766ed5aeeddecd2decd277460a5e129a22934",
+  "header": "11223344556677889900aabbccddeeff",
+  "messages": [],
+  "committedMessages": [],
+  "proverBlind": "30bd5c9bd2b61c44dd169c92cf28bb607830c56073f10e7a800c857cb05ec249",
+  "signerBlind": "49541deb67dc42d5509d39548637959bc43e105fff02c780a308c78e0a1e3c7f",
+  "signature": "90c93d864fb857dc4290e1cb2f6c82973c2562b4bfb8edb61c2300da84b7d709733024c215acc0e224ee4b64ab5987d0312e84786009cece2aee01884b19c81a592aefb557f025fccdd8c67ca0a5d8c3",
+  "result": {
+    "valid": true
+  },
+  "trace": {
+    "B": "b34e5cf13d77074c4762d92f98cc6b8c2567c816a2ea792d0f49263b8da314b5493830b78563fdb9e2abcab2a7a3c21f",
+    "domain": "41f87ee87af7a093831d77576c64d41e0d89bcd05ea6c9dd5be25bce3c728c55"
+  }
+}

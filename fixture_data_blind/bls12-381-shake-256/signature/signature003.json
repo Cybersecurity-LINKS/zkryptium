@@ -1,0 +1,43 @@
+{
+  "caseName": "valid no prover committed messages, multiple signer messages signature",
+  "mockRngParameters": {
+    "SEED": "3.141592653589793238462643383279",
+    "commit": {
+      "DST": "BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_H2G_HM2S_COMMIT_MOCK_RANDOM_SCALARS_DST_",
+      "count": 2
+    },
+    "signature": {
+      "DST": "BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_H2G_HM2S_SIGNATURE_MOCK_RANDOM_SCALARS_DST_",
+      "count": 1
+    }
+  },
+  "signerKeyPair": {
+    "secretKey": "2eee0f60a8a3a8bec0ee942bfd46cbdae9a0738ee68f5a64e7238311cf09a079",
+    "publicKey": "92d37d1d6cd38fea3a873953333eab23a4c0377e3e049974eb62bd45949cdeb18fb0490edcd4429adff56e65cbce42cf188b31bddbd619e419b99c2c41b38179eb001963bc3decaae0d9f702c7a8c004f207f46c734a5eae2e8e82833f3e7ea5"
+  },
+  "commitmentWithProof": "95a6f21801b2010a9016c590cd6f0d59682e908a46cdc9856eea2c5000545626fc755c13ce93a71e371b0ae05491326302a8e40b4fc1197d75c46d2114c711d9186e4af0498dab260ae56f81dbc59f7b2a9f4883479ce40e765a32b6481766ed5aeeddecd2decd277460a5e129a22934",
+  "header": "11223344556677889900aabbccddeeff",
+  "messages": [
+    "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02",
+    "c344136d9ab02da4dd5908bbba913ae6f58c2cc844b802a6f811f5fb075f9b80",
+    "7372e9daa5ed31e6cd5c825eac1b855e84476a1d94932aa348e07b73",
+    "77fe97eb97a1ebe2e81e4e3597a3ee740a66e9ef2412472c",
+    "496694774c5604ab1b2544eababcf0f53278ff50",
+    "515ae153e22aae04ad16f759e07237b4",
+    "d183ddc6e2665aa4e2f088af",
+    "ac55fb33a75909ed",
+    "96012096",
+    ""
+  ],
+  "committedMessages": [],
+  "proverBlind": "30bd5c9bd2b61c44dd169c92cf28bb607830c56073f10e7a800c857cb05ec249",
+  "signerBlind": "49541deb67dc42d5509d39548637959bc43e105fff02c780a308c78e0a1e3c7f",
+  "signature": "81d03e119cf3a1257a58b288c27132d0ec37e3695eb37ecc064094221baa4f9775483ed57227385659498480f8e92d8d28a9f576cbdc2f2613c68d6184598dc47d9c12cc94654072bd9ee708f72d02b5",
+  "result": {
+    "valid": true
+  },
+  "trace": {
+    "B": "92c9bd227788c660f82397b7cadbebdcb83bfc4256362605caebd57849ca17371c5dd67af7b763f0c207eb73cd0d9d97",
+    "domain": "1561412ed694d0eb532e042ae2098fc999325394317c686ce94a84db29552100"
+  }
+}

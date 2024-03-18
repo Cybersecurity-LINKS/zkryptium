@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod generators;
-pub mod ciphersuites;
-pub mod keys;
 pub mod blind;
+pub mod ciphersuites;
 pub mod commitment;
-pub mod signature;
+pub mod generators;
+pub mod keys;
 pub mod proof;
+pub mod signature;

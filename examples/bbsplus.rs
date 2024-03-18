@@ -12,165 +12,114 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 #[cfg(feature = "bbsplus")]
 mod bbsplus_example {
     use elliptic_curve::hash2curve::ExpandMsg;
-    use zkryptium::{utils::{message::BBSplusMessage, util::bbsplus_utils::generate_nonce}, keys::pair::KeyPair, bbsplus::{generators::Generators, ciphersuites::BbsCiphersuite}, schemes::algorithms::{BBSplus, Scheme, Ciphersuite}, schemes::generics::{Commitment, BlindSignature, PoKSignature, ZKPoK}};
+    use rand::Rng;
+    use zkryptium::{
+        bbsplus::ciphersuites::BbsCiphersuite,
+        errors::Error,
+        keys::pair::KeyPair,
+        schemes::{
+            algorithms::{BBSplus, Scheme},
+            generics::{PoKSignature, Signature},
+        },
+        utils::util::bbsplus_utils::{generate_random_secret, get_messages_vec},
+    };
 
-
-
-    pub(crate) fn bbsplus_main<S: Scheme>() 
+    pub(crate) fn bbsplus_main<S: Scheme>() -> Result<(), Error>
     where
         S::Ciphersuite: BbsCiphersuite,
         <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
+        const MSGS: [&str; 3] = [
+            "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02",
+            "87a8bd656d49ee07b8110e1d8fd4f1dcef6fb9bc368c492d9bc8c4f98a739ac6",
+            "96012096adda3f13dd4adbe4eea481a4c4b5717932b73b00e31807d3c5894b90",
+        ];
 
-        const IKM: &str = "746869732d49532d6a7573742d616e2d546573742d494b4d2d746f2d67656e65726174652d246528724074232d6b6579";
-        const KEY_INFO: &str = "746869732d49532d736f6d652d6b65792d6d657461646174612d746f2d62652d757365642d696e2d746573742d6b65792d67656e";
-        const msgs: [&str; 3] = ["9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02", "87a8bd656d49ee07b8110e1d8fd4f1dcef6fb9bc368c492d9bc8c4f98a739ac6", "96012096adda3f13dd4adbe4eea481a4c4b5717932b73b00e31807d3c5894b90"];
-        
-        log::info!("Messages: {:?}", msgs);
-        
-        const header_hex: &str = "11223344556677889900aabbccddeeff";
-        let dst: Vec<u8> =  hex::decode("4242535f424c53313233383147315f584d443a5348412d3235365f535357555f524f5f4d41505f4d53475f544f5f5343414c41525f41535f484153485f").unwrap();
-        let header = hex::decode(header_hex).unwrap();
-        let unrevealed_message_indexes = [1usize];
-        let revealed_message_indexes = [0usize, 2usize];
-        
+        log::info!("Messages: {:?}", MSGS);
+
+        const HEADER_HEX: &str = "11223344556677889900aabbccddeeff";
+        let header = hex::decode(HEADER_HEX).unwrap();
+
+        let mut rng = rand::thread_rng();
+        let key_material: Vec<u8> = (0..S::Ciphersuite::IKM_LEN).map(|_| rng.gen()).collect();
 
         log::info!("Keypair Generation");
-        let issuer_keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
-            None,
-            Some(&hex::decode(&KEY_INFO).unwrap())
-        );
-
+        let issuer_keypair =
+            KeyPair::<BBSplus<S::Ciphersuite>>::generate(&key_material, None, None)?;
 
         let issuer_sk = issuer_keypair.private_key();
+        log::info!("SK: {}", hex::encode(issuer_sk.to_bytes()));
         let issuer_pk = issuer_keypair.public_key();
+        log::info!("PK: {}", hex::encode(issuer_pk.to_bytes()));
 
-        log::info!("Computing Generators");
+        let messages: Vec<Vec<u8>> = MSGS.iter().map(|m| hex::decode(m).unwrap()).collect();
+        log::info!("Signature Computation...");
+        let signature = Signature::<BBSplus<S::Ciphersuite>>::sign(
+            Some(&messages),
+            issuer_sk,
+            issuer_pk,
+            Some(&header),
+        )
+        .unwrap();
 
-        let generators = Generators::create::<S::Ciphersuite>(Some(issuer_pk), msgs.len()+2);
-        //Map Messages to Scalars
-
-        let msgs_scalars: Vec<BBSplusMessage> = msgs.iter().map(|m| BBSplusMessage::map_message_to_scalar_as_hash::<BBSplus<S::Ciphersuite>>(&hex::decode(m).unwrap(), Some(&dst))).collect();
-        
-        log::info!("Computing pedersen commitment on messages");
-        let commitment = Commitment::<BBSplus<S::Ciphersuite>>::commit(&msgs_scalars, None, &issuer_pk, &unrevealed_message_indexes);
-        
-        
-        let unrevealed_msgs: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
-            if unrevealed_message_indexes.contains(&i) {
-                Some(*m)
-            } else {
-                None
-            }
-        }).collect();
-
-        let revealed_msgs: Vec<BBSplusMessage> = msgs_scalars.iter().enumerate().filter_map(|(i, m)| {
-            if !unrevealed_message_indexes.contains(&i) {
-                Some(*m)
-            } else {
-                None
-            }
-        }).collect();
-
-
-        //Holder receive nonce from Issuer
-        let nonce_issuer = generate_nonce();
-        log::info!("Generate Nonce...");
-        log::info!("Nonce: {}", hex::encode(&nonce_issuer));
-
-
-        log::info!("Computation of a Zero-Knowledge proof-of-knowledge of committed messages");
-        let zkpok = ZKPoK::<BBSplus<S::Ciphersuite>>::generate_proof(&unrevealed_msgs, commitment.bbsPlusCommitment(), &generators, &unrevealed_message_indexes, &nonce_issuer);
-
-
-        //Issuer compute blind signature
-        log::info!("Verification of the Zero-Knowledge proof and computation of a blind signature");
-        let blind_signature = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(&revealed_msgs, commitment.bbsPlusCommitment(), &zkpok, issuer_sk, issuer_pk, Some(&generators), &revealed_message_indexes, &unrevealed_message_indexes, &nonce_issuer, Some(&header));
-
-        if let Err(e) = &blind_signature {
-            println!("Error: {}", e);
-        }
-        
-        assert!(blind_signature.is_ok(), "Blind Signature Error");
-
-        let blind_signature = blind_signature.unwrap();
-
-        //Holder unblind the signature
-        log::info!("Signature unblinding and verification...");
-        let unblind_signature = blind_signature.unblind_sign(commitment.bbsPlusCommitment());
-
-        let verify = unblind_signature.verify(issuer_pk, Some(&msgs_scalars), Some(&generators), Some(&header));
-
-        assert!(verify, "Unblinded Signature NOT VALID!");
-        log::info!("Signature is VALID!");
+        assert!(
+            signature
+                .verify(issuer_pk, Some(&messages), Some(&header))
+                .is_ok(),
+            "Signature verification FAILED!"
+        );
+        log::info!("Signature is VALID");
 
         //Holder receive nonce from Verifier
-        let nonce_verifier = generate_nonce();
+        let nonce_verifier = generate_random_secret(32);
         log::info!("Generate Nonce...");
         log::info!("Nonce: {}", hex::encode(&nonce_verifier));
 
+        let disclosed_indexes = [0usize, 2usize];
+
         //Holder generates SPoK
-        log::info!("Computation of a Zero-Knowledge proof-of-knowledge of a signature");
-        let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(unblind_signature.bbsPlusSignature(), &issuer_pk, Some(&msgs_scalars), Some(&generators), Some(&revealed_message_indexes), Some(&header), Some(&nonce_verifier), None);
+        log::info!("Proof of Knowledge of the Signature Generation...");
+        let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(
+            issuer_pk,
+            &signature.to_bytes(),
+            Some(&header),
+            Some(&nonce_verifier),
+            Some(&messages),
+            Some(&disclosed_indexes),
+        )
+        .unwrap();
 
         //Verifier verifies SPok
-        log::info!("Signature Proof of Knowledge verification...");
-        let proof_result = proof.proof_verify(&issuer_pk, Some(&revealed_msgs), Some(&generators), Some(&revealed_message_indexes), Some(&header), Some(&nonce_verifier));
-        assert!(proof_result, "Signature Proof of Knowledge Verification Failed!");
-        log::info!("Signature Proof of Knowledge is VALID!");
+        let disclosed_messages = get_messages_vec(&messages, &disclosed_indexes);
 
-        // Holder request update from Issuer
+        log::info!("Proof of Knowledge of the Signature verification...");
+        let proof_result = proof
+            .proof_verify(
+                &issuer_pk,
+                Some(&disclosed_messages),
+                Some(&disclosed_indexes),
+                Some(&header),
+                Some(&nonce_verifier),
+            )
+            .is_ok();
+        assert!(
+            proof_result,
+            "Proof of Knowledge of the Signature Verification Failed!"
+        );
+        log::info!("Proof of Knowledge of the Signature is VALID!");
 
-        // Holder sends its Blinded Credential ad Commitment to Issuer 
-
-        // Issuer verifies Blind Signature
-        let blind_signature_verification_res = blind_signature.verify(&revealed_msgs, commitment.bbsPlusCommitment(), issuer_pk, Some(&generators), &revealed_message_indexes, &unrevealed_message_indexes, Some(&header));
-
-        assert!(blind_signature_verification_res, "Blind Signature NOT Valid");
-
-        // Issuer update the Blind Signature 
-
-        
-        const new_message: &str = "8872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f05";
-        const update_index: usize = 0usize;
-
-
-        let new_message_scalar = BBSplusMessage::map_message_to_scalar_as_hash::<BBSplus<S::Ciphersuite>>(&hex::decode(new_message).unwrap(), Some(&dst));
-        let old_message_scalar = revealed_msgs.get(update_index).unwrap();
-
-        let new_blind_signature = blind_signature.update_signature(issuer_sk, issuer_pk, msgs_scalars.len(), old_message_scalar, &new_message_scalar, update_index);
-
-        
-        // Issuer verifies Blind Signature with old messages
-        let blind_signature_verification_res = new_blind_signature.verify(&revealed_msgs, commitment.bbsPlusCommitment(), issuer_pk, Some(&generators), &revealed_message_indexes, &unrevealed_message_indexes, Some(&header));
-
-        assert!(!blind_signature_verification_res, "Blind Signature verification MUST fail!");
-
-        // Issuer verifies Blind Signature with new messages
-
-        let mut new_revealed_msgs = revealed_msgs.clone();
-        new_revealed_msgs[update_index] = new_message_scalar;
-
-        let blind_signature_verification_res = new_blind_signature.verify(&new_revealed_msgs, commitment.bbsPlusCommitment(), issuer_pk, Some(&generators), &revealed_message_indexes, &unrevealed_message_indexes, Some(&header));
-
-        assert!(blind_signature_verification_res, "Blind Signature NOT valid!");
-
-
+        Ok(())
     }
-
 }
 
 #[cfg(feature = "bbsplus")]
 fn main() {
-    
-    use std::env;
-    use zkryptium::schemes::algorithms::{BBS_BLS12381_SHA256, BBS_BLS12381_SHAKE256};
     use crate::bbsplus_example::bbsplus_main;
-
+    use std::env;
+    use zkryptium::schemes::algorithms::{BbsBls12381Sha256, BbsBls12381Shake256};
 
     dotenv::dotenv().ok();
     env_logger::init();
@@ -178,10 +127,13 @@ fn main() {
     let args: Vec<String> = env::args().collect();
 
     if args.len() != 2 {
-        println!("Usage: {} <cipher_suite>
+        println!(
+            "Usage: {} <cipher_suite>
                 Ciphersuites:
                     - BLS12-381-SHA-256
-                    - BLS12-381-SHAKE-256", args[0]);
+                    - BLS12-381-SHAKE-256",
+            args[0]
+        );
         return;
     }
 
@@ -191,22 +143,19 @@ fn main() {
         "BLS12-381-SHA-256" => {
             println!("\n");
             log::info!("Ciphersuite: BLS12-381-SHA-256");
-            bbsplus_main::<BBS_BLS12381_SHA256>();
+            let _ = bbsplus_main::<BbsBls12381Sha256>();
         }
         "BLS12-381-SHAKE-256" => {
             println!("\n");
             log::info!("Ciphersuite: BLS12-381-SHAKE-256");
-            bbsplus_main::<BBS_BLS12381_SHAKE256>();
-
+            let _ = bbsplus_main::<BbsBls12381Shake256>();
         }
         _ => {
             println!("Unknown cipher suite: {}", cipher_suite);
             // Handle other cipher suites or raise an error if necessary
         }
     }
-    
 }
-
 
 #[cfg(not(feature = "bbsplus"))]
 fn main() {}

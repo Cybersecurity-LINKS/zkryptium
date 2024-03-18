@@ -1,0 +1,39 @@
+{
+  "caseName": "valid no commitment signature",
+  "mockRngParameters": {
+    "SEED": "3.141592653589793238462643383279",
+    "signature": {
+      "DST": "BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_H2G_HM2S_SIGNATURE_MOCK_RANDOM_SCALARS_DST_",
+      "count": 1
+    }
+  },
+  "signerKeyPair": {
+    "secretKey": "2eee0f60a8a3a8bec0ee942bfd46cbdae9a0738ee68f5a64e7238311cf09a079",
+    "publicKey": "92d37d1d6cd38fea3a873953333eab23a4c0377e3e049974eb62bd45949cdeb18fb0490edcd4429adff56e65cbce42cf188b31bddbd619e419b99c2c41b38179eb001963bc3decaae0d9f702c7a8c004f207f46c734a5eae2e8e82833f3e7ea5"
+  },
+  "commitmentWithProof": null,
+  "header": "11223344556677889900aabbccddeeff",
+  "messages": [
+    "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02",
+    "c344136d9ab02da4dd5908bbba913ae6f58c2cc844b802a6f811f5fb075f9b80",
+    "7372e9daa5ed31e6cd5c825eac1b855e84476a1d94932aa348e07b73",
+    "77fe97eb97a1ebe2e81e4e3597a3ee740a66e9ef2412472c",
+    "496694774c5604ab1b2544eababcf0f53278ff50",
+    "515ae153e22aae04ad16f759e07237b4",
+    "d183ddc6e2665aa4e2f088af",
+    "ac55fb33a75909ed",
+    "96012096",
+    ""
+  ],
+  "committedMessages": null,
+  "proverBlind": null,
+  "signerBlind": null,
+  "signature": "8886984283bc433d56ac0f29bab40fb2273d0e7e42f5891c80c357473b504e2aae77658efbb0035cbf32771b7fe8dbbc3509d8e6d2a2a9917304e5a0650e9a6583edb53f82263222a92b41a531784d6e",
+  "result": {
+    "valid": true
+  },
+  "trace": {
+    "B": "94ff8f3965846c90397b2e3a38dd0349f4b7ba049209fc99048f482ba21147e1c5bbe7f102fea9af93f47a7c5ad5a899",
+    "domain": "4e6f04eeb36ed65d8f088e7adf6c106c0db79527243ce19389514b389acf7adf"
+  }
+}
