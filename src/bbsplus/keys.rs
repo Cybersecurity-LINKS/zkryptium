@@ -21,7 +21,7 @@ use crate::{
     },
     schemes::algorithms::BBSplus,
     utils::util::bbsplus_utils::{
-        hash_to_scalar, i2osp, parse_g2_projective_compressed, parse_g2_projective_uncompressed,
+        generate_random_secret, hash_to_scalar, i2osp, parse_g2_projective_compressed, parse_g2_projective_uncompressed
     },
 };
 use bls12_381_plus::{G2Affine, G2Projective, Scalar};
@@ -156,6 +156,27 @@ impl<CS: BbsCiphersuite> KeyPair<BBSplus<CS>> {
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
         let sk = key_gen::<CS>(key_material, key_info, key_dst)?;
+
+        let pk = sk_to_pk(sk);
+
+        Ok(Self {
+            public: BBSplusPublicKey(pk),
+            private: BBSplusSecretKey(sk),
+        })
+    }
+
+    /// # Description
+    /// This operation generates a random keypair (SK, PK)
+    ///
+    /// # Output:
+    /// * a keypair [`KeyPair`]
+    pub fn random() -> Result<Self, Error>
+    where
+        CS::Expander: for<'a> ExpandMsg<'a>,
+    {
+        let key_material = generate_random_secret(64);
+        
+        let sk = key_gen::<CS>(&key_material, None, None)?;
 
         let pk = sk_to_pk(sk);
 
