@@ -35,6 +35,11 @@ where
         &self.private
     }
 
+    /// Returns the couple `(sk, pk)`.
+    pub fn into_parts(self) -> (S::PrivKey, S::PubKey) {
+        (self.private, self.public)
+    }
+
     pub fn write_keypair_to_file(&self, file: Option<String>) {
         println!("writhing to file...");
 
