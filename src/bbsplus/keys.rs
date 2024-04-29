@@ -97,6 +97,11 @@ impl BBSplusSecretKey {
         hex::encode(sk_bytes)
     }
 
+    /// Returns the corresponding [`BBSplusPublicKey`].
+    pub fn public_key(&self) -> BBSplusPublicKey {
+        BBSplusPublicKey(sk_to_pk(self.0))
+    }
+
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         let bytes: [u8; Scalar::BYTES] = bytes
             .try_into()
