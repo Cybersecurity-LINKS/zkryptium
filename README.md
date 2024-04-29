@@ -33,7 +33,7 @@ This library enables the creation of zero-knowledge proofs, exposing cryptograph
 
 ```toml
 [dependencies]
-zkryptium = { version = "0.2.1", default-features = false, features = ["bbsplus"] }
+zkryptium = { version = "0.2.2", default-features = false, features = ["bbsplus"] }
 ```
 
 ##### CL2003:
@@ -41,7 +41,7 @@ zkryptium = { version = "0.2.1", default-features = false, features = ["bbsplus"
 
 ```toml
 [dependencies]
-zkryptium = { version = "0.2.1", default-features = false, features = ["cl03"] }
+zkryptium = { version = "0.2.2", default-features = false, features = ["cl03"] }
 ```
 
 ### Examples
