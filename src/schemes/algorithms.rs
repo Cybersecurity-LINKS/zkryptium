@@ -15,8 +15,6 @@
 use crate::keys::traits::{PrivateKey, PublicKey};
 use digest::HashMarker;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use sha2::Sha256;
-use sha3::Shake256;
 use std::marker::PhantomData;
 
 #[cfg(feature = "bbsplus")]
@@ -52,11 +50,11 @@ pub trait Ciphersuite: 'static + Eq {
 }
 #[cfg(feature = "bbsplus")]
 impl Ciphersuite for Bls12381Sha256 {
-    type HashAlg = Shake256;
+    type HashAlg = sha2::Sha256;
 }
 #[cfg(feature = "bbsplus")]
 impl Ciphersuite for Bls12381Shake256 {
-    type HashAlg = Sha256;
+    type HashAlg = sha3::Shake256;
 }
 
 pub trait Scheme: Eq + 'static + Sized + Serialize + DeserializeOwned {
