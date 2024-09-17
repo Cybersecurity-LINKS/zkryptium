@@ -71,9 +71,18 @@ impl Generators {
             values: generators[0..].to_vec(),
         }
     }
+
+    /// Utility to append one list of Generators to another.
+    /// # Panics
+    /// Panics if the Generators have different base points.
+    pub(crate) fn append(mut self, other: Self) -> Self {
+        assert_eq!(self.g1_base_point, other.g1_base_point);
+        self.values.extend(other.values);
+        self
+    }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-generators-calculation
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-generators-calculation
 ///
 /// # Description
 /// Generators creation

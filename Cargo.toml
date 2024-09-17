@@ -15,7 +15,7 @@ categories = [ "cryptography", "authentication" ]
 [dependencies]
 rand = {version = "0.8.5"}
 zeroize = { version = "1.5" }
-serde = { version = "1.0.25", default_feature = false, features = ["derive", "serde_derive"] }
+serde = { version = "1.0.25", default-features = false, features = ["derive", "serde_derive"] }
 serde_json = "1.0.59"
 hex = "0.4.3"
 thiserror = "1.0.30"
@@ -46,7 +46,6 @@ dotenv = "0.15.0"
 [lib]
 name = "zkryptium"
 path = "src/lib.rs"
-features = ["cl03"]
 
 [features]
 default = ["bbsplus"]
@@ -57,14 +56,14 @@ bbsplus = ["dep:bls12_381_plus"]
 [[example]]
 name = "bbsplus_blind"
 path = "examples/bbsplus_blind.rs"
-features = ["bbsplus"]
+required-features = ["bbsplus"]
 
 [[example]]
 name = "bbsplus"
 path = "examples/bbsplus.rs"
-features = ["bbsplus"]
+required-features = ["bbsplus"]
 
 [[example]]
 name = "cl03"
 path = "examples/cl03.rs"
-features = ["cl03"]
+required-features = ["cl03"]

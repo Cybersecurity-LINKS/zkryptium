@@ -53,7 +53,7 @@ impl BBSplusSignature {
             .map_err(|_| Error::InvalidSignature)?;
 
         Ok(Self { A, e })
-    }  
+    }
 }
 
 impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
@@ -71,7 +71,7 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         }
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-signature-generation-sign
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-signature-generation-sign
     /// # Description
     /// The `sign` API returns a BBS signature from a secret key (SK), over a header and a set of messages.
     ///
@@ -107,7 +107,7 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         Ok(Self::BBSplus(signature))
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-signature-verification-veri
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-signature-verification-veri
     /// # Description
     /// The `verify` API validates a BBS signature, given a public key (PK), a header and a set of messages
     /// # Inputs:
@@ -197,9 +197,8 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         B = B + (-H_i * old_message_scalar.value);
         B = B + (H_i * new_message_scalar.value);
 
-        let sk_e_inv = Option::<Scalar>::from(sk_e.invert()).ok_or(Error::UpdateSignatureError(
-            "Invert scalar failed".to_owned(),
-        ))?;
+        let sk_e_inv = Option::<Scalar>::from(sk_e.invert())
+            .ok_or_else(|| Error::UpdateSignatureError("Invert scalar failed".to_owned()))?;
         let A = B * sk_e_inv;
 
         if A == G1Projective::IDENTITY {
@@ -210,7 +209,7 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-coresign
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-coresign
 /// # Description
 /// This operation computes a deterministic signature from a secret key (SK), a set of generators (points of G1) and optionally a header and a vector of messages.
 ///
@@ -251,11 +250,11 @@ where
 
     let domain = calculate_domain::<CS>(pk, Q1, H_points, header, Some(api_id))?;
 
-    //serialize
-    let mut input: Vec<Scalar> = Vec::new();
-    input.push(sk.0);
-    input.push(domain);
-    messages.iter().for_each(|m| input.push(m.value)); //the to_byte_le() may be needed instead
+    // Serialize
+    let input: Vec<Scalar> = core::iter::once(sk.0)
+        .chain(messages.iter().map(|m| m.value))
+        .chain(core::iter::once(domain))
+        .collect();
 
     let e = hash_to_scalar::<CS>(&serialize(&input), &signature_dst)?;
 
@@ -279,7 +278,7 @@ where
     Ok(BBSplusSignature { A, e: e })
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-coreverify
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-coreverify
 /// # Description
 /// This operation checks that a signature is valid for a given set of generators, header and vector of messages, against a supplied public key (PK). The set of messages MUST be supplied in this operation in the same order they were supplied to `core_sign` when creating the signature.
 ///
@@ -354,133 +353,38 @@ mod tests {
     use std::fs;
 
     //MSG SIGNATURE
-    #[test]
-    fn msg_signature_sha256_1() {
-        msg_signature::<BbsBls12381Sha256>(
-            "./fixture_data/bls12-381-sha-256/",
-            "signature/signature001.json",
-        );
-    }
-    #[test]
-    fn msg_signature_sha256_2() {
-        msg_signature::<BbsBls12381Sha256>(
-            "./fixture_data/bls12-381-sha-256/",
-            "signature/signature002.json",
-        );
-    }
-    #[test]
-    fn msg_signature_sha256_3() {
-        msg_signature::<BbsBls12381Sha256>(
-            "./fixture_data/bls12-381-sha-256/",
-            "signature/signature003.json",
-        );
-    }
-    #[test]
-    fn msg_signature_sha256_4() {
-        msg_signature::<BbsBls12381Sha256>(
-            "./fixture_data/bls12-381-sha-256/",
-            "signature/signature004.json",
-        );
-    }
-    #[test]
-    fn msg_signature_sha256_5() {
-        msg_signature::<BbsBls12381Sha256>(
-            "./fixture_data/bls12-381-sha-256/",
-            "signature/signature005.json",
-        );
-    }
-    #[test]
-    fn msg_signature_sha256_6() {
-        msg_signature::<BbsBls12381Sha256>(
-            "./fixture_data/bls12-381-sha-256/",
-            "signature/signature006.json",
-        );
-    }
-    #[test]
-    fn msg_signature_sha256_7() {
-        msg_signature::<BbsBls12381Sha256>(
-            "./fixture_data/bls12-381-sha-256/",
-            "signature/signature007.json",
-        );
-    }
-    #[test]
-    fn msg_signature_sha256_8() {
-        msg_signature::<BbsBls12381Sha256>(
-            "./fixture_data/bls12-381-sha-256/",
-            "signature/signature008.json",
-        );
-    }
-    #[test]
-    fn msg_signature_sha256_9() {
-        msg_signature::<BbsBls12381Sha256>(
-            "./fixture_data/bls12-381-sha-256/",
-            "signature/signature009.json",
-        );
+
+    macro_rules! msg_tests {
+        ( $( ($t:ident, $p:literal): { $( ($n:ident, $f:literal), )+ },)+ ) => { $($(
+            #[test] fn $n() { msg_signature::<$t>($p, $f); }
+        )+)+ }
     }
 
-    //MSG SIGNATURE - SHAKE256
-    #[test]
-    fn msg_signature_shake256_1() {
-        msg_signature::<BbsBls12381Shake256>(
-            "./fixture_data/bls12-381-shake-256/",
-            "signature/signature001.json",
-        );
-    }
-    #[test]
-    fn msg_signature_shake256_2() {
-        msg_signature::<BbsBls12381Shake256>(
-            "./fixture_data/bls12-381-shake-256/",
-            "signature/signature002.json",
-        );
-    }
-    #[test]
-    fn msg_signature_shake256_3() {
-        msg_signature::<BbsBls12381Shake256>(
-            "./fixture_data/bls12-381-shake-256/",
-            "signature/signature003.json",
-        );
-    }
-    #[test]
-    fn msg_signature_shake256_4() {
-        msg_signature::<BbsBls12381Shake256>(
-            "./fixture_data/bls12-381-shake-256/",
-            "signature/signature004.json",
-        );
-    }
-    #[test]
-    fn msg_signature_shake256_5() {
-        msg_signature::<BbsBls12381Shake256>(
-            "./fixture_data/bls12-381-shake-256/",
-            "signature/signature005.json",
-        );
-    }
-    #[test]
-    fn msg_signature_shake256_6() {
-        msg_signature::<BbsBls12381Shake256>(
-            "./fixture_data/bls12-381-shake-256/",
-            "signature/signature006.json",
-        );
-    }
-    #[test]
-    fn msg_signature_shake256_7() {
-        msg_signature::<BbsBls12381Shake256>(
-            "./fixture_data/bls12-381-shake-256/",
-            "signature/signature007.json",
-        );
-    }
-    #[test]
-    fn msg_signature_shake256_8() {
-        msg_signature::<BbsBls12381Shake256>(
-            "./fixture_data/bls12-381-shake-256/",
-            "signature/signature008.json",
-        );
-    }
-    #[test]
-    fn msg_signature_shake256_9() {
-        msg_signature::<BbsBls12381Shake256>(
-            "./fixture_data/bls12-381-shake-256/",
-            "signature/signature009.json",
-        );
+    msg_tests! {
+        (BbsBls12381Sha256, "./fixture_data/bls12-381-sha-256/"): {
+            (msg_signature_sha256_1, "signature/signature001.json"),
+            (msg_signature_sha256_2, "signature/signature002.json"),
+            (msg_signature_sha256_3, "signature/signature003.json"),
+            (msg_signature_sha256_4, "signature/signature004.json"),
+            (msg_signature_sha256_5, "signature/signature005.json"),
+            (msg_signature_sha256_6, "signature/signature006.json"),
+            (msg_signature_sha256_7, "signature/signature007.json"),
+            (msg_signature_sha256_8, "signature/signature008.json"),
+            (msg_signature_sha256_9, "signature/signature009.json"),
+            (msg_signature_sha256_10, "signature/signature010.json"),
+        },
+        (BbsBls12381Shake256, "./fixture_data/bls12-381-shake-256/"): {
+            (msg_signature_shake256_1, "signature/signature001.json"),
+            (msg_signature_shake256_2, "signature/signature002.json"),
+            (msg_signature_shake256_3, "signature/signature003.json"),
+            (msg_signature_shake256_4, "signature/signature004.json"),
+            (msg_signature_shake256_5, "signature/signature005.json"),
+            (msg_signature_shake256_6, "signature/signature006.json"),
+            (msg_signature_shake256_7, "signature/signature007.json"),
+            (msg_signature_shake256_8, "signature/signature008.json"),
+            (msg_signature_shake256_9, "signature/signature009.json"),
+            (msg_signature_shake256_10, "signature/signature010.json"),
+        },
     }
 
     //Update Signature - SHA256

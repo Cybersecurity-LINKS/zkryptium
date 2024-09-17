@@ -33,7 +33,7 @@ use bls12_381_plus::{G1Projective, Scalar};
 use elliptic_curve::hash2curve::ExpandMsg;
 
 impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
-    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-00#name-blind-signature-generation
+    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-01#name-blind-signature-generation
     ///
     /// # Description
     /// This operation returns a BBS blind signature from a secret key (SK), over a header, a set of messages and optionally a commitment value. If supplied, the commitment value must be accompanied by its proof of correctness (commitment_with_proof). The issuer can also further randomize the supplied commitment, by supplying a random scalar (signer_blind)
@@ -74,7 +74,9 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
                 .ok_or(Error::InvalidCommitmentProof)?;
         }
 
-        let generators = Generators::create::<CS>(M + L + 1, Some(CS::API_ID_BLIND));
+        let generators = Generators::create::<CS>(L + 1, Some(CS::API_ID_BLIND));
+        let blind_generators =
+            Generators::create::<CS>(M + 1, Some(&[b"BLIND_", CS::API_ID_BLIND].concat()));
 
         let message_scalars = BBSplusMessage::messages_to_scalar::<CS>(messages, CS::API_ID_BLIND)?;
 
@@ -82,6 +84,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
             sk,
             pk,
             &generators,
+            &blind_generators,
             commitment_with_proof,
             header,
             &message_scalars,
@@ -92,7 +95,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         Ok(Self::BBSplus(blind_sig))
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-00#name-blind-signature-verificatio
+    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-01#name-blind-signature-verificatio
     ///
     /// # Description
     /// This operation validates a blind BBS signature ([`BBSplusSignature`]), given the Signer's public key (PK), a header (header), a set of known to the Signer messages (messages) and if used, a set of committed messages (committed_messages), the `secret_prover_blind` as returned by the [`Commitment::commit`] operation and a blind factor supplied by the Signer (`signer_blind`).
@@ -121,31 +124,35 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     ) -> Result<(), Error> {
         let messages = messages.unwrap_or(&[]);
         let committed_messages = committed_messages.unwrap_or(&[]);
-
-        let mut message_scalars = Vec::new();
-
-        let secret_prover_blind = secret_prover_blind.unwrap_or(&BlindFactor(Scalar::ZERO));
-
-        if secret_prover_blind.0 != Scalar::ZERO {
-            let signer_blind = signer_blind.unwrap_or(&BlindFactor(Scalar::ZERO));
-            let message = BBSplusMessage::new(secret_prover_blind.0 + signer_blind.0);
-            message_scalars.push(message);
-        }
-
         let api_id = CS::API_ID_BLIND;
-        message_scalars.extend(BBSplusMessage::messages_to_scalar::<CS>(
-            committed_messages,
-            api_id,
-        )?);
-        message_scalars.extend(BBSplusMessage::messages_to_scalar::<CS>(messages, api_id)?);
 
-        let generators = Generators::create::<CS>(message_scalars.len() + 1, Some(api_id));
+        let L = messages.len();
+        let M = committed_messages.len();
+
+        let generators = Generators::create::<CS>(L + 1, Some(api_id));
+        let blind_generators = Generators::create::<CS>(M + 1, Some(&[b"BLIND_", api_id].concat()));
+
+        let message_scalars = BBSplusMessage::messages_to_scalar::<CS>(messages, api_id)?;
+
+        let blind_factor = BBSplusMessage::new(
+            secret_prover_blind.map_or(Scalar::ZERO, |b| b.0)
+                + signer_blind.map_or(Scalar::ZERO, |b| b.0),
+        );
+        let committed_message_scalars =
+            BBSplusMessage::messages_to_scalar::<CS>(committed_messages, api_id)?;
+
+        let tmp_messages = [
+            &*message_scalars,
+            core::slice::from_ref(&blind_factor),
+            &*committed_message_scalars,
+        ]
+        .concat();
 
         core_verify::<CS>(
             pk,
             self.bbsPlusBlindSignature(),
-            &message_scalars,
-            generators,
+            &tmp_messages,
+            generators.append(blind_generators),
             header,
             Some(api_id),
         )
@@ -181,7 +188,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-00#name-core-blind-sign
+/// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-01#name-core-blind-sign
 ///
 /// # Description
 /// This operation computes a blind BBS signature, from a secret key (SK), a set of generators (points of G1), a supplied commitment with its proof of correctness (commitment_with_proof), a header (header) and a set of messages (messages). The operation also accepts a random scalar (signer_blind).
@@ -203,6 +210,7 @@ fn core_blind_sign<CS>(
     sk: &BBSplusSecretKey,
     pk: &BBSplusPublicKey,
     generators: &Generators,
+    blind_generators: &Generators,
     commitment_with_proof: &[u8],
     header: Option<&[u8]>,
     messages: &[BBSplusMessage],
@@ -213,42 +221,55 @@ where
     CS: BbsCiphersuite,
     CS::Expander: for<'a> ExpandMsg<'a>,
 {
+    let signer_blind = signer_blind.unwrap_or(&BlindFactor(Scalar::ZERO));
     let api_id = api_id.unwrap_or(b"");
     let signature_dst = [api_id, CS::H2S].concat();
-    let L = messages.len();
 
-    let (mut commit, M) = Commitment::<BBSplus<CS>>::deserialize_and_validate_commit(
+    let L = messages.len();
+    let Q1 = generators.values[0];
+    let H_points = &generators.values[1..];
+    let Q2 = blind_generators
+        .values
+        .first()
+        .copied()
+        .ok_or(Error::NotEnoughGenerators)?;
+
+    let mut commit = Commitment::<BBSplus<CS>>::deserialize_and_validate_commit(
         Some(commitment_with_proof),
-        generators,
+        blind_generators,
         Some(api_id),
     )?;
-    let Q1 = generators.values[0];
 
-    let Q2 = if commitment_with_proof.is_empty() {
-        G1Projective::IDENTITY
-    } else {
-        generators.values[1]
-    };
-
-    let signer_blind = signer_blind.unwrap_or(&BlindFactor(Scalar::ZERO));
-
-    let H_points = &generators.values[M + 1..M + L + 1];
-
-    let temp_generators = &generators.values[1..M + L + 1];
-
-    let domain = calculate_domain::<CS>(pk, Q1, temp_generators, header, Some(api_id))?;
+    // The Blind BBS spec says to pass `generators.append(blind_generators)` to a
+    // `calculate_domain`, but it does not name Q1 as its own parameter like
+    // draft-irtf-cfrg-bbs-signatures-06 does. This implementation of calculate_domain matches the
+    // general BBS spec, in which Q1 is its own parameter, so it's not included in the generators.
+    //
+    // It would appear that some of the directions in the spec here need to be clarified. The
+    // fixture with no commitmentWithProof requires the one blind generator that gets made, but
+    // otherwise we actually need to drop the last implied generator created here.
+    let tmp_generators = [
+        &generators.values[1..],
+        core::slice::from_ref(&Q2),
+        &blind_generators
+            .values
+            .get(1..blind_generators.values.len() - 1)
+            .unwrap_or_default(),
+    ]
+    .concat();
+    let domain = calculate_domain::<CS>(pk, Q1, &tmp_generators, header, Some(api_id))?;
 
     let mut e_octs: Vec<u8> = Vec::new();
     e_octs.extend_from_slice(&sk.to_bytes());
-    e_octs.extend_from_slice(&domain.to_bytes_be());
+    e_octs.extend_from_slice(commitment_with_proof);
+    if signer_blind.0 != Scalar::ZERO {
+        e_octs.extend_from_slice(&signer_blind.to_bytes());
+    }
     messages
         .iter()
         .map(|&p| p.value.to_bytes_be())
         .for_each(|a| e_octs.extend_from_slice(&a));
-    if signer_blind.0 != Scalar::ZERO {
-        e_octs.extend_from_slice(&signer_blind.to_bytes());
-    }
-    e_octs.extend_from_slice(commitment_with_proof);
+    e_octs.extend_from_slice(&domain.to_bytes_be());
 
     let e = hash_to_scalar::<CS>(&e_octs, &signature_dst)?; //TODO: Not sure where the Signature DST ("BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_SIGNATURE_MOCK_RANDOM_SCALARS_DST_") in the fixtures is used
     if signer_blind.0 != Scalar::ZERO {
@@ -256,16 +277,14 @@ where
     }
 
     let mut B = generators.g1_base_point + Q1 * domain;
-
     for i in 0..L {
         B += H_points[i] * messages[i].value;
     }
-
     B += commit;
 
     let sk_e = sk.0 + e;
     let sk_e_inv = Option::<Scalar>::from(sk_e.invert())
-        .ok_or(Error::BlindSignError("Invert scalar failed".to_owned()))?;
+        .ok_or_else(|| Error::BlindSignError("Invert scalar failed".to_owned()))?;
     let A = B * sk_e_inv;
 
     Ok(BBSplusSignature { A, e })
@@ -280,60 +299,36 @@ mod tests {
             keys::{BBSplusPublicKey, BBSplusSecretKey},
         },
         schemes::{
-            algorithms::{BBSplus, BbsBls12381Sha256, Scheme},
+            algorithms::{BBSplus, BbsBls12381Sha256, BbsBls12381Shake256, Scheme},
             generics::BlindSignature,
         },
     };
     use elliptic_curve::hash2curve::ExpandMsg;
     use std::fs;
 
-    //Blind Sign - SHA256 - UPDATED
-    #[test]
-    fn blind_sign_sha256_1() {
-        blind_sign::<BbsBls12381Sha256>(
-            "./fixture_data_blind/bls12-381-sha-256/",
-            "signature/signature001.json",
-        );
+    macro_rules! sign_tests {
+        ( $( ($t:ident, $p:literal): { $( ($n:ident, $f:literal), )+ },)+ ) => { $($(
+            #[test] fn $n() { blind_sign::<$t>($p, $f); }
+        )+)+ }
     }
 
-    #[test]
-    fn blind_sign_sha256_2() {
-        blind_sign::<BbsBls12381Sha256>(
-            "./fixture_data_blind/bls12-381-sha-256/",
-            "signature/signature002.json",
-        );
-    }
-
-    #[test]
-    fn blind_sign_sha256_3() {
-        blind_sign::<BbsBls12381Sha256>(
-            "./fixture_data_blind/bls12-381-sha-256/",
-            "signature/signature003.json",
-        );
-    }
-
-    #[test]
-    fn blind_sign_sha256_4() {
-        blind_sign::<BbsBls12381Sha256>(
-            "./fixture_data_blind/bls12-381-sha-256/",
-            "signature/signature004.json",
-        );
-    }
-
-    #[test]
-    fn blind_sign_sha256_5() {
-        blind_sign::<BbsBls12381Sha256>(
-            "./fixture_data_blind/bls12-381-sha-256/",
-            "signature/signature005.json",
-        );
-    }
-
-    #[test]
-    fn blind_sign_sha256_6() {
-        blind_sign::<BbsBls12381Sha256>(
-            "./fixture_data_blind/bls12-381-sha-256/",
-            "signature/signature006.json",
-        );
+    sign_tests! {
+        (BbsBls12381Sha256, "./fixture_data_blind/bls12-381-sha-256/"): {
+            (blind_sign_sha256_1, "signature/signature001.json"),
+            (blind_sign_sha256_2, "signature/signature002.json"),
+            (blind_sign_sha256_3, "signature/signature003.json"),
+            (blind_sign_sha256_4, "signature/signature004.json"),
+            (blind_sign_sha256_5, "signature/signature005.json"),
+            (blind_sign_sha256_6, "signature/signature006.json"),
+        },
+        (BbsBls12381Shake256, "./fixture_data_blind/bls12-381-shake-256/"): {
+            (blind_sign_shake256_1, "signature/signature001.json"),
+            (blind_sign_shake256_2, "signature/signature002.json"),
+            (blind_sign_shake256_3, "signature/signature003.json"),
+            (blind_sign_shake256_4, "signature/signature004.json"),
+            (blind_sign_shake256_5, "signature/signature005.json"),
+            (blind_sign_shake256_6, "signature/signature006.json"),
+        },
     }
 
     fn blind_sign<S: Scheme>(pathname: &str, filename: &str)
@@ -370,10 +365,16 @@ mod tests {
             None => None,
         };
 
-        let signer_blind: Option<[u8; 32]> = proof_json["signerBlind"]
-            .as_str()
-            .and_then(|s| hex::decode(s).ok())
-            .and_then(|b| b.try_into().ok());
+        let signer_blind: Option<[u8; 32]> = match proof_json["signerBlind"] {
+            serde_json::Value::Null => None,
+            serde_json::Value::String(ref s) => Some(
+                hex::decode(s)
+                    .ok()
+                    .and_then(|s| s.as_slice().try_into().ok())
+                    .expect("invalid signerBlind"),
+            ),
+            _ => panic!("invalid signerBlind"),
+        };
         let header = hex::decode(proof_json["header"].as_str().unwrap()).unwrap();
         let messages: Vec<String> = proof_json["messages"]
             .as_array()

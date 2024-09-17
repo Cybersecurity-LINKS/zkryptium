@@ -78,28 +78,27 @@ impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
         Ok((Self::BBSplus(commitment_with_proof), secret))
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-00#name-commitment-validation-and-d
+    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-01#name-commitment-validation-and-d
     ///
     /// # Description
     /// The following is an API used by the `core_blind_sign` procedure to validate an optional commitment. The commitment input to `core_blind_sign` is optional. If a commitment is not supplied, or if it is the Identity_G1, the following operation will return the Identity_G1 as the commitment point, which will be ignored by all computations during `core_blind_sign`.
     ///
     /// # Inputs:
     /// * `commitment_with_proof` (OPTIONAL), octet string representing the serialization of [`BBSplusCommitment`]. If it is not supplied it defaults to the empty octet string.
-    /// * `generators` (REQUIRED), vector of points of G1.
+    /// * `blind_generators` (REQUIRED), vector of points of G1.
     /// * `api_id` (OPTIONAL), octet string. If not supplied it defaults to the empty octet string ("").
     ///
     /// # Output:
-    /// * ([`G1Projective`], [`usize`]), a tuple comprising from commitment and M; or [`Error`].
+    /// * [`G1Projective`], a commitment; or [`Error`].
     ///
     pub fn deserialize_and_validate_commit(
         commitment_with_proof: Option<&[u8]>,
-        generators: &Generators,
+        blind_generators: &Generators,
         api_id: Option<&[u8]>,
-    ) -> Result<(G1Projective, usize), Error> {
+    ) -> Result<G1Projective, Error> {
         let commitment_with_proof = commitment_with_proof.unwrap_or(&[]);
-
         if commitment_with_proof.is_empty() {
-            return Ok((G1Projective::IDENTITY, 0usize));
+            return Ok(G1Projective::IDENTITY);
         }
 
         let commitment_with_proof = Self::from_bytes(commitment_with_proof)?;
@@ -110,15 +109,12 @@ impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
         };
 
         let M = proof.m_cap.len() + 1;
-
-        if generators.values.len() < M + 1 {
+        if blind_generators.values.len() < M {
             return Err(Error::NotEnoughGenerators);
         }
 
-        let blind_generators = &generators.values[1..M + 1];
-
-        if verify_commitment::<CS>(commitment, &proof, &blind_generators, api_id).is_ok() {
-            Ok((commitment, M))
+        if verify_commitment::<CS>(commitment, &proof, &blind_generators.values, api_id).is_ok() {
+            Ok(commitment)
         } else {
             Err(Error::InvalidCommitmentProof)
         }
@@ -153,7 +149,7 @@ impl BlindFactor {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-00#name-commitment-computation
+/// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-01#name-commitment-computation
 ///
 /// # Description
 /// This operation is used by the Prover to create a commitment to a set of messages (committed_messages), that they intend to include to the blind signature. Note that this operation returns both the serialized combination of the commitment and its proof of correctness (commitment_with_proof), as well as the random scalar used to blind the commitment (secret_prover_blind).
@@ -174,16 +170,16 @@ where
     CS::Expander: for<'a> ExpandMsg<'a>,
 {
     let committed_messages = committed_messages.unwrap_or(&[]);
-    let M = committed_messages.len();
     let api_id = api_id.unwrap_or(b"");
+
+    let M = committed_messages.len();
+    let generators = Generators::create::<CS>(M + 1, Some(&[b"BLIND_", api_id].concat())).values;
+
+    let Q2 = generators[0];
+    let Js = &generators[1..M + 1];
 
     let commited_message_scalars =
         BBSplusMessage::messages_to_scalar::<CS>(committed_messages, api_id)?;
-
-    let generators = Generators::create::<CS>(M + 2, Some(api_id)).values;
-
-    let Q2 = generators[1];
-    let Js = &generators[2..M + 2];
 
     #[cfg(not(test))]
     let random_scalars = calculate_random_scalars(M + 2);
@@ -226,7 +222,7 @@ where
     Ok((commitment_with_proof, secret_prover_blind))
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-00#name-commitment-verification
+/// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-01#name-commitment-verification
 ///
 /// # Description
 /// This operation is used by the Signer to verify the correctness of a commitment_proof for a supplied commitment, over a list of points of G1 called the blind_generators, used to compute that commitment.
@@ -253,9 +249,9 @@ where
     let api_id = api_id.unwrap_or(b"");
     let M = commitment_proof.m_cap.len();
 
-    if blind_generators.len() != M + 1 {
-        return Err(Error::NotEnoughGenerators);
-    }
+    let blind_generators = blind_generators
+        .get(..M + 1)
+        .ok_or(Error::NotEnoughGenerators)?;
 
     let G2 = blind_generators[0];
     let Js = &blind_generators[1..];
@@ -289,40 +285,23 @@ mod tests {
         },
     };
 
-    // Commitment - SHA256
+    // Commitment
 
-    #[test]
-    fn commit_sha256_1() {
-        commit::<BbsBls12381Sha256>(
-            "./fixture_data_blind/bls12-381-sha-256/",
-            "commit/commit001.json",
-        );
+    macro_rules! commit_tests {
+        ( $( ($t:ident, $p:literal): { $( ($n:ident, $f:literal), )+ },)+ ) => { $($(
+            #[test] fn $n() { commit::<$t>($p, $f); }
+        )+)+ }
     }
 
-    #[test]
-    fn commit_sha256_2() {
-        commit::<BbsBls12381Sha256>(
-            "./fixture_data_blind/bls12-381-sha-256/",
-            "commit/commit002.json",
-        );
-    }
-
-    // Commitment - SHAKE256
-
-    #[test]
-    fn commit_shake256_1() {
-        commit::<BbsBls12381Shake256>(
-            "./fixture_data_blind/bls12-381-shake-256/",
-            "commit/commit001.json",
-        );
-    }
-
-    #[test]
-    fn commit_shake256_2() {
-        commit::<BbsBls12381Shake256>(
-            "./fixture_data_blind/bls12-381-shake-256/",
-            "commit/commit002.json",
-        );
+    commit_tests! {
+        (BbsBls12381Sha256, "./fixture_data_blind/bls12-381-sha-256/"): {
+            (commit_sha256_1, "commit/commit001.json"),
+            (commit_sha256_2, "commit/commit002.json"),
+        },
+        (BbsBls12381Shake256, "./fixture_data_blind/bls12-381-shake-256/"): {
+            (commit_shake256_1, "commit/commit001.json"),
+            (commit_shake256_2, "commit/commit002.json"),
+        },
     }
 
     fn commit<S: Scheme>(pathname: &str, filename: &str)
@@ -361,14 +340,14 @@ mod tests {
 
         assert_eq!(hex::encode(secret.to_bytes()), prover_blind);
 
-        let generators = Generators::create::<S::Ciphersuite>(
-            committed_messages.len() + 2,
-            Some(<S::Ciphersuite as BbsCiphersuite>::API_ID_BLIND),
+        let blind_generators = Generators::create::<S::Ciphersuite>(
+            committed_messages.len() + 1,
+            Some(&[b"BLIND_", <S::Ciphersuite as BbsCiphersuite>::API_ID_BLIND].concat()),
         );
 
         let result = Commitment::<BBSplus<S::Ciphersuite>>::deserialize_and_validate_commit(
             Some(&commitment_with_proof_result_oct),
-            &generators,
+            &blind_generators,
             Some(<S::Ciphersuite as BbsCiphersuite>::API_ID_BLIND),
         )
         .is_ok();
