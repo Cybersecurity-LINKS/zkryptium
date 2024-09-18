@@ -74,18 +74,19 @@ pub mod bbsplus_utils {
         secret
     }
 
-    pub fn i2osp(x: usize, x_len: usize) -> Vec<u8> {
-        let mut result = Vec::new();
+    pub fn i2osp<const N: usize>(x: usize) -> [u8; N] {
+        const SYS_LEN: usize = (usize::BITS / 8) as usize;
+        assert!(N >= SYS_LEN || x >> (8 * N) == 0, "i2osp overflow");
+        let be_bytes = x.to_be_bytes();
+        let mut out = [0; N];
 
-        let mut x_copy = x;
-
-        for _ in 0..x_len {
-            result.push((x_copy % 256) as u8);
-            x_copy /= 256;
+        use core::cmp::Ordering;
+        match N.cmp(&SYS_LEN) {
+            Ordering::Equal => out.copy_from_slice(&be_bytes),
+            Ordering::Greater => out[N - SYS_LEN..].copy_from_slice(&x.to_be_bytes()),
+            Ordering::Less => out.copy_from_slice(&be_bytes[SYS_LEN - N..]),
         }
-
-        result.reverse(); // Since the most significant byte is at the end
-        result
+        out
     }
 
     /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-hash-to-scalar
@@ -164,8 +165,7 @@ pub mod bbsplus_utils {
         let domain_dst = [api_id, CS::H2S].concat();
 
         let mut dom_octs: Vec<u8> = Vec::new();
-        let L_i2osp = i2osp(L, 8);
-        dom_octs.extend_from_slice(&L_i2osp);
+        dom_octs.extend_from_slice(&i2osp::<8>(L));
         dom_octs.extend_from_slice(&Q1.to_affine().to_compressed());
 
         H_points
@@ -179,9 +179,7 @@ pub mod bbsplus_utils {
         dom_input.extend_from_slice(&pk.to_bytes());
         dom_input.extend_from_slice(&dom_octs);
 
-        let header_i2osp = i2osp(header.len(), 8);
-
-        dom_input.extend_from_slice(&header_i2osp);
+        dom_input.extend_from_slice(&i2osp::<8>(header.len()));
         dom_input.extend_from_slice(header);
 
         hash_to_scalar::<CS>(&dom_input, &domain_dst)
@@ -389,7 +387,7 @@ pub mod bbsplus_utils {
         let blind_challenge_dst = [api_id, CS::H2S].concat();
 
         let mut c_arr: Vec<u8> = Vec::new();
-        c_arr.extend_from_slice(&i2osp(M, 8));
+        c_arr.extend_from_slice(&i2osp::<8>(M));
         generators
             .iter()
             .for_each(|&i| c_arr.extend_from_slice(&i.to_affine().to_compressed()));
@@ -525,4 +523,30 @@ pub(crate) fn get_remaining_indexes(length: usize, indexes: &[usize]) -> Vec<usi
     }
 
     remaining
+}
+
+#[cfg(test)]
+mod tests {
+    use super::bbsplus_utils::i2osp;
+
+    #[test]
+    fn test_i2osp() {
+        assert_eq!([0, 0, 0, 0, 1, 2, 3, 4], i2osp::<8>(0x1020304));
+        assert_eq!([0xf0, 0x0f], i2osp::<2>(0xf00f));
+        assert_eq!([0, 0, 0, 0, 0, 0, 0x12, 0x34], i2osp::<8>(0x1234));
+        assert_eq!([0, 0, 0, 0, 0x12, 0x34, 0x56, 0x78], i2osp::<8>(0x12345678));
+        assert_eq!([0, 0, 0x12, 0x34, 0x56, 0x78], i2osp::<6>(0x12345678));
+        assert_eq!([0, 0x12, 0x34, 0x56, 0x78], i2osp::<5>(0x12345678));
+        assert_eq!([0x12, 0x34, 0x56, 0x78], i2osp::<4>(0x12345678));
+        assert_eq!(
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0x12, 0x34, 0x56, 0x78],
+            i2osp::<13>(0x12345678)
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "i2osp overflow")]
+    fn test_i2osp_over() {
+        let _x = i2osp::<3>(0x12345678);
+    }
 }

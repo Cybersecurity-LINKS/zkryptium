@@ -646,9 +646,9 @@ where
     let ph = ph.unwrap_or(b"");
 
     let mut c_arr: Vec<u8> = Vec::new();
-    c_arr.extend_from_slice(&i2osp(R, 8));
+    c_arr.extend_from_slice(&i2osp::<8>(R));
     for (i, m) in core::iter::zip(disclosed_indexes, disclosed_messages) {
-        c_arr.extend_from_slice(&i2osp(*i, 8));
+        c_arr.extend_from_slice(&i2osp::<8>(*i));
         c_arr.extend_from_slice(&m.value.to_bytes_be());
     }
     c_arr.extend_from_slice(&init_res.Abar.to_affine().to_compressed());
@@ -658,7 +658,7 @@ where
     c_arr.extend_from_slice(&init_res.T2.to_affine().to_compressed());
     c_arr.extend_from_slice(&init_res.domain.to_bytes_be());
 
-    let ph_i2osp = i2osp(ph.len(), 8);
+    let ph_i2osp = i2osp::<8>(ph.len());
 
     c_arr.extend_from_slice(&ph_i2osp);
     c_arr.extend_from_slice(ph);

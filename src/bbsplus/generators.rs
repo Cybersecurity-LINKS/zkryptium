@@ -112,7 +112,7 @@ where
     let mut buffer = vec![0u8; CS::EXPAND_LEN];
     let mut generators = Vec::new();
     for i in 1..count + 1 {
-        v = [v, i2osp(i, 8)].concat();
+        v = [&*v, &i2osp::<8>(i)].concat();
         CS::Expander::expand_message(&[&v], &[&seed_dst], CS::EXPAND_LEN)
             .unwrap()
             .fill_bytes(&mut buffer);

@@ -232,7 +232,7 @@ where
     let key_dst = key_dst.unwrap_or(&key_dst_default);
 
     // derive_input = key_material || I2OSP(length(key_info), 2) || key_info
-    let derive_input = [key_material, &i2osp(key_info.len(), 2), key_info].concat();
+    let derive_input = [key_material, &i2osp::<2>(key_info.len()), key_info].concat();
 
     // SK = hash_to_scalar(derive_input, key_dst)
     let sk = hash_to_scalar::<CS>(&derive_input, key_dst)?;
