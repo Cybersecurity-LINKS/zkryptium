@@ -14,9 +14,8 @@
 
 #[cfg(feature = "bbsplus")]
 pub mod bbsplus_utils {
-    use crate::{bbsplus::ciphersuites::BbsCiphersuite, bbsplus::keys::BBSplusPublicKey};
     use crate::{
-        bbsplus::commitment::BlindFactor, errors::Error,
+        bbsplus::ciphersuites::BbsCiphersuite, bbsplus::keys::BBSplusPublicKey, errors::Error,
         utils::message::bbsplus_message::BBSplusMessage,
     };
     use bls12_381_plus::{G1Affine, G1Projective, G2Affine, G2Projective, Scalar};
@@ -75,21 +74,22 @@ pub mod bbsplus_utils {
         secret
     }
 
-    pub fn i2osp(x: usize, x_len: usize) -> Vec<u8> {
-        let mut result = Vec::new();
+    pub fn i2osp<const N: usize>(x: usize) -> [u8; N] {
+        const SYS_LEN: usize = (usize::BITS / 8) as usize;
+        assert!(N >= SYS_LEN || x >> (8 * N) == 0, "i2osp overflow");
+        let be_bytes = x.to_be_bytes();
+        let mut out = [0; N];
 
-        let mut x_copy = x;
-
-        for _ in 0..x_len {
-            result.push((x_copy % 256) as u8);
-            x_copy /= 256;
+        use core::cmp::Ordering;
+        match N.cmp(&SYS_LEN) {
+            Ordering::Equal => out.copy_from_slice(&be_bytes),
+            Ordering::Greater => out[N - SYS_LEN..].copy_from_slice(&x.to_be_bytes()),
+            Ordering::Less => out.copy_from_slice(&be_bytes[SYS_LEN - N..]),
         }
-
-        result.reverse(); // Since the most significant byte is at the end
-        result
+        out
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-hash-to-scalar
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-hash-to-scalar
     ///
     /// # Description
     /// This operation describes how to hash an arbitrary octet string to a scalar values in the multiplicative group of integers mod r
@@ -128,7 +128,7 @@ pub mod bbsplus_utils {
         ))
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-domain-calculation
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-domain-calculation
     ///
     /// # Description
     /// This operation calculates the domain value, a scalar representing the distillation of all essential contextual information for a signature. The same domain value must be calculated by all parties (the Signer, the Prover and the Verifier) for both the signature and proofs to be validated.
@@ -165,8 +165,7 @@ pub mod bbsplus_utils {
         let domain_dst = [api_id, CS::H2S].concat();
 
         let mut dom_octs: Vec<u8> = Vec::new();
-        let L_i2osp = i2osp(L, 8);
-        dom_octs.extend_from_slice(&L_i2osp);
+        dom_octs.extend_from_slice(&i2osp::<8>(L));
         dom_octs.extend_from_slice(&Q1.to_affine().to_compressed());
 
         H_points
@@ -180,9 +179,7 @@ pub mod bbsplus_utils {
         dom_input.extend_from_slice(&pk.to_bytes());
         dom_input.extend_from_slice(&dom_octs);
 
-        let header_i2osp = i2osp(header.len(), 8);
-
-        dom_input.extend_from_slice(&header_i2osp);
+        dom_input.extend_from_slice(&i2osp::<8>(header.len()));
         dom_input.extend_from_slice(header);
 
         hash_to_scalar::<CS>(&dom_input, &domain_dst)
@@ -289,7 +286,7 @@ pub mod bbsplus_utils {
         Scalar::random(rng)
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-random-scalars
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-random-scalars
     ///
     /// # Description
     /// This operation returns the requested number of pseudo-random scalars, using the `get_random` function
@@ -312,7 +309,7 @@ pub mod bbsplus_utils {
         random_scalars
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-mocked-random-scalars
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-mocked-random-scalars
     ///
     /// # Description
     /// The seeded_random_scalars will deterministically calculate count random-looking scalars from a single SEED, given a domain separation tag (DST).
@@ -357,7 +354,7 @@ pub mod bbsplus_utils {
         scalars
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-00#name-blind-challenge-calculation
+    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-01#name-blind-challenge-calculation
     ///
     /// # Description
     /// Utility function to generate a challenge
@@ -390,66 +387,14 @@ pub mod bbsplus_utils {
         let blind_challenge_dst = [api_id, CS::H2S].concat();
 
         let mut c_arr: Vec<u8> = Vec::new();
-        c_arr.extend_from_slice(&C.to_affine().to_compressed());
-        c_arr.extend_from_slice(&Cbar.to_affine().to_compressed());
-        c_arr.extend_from_slice(&i2osp(M, 8));
+        c_arr.extend_from_slice(&i2osp::<8>(M));
         generators
             .iter()
             .for_each(|&i| c_arr.extend_from_slice(&i.to_affine().to_compressed()));
+        c_arr.extend_from_slice(&C.to_affine().to_compressed());
+        c_arr.extend_from_slice(&Cbar.to_affine().to_compressed());
 
         hash_to_scalar::<CS>(&c_arr, &blind_challenge_dst)
-    }
-
-    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-00#name-present-and-verify-a-bbs-pr
-    ///
-    ///
-    /// # Description:
-    /// To avoid revealing which messages are committed to the signature, and which were known to the Signer to the proof Verifier, after calculating a BBS proof, the Prover will need to combine the disclosed committed messages as well as the disclosed messages known to the Signer to a single disclosed messages list. The same holds for the disclosed message indexes, where the ones corresponding to committed messages and the ones corresponding to messages known by the Signer should be combined together.
-    ///
-    /// # Inputs:
-    /// * `messages`, vector of octet strings.
-    /// * `committed_messages`, vector of octet strings.
-    /// * `disclosed_indexes` , vector of unsigned integers in ascending order. Indexes of disclosed messages.
-    /// * `disclosed_commitment_indexes`, vector of unsigned integers in ascending order. Indexes of disclosed messages.
-    ///
-    /// # Outputs:
-    ///
-    /// * a tuple `(Vec<Vec<u8>>, Vec<usize>)`, two vectors, one corresponding to the disclosed messages and one to the disclosed indexes.
-    ///
-    pub(crate) fn get_disclosed_data(
-        messages: &[Vec<u8>],
-        committed_messages: &[Vec<u8>],
-        disclosed_indexes: &[usize],
-        disclosed_commitment_indexes: &[usize],
-        secret_prover_blind: &BlindFactor,
-    ) -> (Vec<Vec<u8>>, Vec<usize>) {
-        let M = committed_messages.len();
-
-        let comm_used: usize = if secret_prover_blind.0 == Scalar::ZERO {
-            0
-        } else {
-            1
-        };
-
-        let mut indexes = Vec::new();
-
-        for &i in disclosed_commitment_indexes {
-            indexes.push(i + comm_used);
-        }
-
-        for &j in disclosed_indexes {
-            indexes.push(M + j + comm_used);
-        }
-
-        let mut disclosed_messages: Vec<Vec<u8>> = Vec::new();
-        disclosed_commitment_indexes
-            .iter()
-            .for_each(|&j| disclosed_messages.push(committed_messages[j].clone()));
-        disclosed_indexes
-            .iter()
-            .for_each(|&i| disclosed_messages.push(messages[i].clone()));
-
-        (disclosed_messages, indexes)
     }
 
     #[cfg(test)]
@@ -578,4 +523,30 @@ pub(crate) fn get_remaining_indexes(length: usize, indexes: &[usize]) -> Vec<usi
     }
 
     remaining
+}
+
+#[cfg(test)]
+mod tests {
+    use super::bbsplus_utils::i2osp;
+
+    #[test]
+    fn test_i2osp() {
+        assert_eq!([0, 0, 0, 0, 1, 2, 3, 4], i2osp::<8>(0x1020304));
+        assert_eq!([0xf0, 0x0f], i2osp::<2>(0xf00f));
+        assert_eq!([0, 0, 0, 0, 0, 0, 0x12, 0x34], i2osp::<8>(0x1234));
+        assert_eq!([0, 0, 0, 0, 0x12, 0x34, 0x56, 0x78], i2osp::<8>(0x12345678));
+        assert_eq!([0, 0, 0x12, 0x34, 0x56, 0x78], i2osp::<6>(0x12345678));
+        assert_eq!([0, 0x12, 0x34, 0x56, 0x78], i2osp::<5>(0x12345678));
+        assert_eq!([0x12, 0x34, 0x56, 0x78], i2osp::<4>(0x12345678));
+        assert_eq!(
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0x12, 0x34, 0x56, 0x78],
+            i2osp::<13>(0x12345678)
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "i2osp overflow")]
+    fn test_i2osp_over() {
+        let _x = i2osp::<3>(0x12345678);
+    }
 }

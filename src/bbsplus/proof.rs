@@ -12,17 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{commitment::BlindFactor, keys::BBSplusPublicKey, signature::BBSplusSignature};
+use super::{
+    ciphersuites::BbsCiphersuite, commitment::BlindFactor, generators::Generators,
+    keys::BBSplusPublicKey, signature::BBSplusSignature,
+};
 use crate::{
-    bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators},
     errors::Error,
     schemes::{algorithms::BBSplus, generics::PoKSignature},
     utils::{
         message::bbsplus_message::BBSplusMessage,
         util::{
             bbsplus_utils::{
-                calculate_domain, get_disclosed_data, get_messages, hash_to_scalar, i2osp,
-                parse_g1_projective, ScalarExt,
+                calculate_domain, get_messages, hash_to_scalar, i2osp, parse_g1_projective,
+                ScalarExt,
             },
             get_remaining_indexes,
         },
@@ -106,7 +108,7 @@ impl BBSplusPoKSignature {
 }
 
 impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-proof-generation-proofgen
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-proof-generation-proofgen
     ///
     /// # Description
     /// This operation creates BBS proof, which is a zero-knowledge, proof-of-knowledge of a BBS signature, while optionally disclosing any subset of the signed messages.
@@ -158,7 +160,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         Ok(Self::BBSplus(proof))
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-00#name-proof-generation
+    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-01#name-proof-generation
     ///
     /// # Description
     /// This operation creates a BBS proof, which is a zero-knowledge, proof-of-knowledge, of a BBS signature, while optionally disclosing any subset of the signed messages. Note that in contrast to the [`Self::proof_gen`] operation, this operation accepts 2 different lists of messages and disclosed indexes, one for the messages known to the Signer (messages) and the corresponding disclosed indexes (disclosed_indexes) and one for the messages committed by the Prover (committed_messages) and the corresponding disclosed indexes (disclosed_commitment_indexes).
@@ -177,7 +179,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     /// * `signer_blind` (OPTIONAL), a scalar value ([`BlindFactor`]).
     ///
     /// # Output:
-    /// ([`PoKSignature::BBSplus`], [`Vec<Vec<u8>>`], [`Vec<usize>`]) or [`Error`]: a PoK of a Signature, a vector of octet strings representing all the disclosed messages and their indexes.
+    /// [`PoKSignature::BBSplus`] or [`Error`]: a PoK of a Signature, a vector of octet strings representing all the disclosed messages and their indexes.
     ///
     pub fn blind_proof_gen(
         pk: &BBSplusPublicKey,
@@ -190,13 +192,14 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         disclosed_commitment_indexes: Option<&[usize]>,
         secret_prover_blind: Option<&BlindFactor>,
         signer_blind: Option<&BlindFactor>,
-    ) -> Result<(Self, Vec<Vec<u8>>, Vec<usize>), Error>
+    ) -> Result<Self, Error>
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
         let signature = BBSplusSignature::from_bytes(
             signature.try_into().map_err(|_| Error::InvalidSignature)?,
         )?;
+        let api_id = CS::API_ID_BLIND;
         let messages = messages.unwrap_or(&[]);
         let committed_messages = committed_messages.unwrap_or(&[]);
         let L = messages.len();
@@ -209,57 +212,48 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
             return Err(Error::BlindProofGenError(
                 "number of disclosed indexes is grater than the number of messages".to_owned(),
             ));
-        }
-
-        if disclosed_indexes.iter().any(|&i| i >= L) {
+        } else if disclosed_indexes.iter().any(|&i| i >= L) {
             return Err(Error::BlindProofGenError(
                 "disclosed index out of range".to_owned(),
             ));
-        }
-
-        if disclosed_commitment_indexes.len() > M {
+        } else if disclosed_commitment_indexes.len() > M {
             return Err(Error::BlindProofGenError("number of commitment disclosed indexes is grater than the number of committed messages".to_owned()));
-        }
-
-        if disclosed_commitment_indexes.iter().any(|&i| i >= M) {
+        } else if disclosed_commitment_indexes.iter().any(|&i| i >= M) {
             return Err(Error::BlindProofGenError(
                 "commitment disclosed index out of range".to_owned(),
             ));
         }
 
-        let mut message_scalars = Vec::new();
+        let generators = Generators::create::<CS>(L + 1, Some(api_id));
+        let blind_generators = Generators::create::<CS>(M + 1, Some(&[b"BLIND_", api_id].concat()));
 
-        let secret_prover_blind = secret_prover_blind.unwrap_or(&BlindFactor(Scalar::ZERO));
-
-        if secret_prover_blind.0 != Scalar::ZERO {
-            let signer_blind = signer_blind.unwrap_or(&BlindFactor(Scalar::ZERO));
-            let message = BBSplusMessage::new(secret_prover_blind.0 + signer_blind.0);
-            message_scalars.push(message);
-        }
-
-        let api_id = CS::API_ID_BLIND;
-        message_scalars.extend(BBSplusMessage::messages_to_scalar::<CS>(
-            committed_messages,
-            api_id,
-        )?);
-        message_scalars.extend(BBSplusMessage::messages_to_scalar::<CS>(messages, api_id)?);
-
-        let generators = Generators::create::<CS>(message_scalars.len() + 1, Some(api_id));
-
-        let (disclosed_messages, disclosed_indexes) = get_disclosed_data(
-            messages,
-            committed_messages,
-            disclosed_indexes,
-            disclosed_commitment_indexes,
-            secret_prover_blind,
+        let message_scalars = BBSplusMessage::messages_to_scalar::<CS>(messages, api_id)?;
+        let blind_factor = BBSplusMessage::new(
+            secret_prover_blind.map_or(Scalar::ZERO, |b| b.0)
+                + signer_blind.map_or(Scalar::ZERO, |b| b.0),
         );
+        let committed_message_scalars =
+            BBSplusMessage::messages_to_scalar::<CS>(committed_messages, api_id)?;
+
+        let indexes = disclosed_indexes
+            .iter()
+            .copied()
+            .chain(disclosed_commitment_indexes.iter().map(|&j| j + L + 1))
+            .collect::<Vec<_>>();
+
+        let tmp_messages = [
+            &*message_scalars,
+            core::slice::from_ref(&blind_factor),
+            &*committed_message_scalars,
+        ]
+        .concat();
 
         let proof = core_proof_gen::<CS>(
             pk,
             &signature,
-            &generators,
-            &message_scalars,
-            &disclosed_indexes,
+            &generators.append(blind_generators),
+            &tmp_messages,
+            &indexes,
             header,
             ph,
             Some(api_id),
@@ -267,10 +261,10 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
             &CS::BLIND_PROOF_DST,
         )?;
 
-        Ok((Self::BBSplus(proof), disclosed_messages, disclosed_indexes))
+        Ok(Self::BBSplus(proof))
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-proof-verification-proofver
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-proof-verification-proofver
     ///
     /// # Description
     /// The ProofVerify operation validates a BBS proof, given the Signer's public key (PK), a header and presentation header values, the disclosed messages and the indexes those messages had in the original vector of signed messages.
@@ -326,48 +320,85 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         result
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-00#name-proof-verification
+    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-01#name-proof-verification
     ///
     /// # Description
-    /// It is the same as [`Self::proof_verify`] but inside i using a different api_id parameter ([`BbsCiphersuite::API_ID_BLIND`])
+    /// The ProofVerify operation validates a BBS proof, given the Signer's public key (PK), a
+    /// header and presentation header values, two arrays of disclosed messages (the ones known to
+    /// the Signer and the ones committed by the prover) and two corresponding arrays of indexes
+    /// those messages had in the original vectors of signed messages. In addition, the
+    /// BlindProofVerify operation defined in this section accepts the integer L, representing the
+    /// total number of signed messages known by the Signer.
+    ///
+    /// # Inputs:
+    /// * `self`, a proof.
+    /// * `pk` (REQUIRED), the Signer public key.
+    /// * `header` (OPTIONAL), an octet string containing context and application.
+    /// * `ph` (OPTIONAL), an octet string containing the presentation header.
+    /// * `L` (OPTIONAL), an integer, representing the total number of Signer known messages if not supplied it defaults to 0.
+    /// * `disclosed_messages` (OPTIONAL), a vector of octet string representing the messages disclosed to the Verifier.
+    /// * `disclosed_committed_messages` (OPTIONAL), a vector of octet string representing the committed messages disclosed to the Verifier.
+    /// * `disclosed_indexes` (OPTIONAL), vector of usize in ascending order. Indexes of disclosed messages.
+    /// * `disclosed_commitment_indexes` (OPTIONAL), vector of usize in ascending order. Indexes of disclosed committed messages.
+    ///
+    /// # Output:
+    /// a result: [`Ok`] or [`Error`].
     ///
     pub fn blind_proof_verify(
         &self,
         pk: &BBSplusPublicKey,
-        disclosed_messages: Option<&[Vec<u8>]>,
-        disclosed_indexes: Option<&[usize]>,
         header: Option<&[u8]>,
         ph: Option<&[u8]>,
+        L: Option<usize>,
+        disclosed_messages: Option<&[Vec<u8>]>,
+        disclosed_committed_messages: Option<&[Vec<u8>]>,
+        disclosed_indexes: Option<&[usize]>,
+        disclosed_commitment_indexes: Option<&[usize]>,
     ) -> Result<(), Error>
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
         let proof = self.to_bbsplus_proof();
+        let L = L.unwrap_or(0);
         let disclosed_messages = disclosed_messages.unwrap_or(&[]);
+        let disclosed_committed_messages = disclosed_committed_messages.unwrap_or(&[]);
         let mut disclosed_indexes = disclosed_indexes.unwrap_or(&[]).to_vec();
         disclosed_indexes.sort();
         disclosed_indexes.dedup();
+        let mut disclosed_commitment_indexes = disclosed_commitment_indexes.unwrap_or(&[]).to_vec();
+        disclosed_commitment_indexes.sort();
+        disclosed_commitment_indexes.dedup();
+
+        let api_id = CS::API_ID_BLIND;
 
         let U = proof.m_cap.len();
-        let R = disclosed_indexes.len();
+        let M = disclosed_indexes.len() + disclosed_commitment_indexes.len() + U - 1 - L;
 
-        let disclosed_message_scalars =
-            BBSplusMessage::messages_to_scalar::<CS>(disclosed_messages, CS::API_ID_BLIND)?;
+        let generators = Generators::create::<CS>(L + 1, Some(api_id));
+        let blind_generators = Generators::create::<CS>(M + 1, Some(&[b"BLIND_", api_id].concat()));
 
-        let generators = Generators::create::<CS>(U + R + 1, Some(CS::API_ID_BLIND));
+        let message_scalars = [
+            BBSplusMessage::messages_to_scalar::<CS>(disclosed_messages, api_id)?,
+            BBSplusMessage::messages_to_scalar::<CS>(disclosed_committed_messages, api_id)?,
+        ]
+        .concat();
 
-        let result = core_proof_verify::<CS>(
+        let indexes = disclosed_indexes
+            .iter()
+            .copied()
+            .chain(disclosed_commitment_indexes.iter().map(|j| j + L + 1))
+            .collect::<Vec<_>>();
+
+        core_proof_verify::<CS>(
             pk,
             proof,
-            &generators,
+            &generators.append(blind_generators),
             header,
             ph,
-            &disclosed_message_scalars,
-            &disclosed_indexes,
-            Some(CS::API_ID_BLIND),
-        );
-
-        result
+            &message_scalars,
+            &indexes,
+            Some(api_id),
+        )
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -386,7 +417,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-coreproofgen
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-coreproofgen
 ///
 /// # Description
 /// This operation computes a zero-knowledge proof-of-knowledge of a signature, while optionally selectively disclosing from the original set of signed messages. The Prover may also supply a presentation header (ph).
@@ -433,7 +464,7 @@ where
 
     let U = L
         .checked_sub(R)
-        .ok_or(Error::ProofGenError("R > L".to_owned()))?;
+        .ok_or_else(|| Error::ProofGenError("R > L".to_owned()))?;
 
     if let Some(invalid_index) = disclosed_indexes.iter().find(|&&i| i > L - 1) {
         return Err(Error::ProofGenError(format!(
@@ -493,7 +524,7 @@ struct ProofInitResult {
     domain: Scalar,
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-proof-initialization
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-proof-initialization
 ///
 /// # Description
 /// This operation initializes the proof and returns one of the inputs passed to the challenge calculation operation ([`proof_challenge_calculate`]), during the [`core_proof_gen`] operation.
@@ -575,7 +606,7 @@ where
     })
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-challenge-calculation
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-challenge-calculation
 ///
 /// # Description
 /// This operation calculates the challenge scalar value, used during the [`core_proof_gen`] and [`core_proof_verify`], as part of the Fiat-Shamir heuristic, for making the proof protocol non-interactive (in a interactive setting, the challenge would be a random value supplied by the Verifier).
@@ -615,31 +646,27 @@ where
     let ph = ph.unwrap_or(b"");
 
     let mut c_arr: Vec<u8> = Vec::new();
+    c_arr.extend_from_slice(&i2osp::<8>(R));
+    for (i, m) in core::iter::zip(disclosed_indexes, disclosed_messages) {
+        c_arr.extend_from_slice(&i2osp::<8>(*i));
+        c_arr.extend_from_slice(&m.value.to_bytes_be());
+    }
     c_arr.extend_from_slice(&init_res.Abar.to_affine().to_compressed());
     c_arr.extend_from_slice(&init_res.Bbar.to_affine().to_compressed());
     c_arr.extend_from_slice(&init_res.D.to_affine().to_compressed());
     c_arr.extend_from_slice(&init_res.T1.to_affine().to_compressed());
     c_arr.extend_from_slice(&init_res.T2.to_affine().to_compressed());
-    c_arr.extend_from_slice(&i2osp(R, 8));
-    disclosed_indexes
-        .iter()
-        .for_each(|&i| c_arr.extend_from_slice(&i2osp(i, 8)));
-    disclosed_messages
-        .iter()
-        .for_each(|m| c_arr.extend_from_slice(&m.value.to_bytes_be()));
     c_arr.extend_from_slice(&init_res.domain.to_bytes_be());
 
-    let ph_i2osp = i2osp(ph.len(), 8);
+    let ph_i2osp = i2osp::<8>(ph.len());
 
     c_arr.extend_from_slice(&ph_i2osp);
     c_arr.extend_from_slice(ph);
 
-    let challenge = hash_to_scalar::<CS>(&c_arr, &challenge_dst)?;
-
-    Ok(challenge)
+    hash_to_scalar::<CS>(&c_arr, &challenge_dst)
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-proof-finalization
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-proof-finalization
 ///
 /// # Description
 /// This operation finalizes the proof calculation during the [`core_proof_gen`] operation and returns the PoK [`BBSplusPoKSignature`].
@@ -671,7 +698,7 @@ fn proof_finalize(
     let m_tilde = &random_scalars[5..(5 + U)];
 
     let r3 = Option::<Scalar>::from(r2.invert())
-        .ok_or(Error::ProofGenError("Invert scalar failed".to_owned()))?;
+        .ok_or_else(|| Error::ProofGenError("Invert scalar failed".to_owned()))?;
 
     let e_cap = e_tilde + e * challenge;
 
@@ -696,7 +723,7 @@ fn proof_finalize(
     })
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-coreproofverify
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-coreproofverify
 ///
 /// # Description
 /// This operation checks that a proof is valid for a header, vector of disclosed messages (disclosed_messages) along side their index corresponding to their original position when signed (disclosed_indexes) and presentation header (ph) against a public key (PK).
@@ -763,7 +790,7 @@ where
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-proof-verification-initiali
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-proof-verification-initiali
 ///
 /// # Description
 /// This operation initializes the proof verification operation and returns part of the input that will be passed to the challenge calculation operation ([`proof_challenge_calculate`]), during the [`core_proof_verify`] operation.
@@ -911,7 +938,6 @@ mod tests {
         utils::util::bbsplus_utils::{get_messages_vec, ScalarExt},
     };
     use elliptic_curve::hash2curve::ExpandMsg;
-    use std::{collections::BTreeMap, fs};
 
     //mocked_rng - SHA256 - UPDATED
     #[test]
@@ -925,302 +951,80 @@ mod tests {
         mocked_rng::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "mockedRng.json");
     }
 
-    //SIGNATURE POK - SHA256
-    #[test]
-    fn proof_check_sha256_1() {
-        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof001.json")
-    }
-    #[test]
-    fn proof_check_sha256_2() {
-        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof002.json")
-    }
-    #[test]
-    fn proof_check_sha256_3() {
-        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof003.json")
-    }
-    #[test]
-    fn proof_check_sha256_4() {
-        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof004.json")
-    }
-    #[test]
-    fn proof_check_sha256_5() {
-        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof005.json")
-    }
-    #[test]
-    fn proof_check_sha256_6() {
-        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof006.json")
-    }
-    #[test]
-    fn proof_check_sha256_7() {
-        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof007.json")
-    }
-    #[test]
-    fn proof_check_sha256_8() {
-        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof008.json")
-    }
-    #[test]
-    fn proof_check_sha256_9() {
-        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof009.json")
-    }
-    #[test]
-    fn proof_check_sha256_10() {
-        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof010.json")
-    }
-    #[test]
-    fn proof_check_sha256_11() {
-        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof011.json")
-    }
-    #[test]
-    fn proof_check_sha256_12() {
-        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof012.json")
-    }
-    #[test]
-    fn proof_check_sha256_13() {
-        proof_check::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "proof/proof013.json")
+    //SIGNATURE POK
+
+    macro_rules! proof_tests {
+        ( $( ($t:ident, $p:literal): { $( ($n:ident, $f:literal), )+ },)+ ) => { $($(
+            #[test] fn $n() { proof_check::<$t>($p, $f); }
+        )+)+ }
     }
 
-    //SIGNATURE POK - SHAKE256
-
-    #[test]
-    fn proof_check_shake256_1() {
-        proof_check::<BbsBls12381Shake256>(
-            "./fixture_data/bls12-381-shake-256/",
-            "proof/proof001.json",
-        )
-    }
-    #[test]
-    fn proof_check_shake256_2() {
-        proof_check::<BbsBls12381Shake256>(
-            "./fixture_data/bls12-381-shake-256/",
-            "proof/proof002.json",
-        )
-    }
-    #[test]
-    fn proof_check_shake256_3() {
-        proof_check::<BbsBls12381Shake256>(
-            "./fixture_data/bls12-381-shake-256/",
-            "proof/proof003.json",
-        )
-    }
-    #[test]
-    fn proof_check_shake256_4() {
-        proof_check::<BbsBls12381Shake256>(
-            "./fixture_data/bls12-381-shake-256/",
-            "proof/proof004.json",
-        )
-    }
-    #[test]
-    fn proof_check_shake256_5() {
-        proof_check::<BbsBls12381Shake256>(
-            "./fixture_data/bls12-381-shake-256/",
-            "proof/proof005.json",
-        )
-    }
-    #[test]
-    fn proof_check_shake256_6() {
-        proof_check::<BbsBls12381Shake256>(
-            "./fixture_data/bls12-381-shake-256/",
-            "proof/proof006.json",
-        )
-    }
-    #[test]
-    fn proof_check_shake256_7() {
-        proof_check::<BbsBls12381Shake256>(
-            "./fixture_data/bls12-381-shake-256/",
-            "proof/proof007.json",
-        )
-    }
-    #[test]
-    fn proof_check_shake256_8() {
-        proof_check::<BbsBls12381Shake256>(
-            "./fixture_data/bls12-381-shake-256/",
-            "proof/proof008.json",
-        )
-    }
-    #[test]
-    fn proof_check_shake256_9() {
-        proof_check::<BbsBls12381Shake256>(
-            "./fixture_data/bls12-381-shake-256/",
-            "proof/proof009.json",
-        )
-    }
-    #[test]
-    fn proof_check_shake256_10() {
-        proof_check::<BbsBls12381Shake256>(
-            "./fixture_data/bls12-381-shake-256/",
-            "proof/proof010.json",
-        )
-    }
-    #[test]
-    fn proof_check_shake256_11() {
-        proof_check::<BbsBls12381Shake256>(
-            "./fixture_data/bls12-381-shake-256/",
-            "proof/proof011.json",
-        )
-    }
-    #[test]
-    fn proof_check_shake256_12() {
-        proof_check::<BbsBls12381Shake256>(
-            "./fixture_data/bls12-381-shake-256/",
-            "proof/proof012.json",
-        )
-    }
-    #[test]
-    fn proof_check_shake256_13() {
-        proof_check::<BbsBls12381Shake256>(
-            "./fixture_data/bls12-381-shake-256/",
-            "proof/proof013.json",
-        )
+    proof_tests! {
+        (BbsBls12381Sha256, "./fixture_data/bls12-381-sha-256/"): {
+            (proof_check_sha256_1, "proof/proof001.json"),
+            (proof_check_sha256_2, "proof/proof002.json"),
+            (proof_check_sha256_3, "proof/proof003.json"),
+            (proof_check_sha256_4, "proof/proof004.json"),
+            (proof_check_sha256_5, "proof/proof005.json"),
+            (proof_check_sha256_6, "proof/proof006.json"),
+            (proof_check_sha256_7, "proof/proof007.json"),
+            (proof_check_sha256_8, "proof/proof008.json"),
+            (proof_check_sha256_9, "proof/proof009.json"),
+            (proof_check_sha256_10, "proof/proof010.json"),
+            (proof_check_sha256_11, "proof/proof011.json"),
+            (proof_check_sha256_12, "proof/proof012.json"),
+            (proof_check_sha256_13, "proof/proof013.json"),
+            (proof_check_sha256_14, "proof/proof014.json"),
+            (proof_check_sha256_15, "proof/proof015.json"),
+        },
+        (BbsBls12381Shake256, "./fixture_data/bls12-381-shake-256/"): {
+            (proof_check_shake256_1, "proof/proof001.json"),
+            (proof_check_shake256_2, "proof/proof002.json"),
+            (proof_check_shake256_3, "proof/proof003.json"),
+            (proof_check_shake256_4, "proof/proof004.json"),
+            (proof_check_shake256_5, "proof/proof005.json"),
+            (proof_check_shake256_6, "proof/proof006.json"),
+            (proof_check_shake256_7, "proof/proof007.json"),
+            (proof_check_shake256_8, "proof/proof008.json"),
+            (proof_check_shake256_9, "proof/proof009.json"),
+            (proof_check_shake256_10, "proof/proof010.json"),
+            (proof_check_shake256_11, "proof/proof011.json"),
+            (proof_check_shake256_12, "proof/proof012.json"),
+            (proof_check_shake256_13, "proof/proof013.json"),
+            (proof_check_shake256_14, "proof/proof014.json"),
+            (proof_check_shake256_15, "proof/proof015.json"),
+        },
     }
 
-    // BLIND PROOF OF KNOWLEDGE OF A SIGNATURE - SHA256
+    // BLIND PROOF OF KNOWLEDGE OF A SIGNATURE
 
-    #[test]
-    fn blind_proof_check_sha256_1() {
-        blind_proof_check::<BbsBls12381Sha256>(
-            "./fixture_data_blind/bls12-381-sha-256/",
-            "proof/proof001.json",
-            "./fixture_data_blind/",
-        )
+    macro_rules! blind_proof_tests {
+        ( $( ($t:ident, $p:literal): { $( ($n:ident, $f:literal), )+ },)+ ) => { $($(
+            #[test] fn $n() { blind_proof_check::<$t>($p, $f, "./fixture_data_blind/"); }
+        )+)+ }
     }
 
-    #[test]
-    fn blind_proof_check_sha256_2() {
-        blind_proof_check::<BbsBls12381Sha256>(
-            "./fixture_data_blind/bls12-381-sha-256/",
-            "proof/proof002.json",
-            "./fixture_data_blind/",
-        )
-    }
-
-    #[test]
-    fn blind_proof_check_sha256_3() {
-        blind_proof_check::<BbsBls12381Sha256>(
-            "./fixture_data_blind/bls12-381-sha-256/",
-            "proof/proof003.json",
-            "./fixture_data_blind/",
-        )
-    }
-
-    #[test]
-    fn blind_proof_check_sha256_4() {
-        blind_proof_check::<BbsBls12381Sha256>(
-            "./fixture_data_blind/bls12-381-sha-256/",
-            "proof/proof004.json",
-            "./fixture_data_blind/",
-        )
-    }
-
-    #[test]
-    fn blind_proof_check_sha256_5() {
-        blind_proof_check::<BbsBls12381Sha256>(
-            "./fixture_data_blind/bls12-381-sha-256/",
-            "proof/proof005.json",
-            "./fixture_data_blind/",
-        )
-    }
-
-    #[test]
-    fn blind_proof_check_sha256_6() {
-        blind_proof_check::<BbsBls12381Sha256>(
-            "./fixture_data_blind/bls12-381-sha-256/",
-            "proof/proof006.json",
-            "./fixture_data_blind/",
-        )
-    }
-
-    #[test]
-    fn blind_proof_check_sha256_7() {
-        blind_proof_check::<BbsBls12381Sha256>(
-            "./fixture_data_blind/bls12-381-sha-256/",
-            "proof/proof007.json",
-            "./fixture_data_blind/",
-        )
-    }
-
-    #[test]
-    #[ignore]
-    fn blind_proof_check_sha256_8() {
-        blind_proof_check::<BbsBls12381Sha256>(
-            "./fixture_data_blind/bls12-381-sha-256/",
-            "proof/proof008.json",
-            "./fixture_data_blind/",
-        )
-    }
-
-    // BLIND PROOF OF KNOWLEDGE OF A SIGNATURE - SHAKE256
-
-    #[test]
-    fn blind_proof_check_shake256_1() {
-        blind_proof_check::<BbsBls12381Shake256>(
-            "./fixture_data_blind/bls12-381-shake-256/",
-            "proof/proof001.json",
-            "./fixture_data_blind/",
-        )
-    }
-
-    #[test]
-    fn blind_proof_check_shake256_2() {
-        blind_proof_check::<BbsBls12381Shake256>(
-            "./fixture_data_blind/bls12-381-shake-256/",
-            "proof/proof002.json",
-            "./fixture_data_blind/",
-        )
-    }
-
-    #[test]
-    fn blind_proof_check_shake256_3() {
-        blind_proof_check::<BbsBls12381Shake256>(
-            "./fixture_data_blind/bls12-381-shake-256/",
-            "proof/proof003.json",
-            "./fixture_data_blind/",
-        )
-    }
-
-    #[test]
-    fn blind_proof_check_shake256_4() {
-        blind_proof_check::<BbsBls12381Shake256>(
-            "./fixture_data_blind/bls12-381-shake-256/",
-            "proof/proof004.json",
-            "./fixture_data_blind/",
-        )
-    }
-
-    #[test]
-    fn blind_proof_check_shake256_5() {
-        blind_proof_check::<BbsBls12381Shake256>(
-            "./fixture_data_blind/bls12-381-shake-256/",
-            "proof/proof005.json",
-            "./fixture_data_blind/",
-        )
-    }
-
-    #[test]
-    fn blind_proof_check_shake256_6() {
-        blind_proof_check::<BbsBls12381Shake256>(
-            "./fixture_data_blind/bls12-381-shake-256/",
-            "proof/proof006.json",
-            "./fixture_data_blind/",
-        )
-    }
-
-    #[test]
-    fn blind_proof_check_shake256_7() {
-        blind_proof_check::<BbsBls12381Shake256>(
-            "./fixture_data_blind/bls12-381-shake-256/",
-            "proof/proof007.json",
-            "./fixture_data_blind/",
-        )
-    }
-
-    #[test]
-    #[ignore]
-    fn blind_proof_check_shake256_8() {
-        blind_proof_check::<BbsBls12381Shake256>(
-            "./fixture_data_blind/bls12-381-shake-256/",
-            "proof/proof008.json",
-            "./fixture_data_blind/",
-        )
+    blind_proof_tests! {
+        (BbsBls12381Sha256, "./fixture_data_blind/bls12-381-sha-256/"): {
+            (blind_proof_check_sha256_1, "proof/proof001.json"),
+            (blind_proof_check_sha256_2, "proof/proof002.json"),
+            (blind_proof_check_sha256_3, "proof/proof003.json"),
+            (blind_proof_check_sha256_4, "proof/proof004.json"),
+            (blind_proof_check_sha256_5, "proof/proof005.json"),
+            (blind_proof_check_sha256_6, "proof/proof006.json"),
+            (blind_proof_check_sha256_7, "proof/proof007.json"),
+            (blind_proof_check_sha256_8, "proof/proof008.json"),
+        },
+        (BbsBls12381Shake256, "./fixture_data_blind/bls12-381-shake-256/"): {
+            (blind_proof_check_shake256_1, "proof/proof001.json"),
+            (blind_proof_check_shake256_2, "proof/proof002.json"),
+            (blind_proof_check_shake256_3, "proof/proof003.json"),
+            (blind_proof_check_shake256_4, "proof/proof004.json"),
+            (blind_proof_check_shake256_5, "proof/proof005.json"),
+            (blind_proof_check_shake256_6, "proof/proof006.json"),
+            (blind_proof_check_shake256_7, "proof/proof007.json"),
+            (blind_proof_check_shake256_8, "proof/proof008.json"),
+        },
     }
 
     fn mocked_rng<S: Scheme>(pathname: &str, filename: &str)
@@ -1228,7 +1032,8 @@ mod tests {
         S::Ciphersuite: BbsCiphersuite,
         <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
-        let data = fs::read_to_string([pathname, filename].concat()).expect("Unable to read file");
+        let data =
+            std::fs::read_to_string([pathname, filename].concat()).expect("Unable to read file");
         let res: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
         eprintln!("Mocked Random Scalars");
 
@@ -1270,8 +1075,8 @@ mod tests {
         S::Ciphersuite: BbsCiphersuite,
         <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
-        let data =
-            fs::read_to_string([pathname, proof_filename].concat()).expect("Unable to read file");
+        let data = std::fs::read_to_string([pathname, proof_filename].concat())
+            .expect("Unable to read file");
         let proof_json: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
 
         let signerPK_hex = proof_json["signerPublicKey"].as_str().unwrap();
@@ -1380,11 +1185,11 @@ mod tests {
         S::Ciphersuite: BbsCiphersuite,
         <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
-        let data =
-            fs::read_to_string([pathname, proof_filename].concat()).expect("Unable to read file");
+        let data = std::fs::read_to_string([pathname, proof_filename].concat())
+            .expect("Unable to read file");
         let proof_json: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
 
-        let messages_data = fs::read_to_string([messages_path, "messages.json"].concat())
+        let messages_data = std::fs::read_to_string([messages_path, "messages.json"].concat())
             .expect("Unable to read file");
         let messages_json: serde_json::Value =
             serde_json::from_str(&messages_data).expect("Unable to parse");
@@ -1433,55 +1238,56 @@ mod tests {
         )
         .unwrap();
 
-        let disclosed_indexes: Option<Vec<usize>> =
-            if let Some(values) = proof_json["revealedMessages"].as_object() {
-                Some(values.keys().map(|s| s.parse().unwrap()).collect())
-            } else {
-                None
-            };
+        let (disclosed_messages, disclosed_indexes) = proof_json["revealedMessages"]
+            .as_object()
+            .map(|values| {
+                let messages = values
+                    .values()
+                    .map(|h| hex::decode(h.as_str().unwrap()).unwrap())
+                    .collect::<Vec<_>>();
+                let indexes = values
+                    .keys()
+                    .map(|s| s.parse().unwrap())
+                    .collect::<Vec<_>>();
+                (messages, indexes)
+            })
+            .map_or((None, None), |(m, i)| (Some(m), Some(i))); // unzip() in 1.66+
 
-        let disclosed_commitment_indexes: Option<Vec<usize>> =
-            if let Some(values) = proof_json["revealedCommittedMessages"].as_object() {
-                Some(values.keys().map(|s| s.parse().unwrap()).collect())
-            } else {
-                None
-            };
+        let (disclosed_committed_messages, disclosed_commitment_indexes) = proof_json
+            ["revealedCommittedMessages"]
+            .as_object()
+            .map(|values| {
+                let messages = values
+                    .values()
+                    .map(|h| hex::decode(h.as_str().unwrap()).unwrap())
+                    .collect::<Vec<_>>();
+                let indexes = values
+                    .keys()
+                    .map(|s| s.parse().unwrap())
+                    .collect::<Vec<_>>();
+                (messages, indexes)
+            })
+            .map_or((None, None), |(m, i)| (Some(m), Some(i))); // unzip() in 1.66+
 
-        let mut used_committed_messages: Option<Vec<Vec<u8>>> = None;
+        let used_committed_messages = if disclosed_commitment_indexes.is_some() {
+            committed_messages
+        } else {
+            None
+        };
 
-        if disclosed_commitment_indexes.is_some() {
-            used_committed_messages = committed_messages;
-        }
-
-        let (proof, disclosed_msgs, disclosed_idxs) =
-            PoKSignature::<BBSplus<S::Ciphersuite>>::blind_proof_gen(
-                &pk,
-                &signature.to_bytes(),
-                Some(&header),
-                Some(&ph),
-                messages.as_deref(),
-                used_committed_messages.as_deref(),
-                disclosed_indexes.as_deref(),
-                disclosed_commitment_indexes.as_deref(),
-                secret_prover_blind.as_ref(),
-                signer_blind.as_ref(),
-            )
-            .unwrap();
-
-        if let Some(values) = proof_json["disclosedData"].as_object() {
-            let mut sorted_values = BTreeMap::new();
-            for (key, value) in values {
-                sorted_values.insert(key.parse::<usize>().unwrap(), value);
-            }
-
-            let idxs: Vec<usize> = sorted_values.keys().map(|&s| s).collect();
-            assert_eq!(disclosed_idxs, idxs);
-            let msgs: Vec<Vec<u8>> = sorted_values
-                .values()
-                .map(|s| hex::decode(s.as_str().unwrap()).unwrap())
-                .collect();
-            assert_eq!(disclosed_msgs, msgs);
-        }
+        let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::blind_proof_gen(
+            &pk,
+            &signature.to_bytes(),
+            Some(&header),
+            Some(&ph),
+            messages.as_deref(),
+            used_committed_messages.as_deref(),
+            disclosed_indexes.as_deref(),
+            disclosed_commitment_indexes.as_deref(),
+            secret_prover_blind.as_ref(),
+            signer_blind.as_ref(),
+        )
+        .unwrap();
 
         let expected_proof = proof_json["proof"].as_str().unwrap();
 
@@ -1490,10 +1296,13 @@ mod tests {
         let result = proof
             .blind_proof_verify(
                 &pk,
-                Some(&disclosed_msgs),
-                Some(&disclosed_idxs),
                 Some(&header),
                 Some(&ph),
+                messages.as_ref().map(Vec::len),
+                disclosed_messages.as_deref(),
+                disclosed_committed_messages.as_deref(),
+                disclosed_indexes.as_deref(),
+                disclosed_commitment_indexes.as_deref(),
             )
             .is_ok();
 

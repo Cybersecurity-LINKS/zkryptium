@@ -21,7 +21,8 @@ use crate::{
     },
     schemes::algorithms::BBSplus,
     utils::util::bbsplus_utils::{
-        generate_random_secret, hash_to_scalar, i2osp, parse_g2_projective_compressed, parse_g2_projective_uncompressed
+        generate_random_secret, hash_to_scalar, i2osp, parse_g2_projective_compressed,
+        parse_g2_projective_uncompressed,
     },
 };
 use bls12_381_plus::{G2Affine, G2Projective, Scalar};
@@ -180,7 +181,6 @@ impl<CS: BbsCiphersuite> KeyPair<BBSplus<CS>> {
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
         let key_material = generate_random_secret(64);
-        
         let sk = key_gen::<CS>(&key_material, None, None)?;
 
         let pk = sk_to_pk(sk);
@@ -192,7 +192,7 @@ impl<CS: BbsCiphersuite> KeyPair<BBSplus<CS>> {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-secret-key -> SK = KeyGen(key_material, key_info, key_dst)
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-secret-key -> SK = KeyGen(key_material, key_info, key_dst)
 ///
 /// # Description
 /// This operation generates a secret key (SK) deterministically from a secret octet string (key_material)
@@ -232,7 +232,7 @@ where
     let key_dst = key_dst.unwrap_or(&key_dst_default);
 
     // derive_input = key_material || I2OSP(length(key_info), 2) || key_info
-    let derive_input = [key_material, &i2osp(key_info.len(), 2), key_info].concat();
+    let derive_input = [key_material, &i2osp::<2>(key_info.len()), key_info].concat();
 
     // SK = hash_to_scalar(derive_input, key_dst)
     let sk = hash_to_scalar::<CS>(&derive_input, key_dst)?;

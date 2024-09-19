@@ -71,9 +71,18 @@ impl Generators {
             values: generators[0..].to_vec(),
         }
     }
+
+    /// Utility to append one list of Generators to another.
+    /// # Panics
+    /// Panics if the Generators have different base points.
+    pub(crate) fn append(mut self, other: Self) -> Self {
+        assert_eq!(self.g1_base_point, other.g1_base_point);
+        self.values.extend(other.values);
+        self
+    }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-05#name-generators-calculation
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-generators-calculation
 ///
 /// # Description
 /// Generators creation
@@ -103,7 +112,7 @@ where
     let mut buffer = vec![0u8; CS::EXPAND_LEN];
     let mut generators = Vec::new();
     for i in 1..count + 1 {
-        v = [v, i2osp(i, 8)].concat();
+        v = [&*v, &i2osp::<8>(i)].concat();
         CS::Expander::expand_message(&[&v], &[&seed_dst], CS::EXPAND_LEN)
             .unwrap()
             .fill_bytes(&mut buffer);

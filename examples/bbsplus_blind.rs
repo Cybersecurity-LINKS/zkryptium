@@ -107,29 +107,39 @@ mod bbsplus_example {
 
         let disclosed_indexes = [0usize, 2usize];
         let disclosed_commitment_indexes = [1usize];
-        let (poks, all_disclosed_messages, all_disclosed_indexes) =
-            PoKSignature::<BBSplus<S::Ciphersuite>>::blind_proof_gen(
-                issuer_pk,
-                &blind_signature.to_bytes(),
-                Some(&header),
-                Some(&nonce_verifier),
-                Some(&messages),
-                Some(&committed_messages),
-                Some(&disclosed_indexes),
-                Some(&disclosed_commitment_indexes),
-                Some(&secret_prover_blind),
-                None,
-            )?;
+        let poks = PoKSignature::<BBSplus<S::Ciphersuite>>::blind_proof_gen(
+            issuer_pk,
+            &blind_signature.to_bytes(),
+            Some(&header),
+            Some(&nonce_verifier),
+            Some(&messages),
+            Some(&committed_messages),
+            Some(&disclosed_indexes),
+            Some(&disclosed_commitment_indexes),
+            Some(&secret_prover_blind),
+            None,
+        )?;
 
         //Verifier verifies SPok
         log::info!("Signature Proof of Knowledge verification...");
+        let disclosed_messages = disclosed_indexes
+            .iter()
+            .map(|&i| messages[i].clone())
+            .collect::<Vec<_>>();
+        let disclosed_committed_messages = disclosed_commitment_indexes
+            .iter()
+            .map(|&i| committed_messages[i].clone())
+            .collect::<Vec<_>>();
         let poks_verification_result = poks
             .blind_proof_verify(
                 issuer_pk,
-                Some(&all_disclosed_messages),
-                Some(&all_disclosed_indexes),
                 Some(&header),
                 Some(&nonce_verifier),
+                Some(messages.len()),
+                Some(&disclosed_messages),
+                Some(&disclosed_committed_messages),
+                Some(&disclosed_indexes),
+                Some(&disclosed_commitment_indexes),
             )
             .is_ok();
         assert!(

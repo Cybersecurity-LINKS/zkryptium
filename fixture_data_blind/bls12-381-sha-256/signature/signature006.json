@@ -28,12 +28,12 @@
   "committedMessages": null,
   "proverBlind": null,
   "signerBlind": null,
-  "signature": "8c21175e0465339fd9b32aece83c43402b8b467baf3085028ecb5669e76e093c0db878bfd4e6121b2b86260fd38f11ca37fc2f16f145ba600b240eb96a40960f7aac7416f2390225e7166863db321b16",
+  "signature": "ac477879f31a2fdb1256aaaef7880a080878ec7aa763e576d8a29ae25d1f531aa092aed33eca25c8858c5c4eba33076011f17025852ca737d12cd36df49a21cae48bd1a6ad0fdd213a2b847e9cecad1a",
   "result": {
     "valid": true
   },
   "trace": {
-    "B": "853ff87eda30796f5997ec3fb9fffcefa78b0b457ce9f2487b8afaa0ffa5098053dc91a65e0b169d97f7b1123e80ab14",
-    "domain": "160cf879138e86f8f6025c41ec94434432a315c33dc6b90c38f1b21ce101418c"
+    "B": "874d657ff2b90023d18c8eb1d2fbc0beb8b9c1ae98a285db1076466edd7c0a3179bc572d4f7b0e15b39cbe298d2023cd",
+    "domain": "1430cf0a3d8a0519a9ecf47534b6026a7671935d9854ed5e68b42fdb543d5f7a"
   }
 }
