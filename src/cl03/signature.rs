@@ -148,6 +148,28 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
         false
     }
 
+    pub fn disclose_selectively(&self, messages: &[CL03Message], a_bases: Bases, pk: &CL03PublicKey, unrevealed_indexes: &[usize]) -> (Vec<CL03Message>, Bases) {
+
+        if messages.len() != a_bases.0.len() {
+            panic!("Mismatch between messages and bases length!");
+        }
+
+        let mut sd_messages: Vec<CL03Message> = Vec::from(messages);
+
+        if unrevealed_indexes.len() == messages.len() {
+            return (sd_messages, a_bases)
+        }
+
+        let mut sd_bases: Bases = a_bases.clone();
+
+        for index in unrevealed_indexes {
+            sd_bases.0[*index] = Integer::from(a_bases.0[*index].pow_mod_ref(&messages[*index].value, &pk.N).unwrap());
+            sd_messages[*index].value = Integer::from(1);
+        }
+
+        (sd_messages, sd_bases)
+    }
+
     pub fn cl03Signature(&self) -> &CL03Signature {
         match self {
             Self::CL03(inner) => inner,
