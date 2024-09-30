@@ -94,15 +94,25 @@ mod cl03_example {
         );
 
         log::info!("Signature unblinding and verification...");
-        let unblided_signature = blind_signature.unblind_sign(&commitment);
+        let unblinded_signature = blind_signature.unblind_sign(&commitment);
         let verify =
-            unblided_signature.verify_multiattr(issuer_keypair.public_key(), &a_bases, &messages);
+            unblinded_signature.verify_multiattr(issuer_keypair.public_key(), &a_bases, &messages);
 
         assert!(
             verify,
             "Error! The unblided signature verification should PASS!"
         );
         log::info!("Signature is VALID!");
+
+        let (sd_messages, sd_bases) = unblinded_signature.disclose_selectively(&messages, a_bases.clone(), issuer_keypair.public_key(), &unrevealed_message_indexes);
+        let verify =
+        unblinded_signature.verify_multiattr(issuer_keypair.public_key(), &sd_bases, &sd_messages);
+
+        assert!(
+            verify,
+            "Error! The unblided signature verification should PASS!"
+        );
+        log::info!("SD Signature is VALID!");
 
         //Verifier generates its pk
         log::info!("Generation of a Commitment Public Key for the computation of the SPoK");
@@ -114,7 +124,7 @@ mod cl03_example {
         //Holder compute the Signature Proof of Knowledge
         log::info!("Computation of a Zero-Knowledge proof-of-knowledge of a signature");
         let signature_pok = PoKSignature::<CL03<S::Ciphersuite>>::proof_gen(
-            unblided_signature.cl03Signature(),
+            unblinded_signature.cl03Signature(),
             &verifier_commitment_pk,
             issuer_keypair.public_key(),
             &a_bases,
@@ -151,7 +161,8 @@ fn main() {
 
     let args: Vec<String> = env::args().collect();
 
-    if args.len() != 2 {
+    println!("args: {:?}", args);
+    if args.len() != 3 {
         println!(
             "Usage: {} <cipher_suite>
                 Ciphersuites:
@@ -160,6 +171,7 @@ fn main() {
         );
         return;
     }
+
 
     let cipher_suite = &args[1];
 
