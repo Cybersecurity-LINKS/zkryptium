@@ -17,9 +17,10 @@ mod cl03_example {
     use digest::Digest;
     use zkryptium::cl03::bases::Bases;
     use zkryptium::cl03::ciphersuites::{CL1024Sha256, CLCiphersuite};
+    use zkryptium::cl03::keys::CL03CommitmentPublicKey;
     use zkryptium::keys::pair::KeyPair;
     use zkryptium::schemes::algorithms::{Ciphersuite, Scheme, CL03};
-    use zkryptium::schemes::generics::Signature;
+    use zkryptium::schemes::generics::{Commitment, PoKSignature, Signature, ZKPoK};
     use zkryptium::utils::message::cl03_message::CL03Message;
 
     pub(crate) fn cl03_main<S: Scheme>()
@@ -50,7 +51,7 @@ mod cl03_example {
             })
             .collect();
 
-        let unrevealed_message_indexes = [0usize];
+        let undisclosed_message_indexes = [0usize, 2usize];
         let signature = Signature::<CL03<CL1024Sha256>>::sign_multiattr(
             issuer_keypair.public_key(),
             issuer_keypair.private_key(),
@@ -68,7 +69,7 @@ mod cl03_example {
         );
         log::info!("Signature is VALID!");
 
-        let (sd_messages, sd_bases) = signature.disclose_selectively(&messages, a_bases.clone(), issuer_keypair.public_key(), unrevealed_message_indexes.as_slice());
+        let (sd_messages, sd_bases) = signature.disclose_selectively(&messages, a_bases.clone(), issuer_keypair.public_key(), undisclosed_message_indexes.as_slice());
 
         log::info!("SDBases:\t{:?}", sd_bases);
         log::info!("SDMessages:\t{:?}", sd_messages);
@@ -79,7 +80,53 @@ mod cl03_example {
             verify,
             "Error! The signature verification should PASS!"
         );
+
         log::info!("Signature for Selective Disclosure is VALID!");
+        log::info!("Computation of a Zero-Knowledge proof-of-knowledge of committed messages");
+
+        let unrevealed_message_indexes = [0usize];
+        let revealed_message_indexes = [1usize, 2usize];
+        let revealed_messages: Vec<CL03Message> = messages
+            .iter()
+            .enumerate()
+            .filter(|&(i, _)| revealed_message_indexes.contains(&i))
+            .map(|(_, m)| m.clone())
+            .collect();
+
+        //Verifier generates its pk
+        log::info!("Generation of a Commitment Public Key for the computation of the SPoK");
+        let verifier_commitment_pk = CL03CommitmentPublicKey::generate::<S::Ciphersuite>(
+            Some(issuer_keypair.public_key().N.clone()),
+            Some(MSGS.len()),
+        );
+
+        //Holder compute the Signature Proof of Knowledge
+        log::info!("Computation of a Zero-Knowledge proof-of-knowledge of a signature");
+        let signature_pok = PoKSignature::<CL03<S::Ciphersuite>>::proof_gen(
+            signature.cl03Signature(),
+            &verifier_commitment_pk,
+            issuer_keypair.public_key(),
+            &a_bases,
+            &messages,
+            &unrevealed_message_indexes,
+        );
+
+        //Verifier verifies the Signature Proof of Knowledge
+        log::info!("Signature Proof of Knowledge verification...");
+        let valid_proof = signature_pok.proof_verify(
+            &verifier_commitment_pk,
+            issuer_keypair.public_key(),
+            &a_bases,
+            &revealed_messages,
+            &unrevealed_message_indexes,
+            MSGS.len(),
+        );
+
+        assert!(
+            valid_proof,
+            "Error! The signature proof of knowledge should PASS!"
+        );
+        log::info!("Signature Proof of Knowledge is VALID!");
     }
 }
 

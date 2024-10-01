@@ -95,8 +95,7 @@ mod cl03_example {
 
         log::info!("Signature unblinding and verification...");
         let unblinded_signature = blind_signature.unblind_sign(&commitment);
-        let verify =
-            unblinded_signature.verify_multiattr(issuer_keypair.public_key(), &a_bases, &messages);
+        let verify = unblinded_signature.verify_multiattr(issuer_keypair.public_key(), &a_bases, &messages);
 
         assert!(
             verify,
