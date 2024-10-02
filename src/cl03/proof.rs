@@ -28,7 +28,7 @@ use crate::{
     schemes::generics::{Commitment, PoKSignature, ZKPoK},
     utils::message::cl03_message::CL03Message,
 };
-use digest::Digest;
+use digest::{Digest, Mac};
 use rug::{ops::Pow, Integer};
 use serde::{Deserialize, Serialize};
 
@@ -90,14 +90,14 @@ impl<CS: CLCiphersuite> PoKSignature<CL03<CS>> {
         for i in unrevealed_message_indexes {
             let mi = messages
                 .get(*i)
-                .expect("unreaveled_message_indexes not valid with respect to the messages!");
+                .expect("unrevealed_message_indexes not valid with respect to the messages!");
             let gi = &commitment_pk.g_bases.get(*i).expect(
-                "unreaveled_message_indexes not valid with respect to the commitment_pk.g_bases!",
+                "unrevealed_message_indexes not valid with respect to the commitment_pk.g_bases!",
             );
             let cmi = Commitment::<CL03<CS>>::commit_with_commitment_pk(
-                &[mi.clone()],
+                messages,
                 commitment_pk,
-                None,
+                Some(&[*i]),
             )
             .cl03Commitment()
             .to_owned();
@@ -184,12 +184,15 @@ impl<CS: CLCiphersuite> PoKSignature<CL03<CS>> {
                         value: proof_mi,
                         commitment: cmi,
                     } = CLSPoK.proofs_commited_mi.get(idx).expect("index overflow");
+                    println!("CLSPoK = {:?}", CLSPoK.proofs_commited_mi);
+
                     let boolean_proof_mi = proof_mi.nisp2sec_verify_proof::<CS>(
                         &cmi,
                         gi,
                         &commitment_pk.h,
                         &commitment_pk.N,
                     );
+                    println!("idx = {idx} - i = {i} - unrevealed_message_indexes = {:?}!", unrevealed_message_indexes);
                     if !boolean_proof_mi {
                         println!("Knowledge verification of mi Failed!");
                         return false;

@@ -51,7 +51,7 @@ mod cl03_example {
             })
             .collect();
 
-        let undisclosed_message_indexes = [0, 1];
+        let undisclosed_message_indexes = [0,2];
         let signature = Signature::<CL03<CL1024Sha256>>::sign_multiattr(
             issuer_keypair.public_key(),
             issuer_keypair.private_key(),
@@ -82,8 +82,8 @@ mod cl03_example {
         );
 
         log::info!("Signature for Selective Disclosure is VALID!");
-        let unrevealed_message_indexes = [2];
-        let revealed_message_indexes = [0, 1];
+        let unrevealed_message_indexes = undisclosed_message_indexes;
+        let revealed_message_indexes = [1];
         let revealed_messages: Vec<CL03Message> = messages
             .iter()
             .enumerate()
