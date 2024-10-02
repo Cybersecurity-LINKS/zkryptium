@@ -10,37 +10,31 @@ rust-version = "1.65"
 keywords = [ "crypto", "signatures", "zero-knowledge", "bbs", "blind-signature" ]
 categories = [ "cryptography", "authentication" ]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 rand = {version = "0.8.5"}
 zeroize = { version = "1.5" }
-serde = { version = "1.0.25", default-features = false, features = ["derive", "serde_derive"] }
-serde_json = "1.0.59"
-hex = "0.4.3"
-thiserror = "1.0.30"
+serde = { version = "1.0.25", default-features = false, features = ["alloc", "derive"] }
+hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
+thiserror = {version = "1.0", default-features = false, package = "thiserror-nostd-notrait"}
+sha3 = { version = "0.10.8", optional = true, default-features = false }
+sha2 = { version = "0.10.6", optional = true, default-features = false }
+serde_json = { version = "1.0.59", optional = true }
+digest = "0.10.6"
 
 # cl03
 rug = { version = "1.19.2", features = ["serde"], optional = true }
 
-
-sha3 = "0.10.8"
-sha2 = "0.10.6"
-hkdf = "0.12.3"
-digest = "0.10.6"
-
 # bbsplus
-bls12_381_plus = { version = "0.8.13", optional = true }
-ff = "0.13.0"
-group = "0.10"
+bls12_381_plus = { version = "0.8.18", optional = true, default-features = false, features = ["alloc", "groups", "pairings"] }
+ff = { version = "0.13.0", default-features = false }
+group = "0.13"
 elliptic-curve = "0.13.4"
 
-
+[dev-dependencies]
 cargo-license = "0.5.1"
 log = "0.4.0"
 env_logger = "0.10.0"
 dotenv = "0.15.0"
-
 
 
 [lib]
@@ -48,9 +42,11 @@ name = "zkryptium"
 path = "src/lib.rs"
 
 [features]
-default = ["bbsplus"]
-cl03 = ["dep:rug"]
-bbsplus = ["dep:bls12_381_plus"]
+default = ["bbsplus", "std"]
+std = ["dep:serde_json", "sha2?/std", "sha3?/std", "thiserror/std"]
+min_bbs = ["dep:bls12_381_plus"]
+cl03 = ["dep:rug", "dep:sha2"]
+bbsplus = ["min_bbs", "dep:sha2", "dep:sha3", "rand/std", "rand/std_rng"]
 
 
 [[example]]

@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(feature = "bbsplus")]
+#[cfg(feature = "min_bbs")]
 pub mod bbsplus_message {
-
+    use alloc::vec::Vec;
     use crate::bbsplus::ciphersuites::BbsCiphersuite;
     use crate::errors::Error;
     use crate::utils::util::bbsplus_utils::hash_to_scalar;
@@ -52,6 +52,8 @@ pub mod bbsplus_message {
             CS::Expander: for<'a> ExpandMsg<'a>,
         {
             let map_dst = [api_id, CS::MAP_MSG_SCALAR].concat();
+            messages.into_iter().map(|m| Ok( Self{ value: hash_to_scalar::<CS>(m, &map_dst)?})).collect()
+/*
             let mut msg_scalars: Vec<Self> = Vec::new();
             for m in messages {
                 let scalar = hash_to_scalar::<CS>(m, &map_dst)?;
@@ -59,6 +61,7 @@ pub mod bbsplus_message {
             }
 
             Ok(msg_scalars)
+            */
         }
 
         /// # Description

@@ -13,10 +13,11 @@
 // limitations under the License.
 
 use crate::schemes::algorithms::Ciphersuite;
-use elliptic_curve::hash2curve::{ExpandMsg, ExpandMsgXmd, ExpandMsgXof};
+use elliptic_curve::hash2curve::ExpandMsg;
+#[cfg(feature = "bbsplus")]
+use elliptic_curve::hash2curve::{ExpandMsgXmd, ExpandMsgXof};
+#[cfg(feature = "bbsplus")]
 use serde::{Deserialize, Serialize};
-use sha2::Sha256;
-use sha3::Shake256;
 
 pub trait BbsCiphersuite: Eq + 'static + Ciphersuite {
     const ID: &'static [u8];
@@ -41,11 +42,14 @@ pub trait BbsCiphersuite: Eq + 'static + Ciphersuite {
     const IKM_LEN: usize = 32;
 }
 
+#[cfg(feature = "bbsplus")]
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Bls12381Shake256 {}
+#[cfg(feature = "bbsplus")]
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Bls12381Sha256 {}
 
+#[cfg(feature = "bbsplus")]
 impl BbsCiphersuite for Bls12381Shake256 {
     const ID: &'static [u8] = b"BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_";
     const API_ID: &'static [u8] = b"BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_H2G_HM2S_";
@@ -57,11 +61,12 @@ impl BbsCiphersuite for Bls12381Shake256 {
     const BLIND_PROOF_DST: &'static [u8] =
         b"BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_H2G_HM2S_PROOF_MOCK_RANDOM_SCALARS_DST_";
     const GENERATOR_SIG_DST: &'static [u8] = b"BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_SIG_DET_DST_";
-    type Expander = ExpandMsgXof<Shake256>;
+    type Expander = ExpandMsgXof<sha3::Shake256>;
 
     const P1: &'static str = "8929dfbc7e6642c4ed9cba0856e493f8b9d7d5fcb0c31ef8fdcd34d50648a56c795e106e9eada6e0bda386b414150755";
 }
 
+#[cfg(feature = "bbsplus")]
 impl BbsCiphersuite for Bls12381Sha256 {
     const ID: &'static [u8] = b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_";
     const API_ID: &'static [u8] = b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_";
@@ -73,7 +78,7 @@ impl BbsCiphersuite for Bls12381Sha256 {
     const BLIND_PROOF_DST: &'static [u8] =
         b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_PROOF_MOCK_RANDOM_SCALARS_DST_";
     const GENERATOR_SIG_DST: &'static [u8] = b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_SIG_DET_DST_";
-    type Expander = ExpandMsgXmd<Sha256>;
+    type Expander = ExpandMsgXmd<sha2::Sha256>;
 
     const P1: &'static str = "a8ce256102840821a3e94ea9025e4662b205762f9776b3a766c872b948f1fd225e7c59698588e70d11406d161b4e28c9" ;
 }

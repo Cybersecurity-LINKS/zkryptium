@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::{borrow::ToOwned, vec::Vec};
 use super::{
     ciphersuites::BbsCiphersuite, commitment::BlindFactor, generators::Generators,
     keys::BBSplusPublicKey, signature::BBSplusSignature,

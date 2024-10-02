@@ -15,7 +15,6 @@
 use crate::schemes::algorithms::Scheme;
 use serde::Deserialize;
 use serde::Serialize;
-use std::env;
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct KeyPair<S: Scheme> {
@@ -40,20 +39,19 @@ where
         (self.private, self.public)
     }
 
+    #[cfg(feature = "std")]
     pub fn write_keypair_to_file(&self, file: Option<String>) {
         println!("writhing to file...");
 
-        let file = file.unwrap_or(String::from("../fixtures/fixture_data/keyPair.json"));
-        let current_path = env::current_dir().unwrap();
+        let file = file.unwrap_or_else(|| String::from("../fixtures/fixture_data/keyPair.json"));
+        let current_path = std::env::current_dir().unwrap();
         let file_to_write = current_path.join(file);
 
-        std::fs::write(
+        if  std::fs::write(
             &file_to_write,
             serde_json::to_string_pretty(&self).expect("failed to serializing key pair"),
-        )
-        .expect(&format!(
-            "failed to write key pair to file: {}",
-            file_to_write.to_str().unwrap()
-        ));
+        ).is_err() {
+            panic!("failed to write key pair to file: {file_to_write:?}");
+        }
     }
 }

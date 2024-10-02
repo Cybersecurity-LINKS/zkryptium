@@ -12,10 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(feature = "bbsplus")]
+use alloc::vec::Vec;
+
+#[cfg(any(feature = "min_bbs"))]
 pub mod bbsplus_utils {
+    use alloc::{borrow::ToOwned, vec::Vec, string::String};
+    use core::any::{Any, TypeId};
     use crate::{
-        bbsplus::ciphersuites::BbsCiphersuite, bbsplus::keys::BBSplusPublicKey, errors::Error,
+        errors::Error,
+        bbsplus::ciphersuites::BbsCiphersuite,
+        bbsplus::keys::BBSplusPublicKey,
         utils::message::bbsplus_message::BBSplusMessage,
     };
     use bls12_381_plus::{G1Affine, G1Projective, G2Affine, G2Projective, Scalar};
@@ -25,7 +31,6 @@ pub mod bbsplus_utils {
     };
     use ff::Field;
     use rand::{thread_rng, RngCore};
-    use std::any::{Any, TypeId};
 
     pub(crate) fn parse_g2_projective_compressed(slice: &[u8]) -> Result<G2Projective, Error> {
         let point = G2Affine::from_compressed(
@@ -220,6 +225,7 @@ pub mod bbsplus_utils {
     {
         let mut result: Vec<u8> = Vec::new();
         if array.len() == 0 {
+            #[cfg(feature = "std")]
             println!("Empty array");
             return result;
         }
@@ -257,6 +263,7 @@ pub mod bbsplus_utils {
                 }
             }
         } else {
+            #[cfg(feature = "std")]
             println!("Unknown struct type");
         }
 
@@ -264,21 +271,14 @@ pub mod bbsplus_utils {
     }
 
     pub fn get_messages(messages: &[BBSplusMessage], indexes: &[usize]) -> Vec<BBSplusMessage> {
-        let mut out: Vec<BBSplusMessage> = Vec::new();
-        for &i in indexes {
-            out.push(messages[i]);
-        }
-
-        out
+        indexes.into_iter().map(|&i| messages[i]).collect()
     }
 
     pub fn get_messages_vec(messages: &[Vec<u8>], indexes: &[usize]) -> Vec<Vec<u8>> {
-        let mut out: Vec<Vec<u8>> = Vec::new();
-        for &i in indexes {
-            out.push(messages[i].clone());
-        }
-
-        out
+        indexes
+            .into_iter()
+            .map(|&i| messages[i].clone())
+            .collect()
     }
 
     pub(crate) fn get_random() -> Scalar {
@@ -465,6 +465,7 @@ pub mod bbsplus_utils {
 
 #[cfg(feature = "cl03")]
 pub mod cl03_utils {
+    use alloc::vec::Vec;
     use rug::{integer::Order, Integer};
 
     //b*x = a mod m -> return x

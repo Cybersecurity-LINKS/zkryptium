@@ -14,7 +14,7 @@
 
 use super::algorithms::Scheme;
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 #[cfg(feature = "cl03")]
 use crate::cl03::{
@@ -24,7 +24,7 @@ use crate::cl03::{
     signature::CL03Signature,
 };
 
-#[cfg(feature = "bbsplus")]
+#[cfg(feature = "min_bbs")]
 use crate::bbsplus::{
     commitment::BBSplusCommitment,
     proof::{BBSplusPoKSignature, BBSplusZKPoK},
@@ -33,25 +33,25 @@ use crate::bbsplus::{
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum BlindSignature<S: Scheme> {
-    #[cfg(feature = "bbsplus")]
+    #[cfg(feature = "min_bbs")]
     BBSplus(BBSplusSignature),
     #[cfg(feature = "cl03")]
     CL03(CL03BlindSignature),
-    _Unreachable(std::marker::PhantomData<S>),
+    _Unreachable(PhantomData<S>),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Commitment<S: Scheme> {
-    #[cfg(feature = "bbsplus")]
+    #[cfg(feature = "min_bbs")]
     BBSplus(BBSplusCommitment),
     #[cfg(feature = "cl03")]
     CL03(CL03Commitment),
-    _Unreachable(std::marker::PhantomData<S>),
+    _Unreachable(PhantomData<S>),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum PoKSignature<S: Scheme> {
-    #[cfg(feature = "bbsplus")]
+    #[cfg(feature = "min_bbs")]
     BBSplus(BBSplusPoKSignature),
     #[cfg(feature = "cl03")]
     CL03(CL03PoKSignature),
@@ -60,7 +60,7 @@ pub enum PoKSignature<S: Scheme> {
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum ZKPoK<S: Scheme> {
-    #[cfg(feature = "bbsplus")]
+    #[cfg(feature = "min_bbs")]
     BBSplus(BBSplusZKPoK),
     #[cfg(feature = "cl03")]
     CL03(CL03ZKPoK),
@@ -69,7 +69,7 @@ pub enum ZKPoK<S: Scheme> {
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Signature<S: Scheme> {
-    #[cfg(feature = "bbsplus")]
+    #[cfg(feature = "min_bbs")]
     BBSplus(BBSplusSignature),
     #[cfg(feature = "cl03")]
     CL03(CL03Signature),

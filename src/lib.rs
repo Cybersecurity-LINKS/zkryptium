@@ -15,13 +15,18 @@
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[allow(unused)]
+#[macro_use]
+extern crate alloc;
 
 pub mod errors;
 pub mod keys;
 pub mod schemes;
 pub mod utils;
 
-#[cfg(feature = "bbsplus")]
+#[cfg(feature = "min_bbs")]
 pub mod bbsplus;
 #[cfg(feature = "cl03")]
 pub mod cl03;

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::{borrow::ToOwned, vec::Vec};
 use super::keys::{BBSplusPublicKey, BBSplusSecretKey};
 use crate::{
     bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators},

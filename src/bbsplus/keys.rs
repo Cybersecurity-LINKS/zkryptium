@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::{borrow::ToOwned, string::String};
 use super::ciphersuites::BbsCiphersuite;
 use crate::{
     errors::Error,
@@ -268,14 +269,14 @@ mod tests {
 
     #[test]
     fn keypair_sha256() {
-        key_pair_gen::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/keyPair.json");
+        key_pair_gen::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/keypair.json");
     }
 
     //KEYPAIR - SHAKE256
 
     #[test]
     fn keypair_shake256() {
-        key_pair_gen::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/keyPair.json");
+        key_pair_gen::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/keypair.json");
     }
 
     fn key_pair_gen<S: Scheme>(filename: &str)
