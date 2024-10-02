@@ -28,7 +28,7 @@ use crate::{
     schemes::generics::{Commitment, PoKSignature, ZKPoK},
     utils::message::cl03_message::CL03Message,
 };
-use digest::{Digest, Mac};
+use digest::{Digest};
 use rug::{ops::Pow, Integer};
 use serde::{Deserialize, Serialize};
 
@@ -184,7 +184,6 @@ impl<CS: CLCiphersuite> PoKSignature<CL03<CS>> {
                         value: proof_mi,
                         commitment: cmi,
                     } = CLSPoK.proofs_commited_mi.get(idx).expect("index overflow");
-                    println!("CLSPoK = {:?}", CLSPoK.proofs_commited_mi);
 
                     let boolean_proof_mi = proof_mi.nisp2sec_verify_proof::<CS>(
                         &cmi,
@@ -192,11 +191,11 @@ impl<CS: CLCiphersuite> PoKSignature<CL03<CS>> {
                         &commitment_pk.h,
                         &commitment_pk.N,
                     );
-                    println!("idx = {idx} - i = {i} - unrevealed_message_indexes = {:?}!", unrevealed_message_indexes);
                     if !boolean_proof_mi {
                         println!("Knowledge verification of mi Failed!");
                         return false;
                     }
+
                     let boolean_rproofs_mi = CLSPoK
                         .range_proofs_commited_mi
                         .get(idx)
