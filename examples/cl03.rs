@@ -99,7 +99,7 @@ mod cl03_example {
 
         assert!(
             verify,
-            "Error! The unblided signature verification should PASS!"
+            "Error! The unblinded signature verification should PASS!"
         );
         log::info!("Signature is VALID!");
 
@@ -109,7 +109,7 @@ mod cl03_example {
 
         assert!(
             verify,
-            "Error! The unblided signature verification should PASS!"
+            "Error! The unblinded signature verification should PASS!"
         );
         log::info!("SD Signature is VALID!");
 

@@ -20,7 +20,7 @@ mod cl03_example {
     use zkryptium::cl03::keys::CL03CommitmentPublicKey;
     use zkryptium::keys::pair::KeyPair;
     use zkryptium::schemes::algorithms::{Ciphersuite, Scheme, CL03};
-    use zkryptium::schemes::generics::{Commitment, PoKSignature, Signature, ZKPoK};
+    use zkryptium::schemes::generics::{PoKSignature, Signature};
     use zkryptium::utils::message::cl03_message::CL03Message;
 
     pub(crate) fn cl03_main<S: Scheme>()
@@ -51,7 +51,7 @@ mod cl03_example {
             })
             .collect();
 
-        let undisclosed_message_indexes = [0usize, 2usize];
+        let undisclosed_message_indexes = [0, 1];
         let signature = Signature::<CL03<CL1024Sha256>>::sign_multiattr(
             issuer_keypair.public_key(),
             issuer_keypair.private_key(),
@@ -82,10 +82,8 @@ mod cl03_example {
         );
 
         log::info!("Signature for Selective Disclosure is VALID!");
-        log::info!("Computation of a Zero-Knowledge proof-of-knowledge of committed messages");
-
-        let unrevealed_message_indexes = [0usize];
-        let revealed_message_indexes = [1usize, 2usize];
+        let unrevealed_message_indexes = [2];
+        let revealed_message_indexes = [0, 1];
         let revealed_messages: Vec<CL03Message> = messages
             .iter()
             .enumerate()

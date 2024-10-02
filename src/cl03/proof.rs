@@ -179,7 +179,7 @@ impl<CS: CLCiphersuite> PoKSignature<CL03<CS>> {
                 //Verify RANGE PROOFS mi
                 let mut idx: usize = 0;
                 for i in unrevealed_message_indexes {
-                    let gi = &commitment_pk.g_bases.get(*i).expect("unreaveled_message_indexes not valid with respect to the commitment_pk.g_bases!");
+                    let gi = &commitment_pk.g_bases.get(*i).expect("unrevealed_message_indexes not valid with respect to the commitment_pk.g_bases!");
                     let ProofOfValue {
                         value: proof_mi,
                         commitment: cmi,

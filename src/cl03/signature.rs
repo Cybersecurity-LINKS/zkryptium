@@ -156,7 +156,7 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
 
         let mut sd_messages: Vec<CL03Message> = Vec::from(messages);
 
-        if unrevealed_indexes.len() == messages.len() {
+        if unrevealed_indexes.len() == 0 {
             return (sd_messages, a_bases)
         }
 
