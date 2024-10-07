@@ -15,13 +15,13 @@
 #[cfg(feature = "cl03")]
 mod cl03_example {
     use digest::Digest;
-    use zkryptium::{
-        cl03::{bases::Bases, ciphersuites::CLCiphersuite, keys::CL03CommitmentPublicKey},
-        keys::pair::KeyPair,
-        schemes::algorithms::{Ciphersuite, Scheme, CL03},
-        schemes::generics::{BlindSignature, Commitment, PoKSignature, ZKPoK},
-        utils::message::cl03_message::CL03Message,
-    };
+    use zkryptium::cl03::bases::Bases;
+    use zkryptium::cl03::ciphersuites::{CL1024Sha256, CLCiphersuite};
+    use zkryptium::cl03::keys::CL03CommitmentPublicKey;
+    use zkryptium::keys::pair::KeyPair;
+    use zkryptium::schemes::algorithms::{Ciphersuite, Scheme, CL03};
+    use zkryptium::schemes::generics::{PoKSignature, Signature};
+    use zkryptium::utils::message::cl03_message::CL03Message;
 
     pub(crate) fn cl03_main<S: Scheme>()
     where
@@ -35,13 +35,13 @@ mod cl03_example {
         ];
 
         log::info!("Messages: {:?}", MSGS);
-
         log::info!("Keypair Generation");
+
         let issuer_keypair = KeyPair::<CL03<S::Ciphersuite>>::generate();
 
         log::info!("Bases generation");
-        let a_bases = Bases::generate(issuer_keypair.public_key(), MSGS.len());
 
+        let a_bases = Bases::generate(issuer_keypair.public_key(), MSGS.len());
         let messages: Vec<CL03Message> = MSGS
             .iter()
             .map(|&m| {
@@ -51,67 +51,46 @@ mod cl03_example {
             })
             .collect();
 
-        let unrevealed_message_indexes = [0usize];
-        let revealed_message_indexes = [1usize, 2usize];
+        let undisclosed_message_indexes = [1];
+        let revealed_message_indexes = [0, 2];
+        let unrevealed_message_indexes = undisclosed_message_indexes;
+
+        let signature = Signature::<CL03<CL1024Sha256>>::sign_multiattr(
+            issuer_keypair.public_key(),
+            issuer_keypair.private_key(),
+            &a_bases,
+            &messages
+        );
+        let verify = signature.verify_multiattr(issuer_keypair.public_key(), &a_bases, &messages);
+
+        log::info!("Bases:\t{:?}", a_bases);
+        log::info!("Messages:\t{:?}", messages);
+
+        assert!(
+            verify,
+            "Error! The signature verification should PASS!"
+        );
+        log::info!("Signature is VALID!");
+
+        let (sd_messages, sd_bases) = signature.disclose_selectively(&messages, a_bases.clone(), issuer_keypair.public_key(), undisclosed_message_indexes.as_slice());
+
+        log::info!("SDBases:\t{:?}", sd_bases);
+        log::info!("SDMessages:\t{:?}", sd_messages);
+
+        let verify = signature.verify_multiattr(issuer_keypair.public_key(), &sd_bases, &sd_messages);
+
+        assert!(
+            verify,
+            "Error! The signature verification should PASS!"
+        );
+
+        log::info!("Signature for Selective Disclosure is VALID!");
         let revealed_messages: Vec<CL03Message> = messages
             .iter()
             .enumerate()
             .filter(|&(i, _)| revealed_message_indexes.contains(&i))
             .map(|(_, m)| m.clone())
             .collect();
-
-        log::info!("Computing pedersen commitment on messages");
-        let commitment = Commitment::<CL03<S::Ciphersuite>>::commit_with_pk(
-            &messages,
-            issuer_keypair.public_key(),
-            &a_bases,
-            Some(&unrevealed_message_indexes),
-        );
-
-        log::info!("Computation of a Zero-Knowledge proof-of-knowledge of committed messages");
-        let zkpok = ZKPoK::<CL03<S::Ciphersuite>>::generate_proof(
-            &messages,
-            commitment.cl03Commitment(),
-            None,
-            issuer_keypair.public_key(),
-            &a_bases,
-            None,
-            &unrevealed_message_indexes,
-        );
-
-        log::info!("Verification of the Zero-Knowledge proof and computation of a blind signature");
-        let blind_signature = BlindSignature::<CL03<S::Ciphersuite>>::blind_sign(
-            issuer_keypair.public_key(),
-            issuer_keypair.private_key(),
-            &a_bases,
-            &zkpok,
-            Some(&revealed_messages),
-            commitment.cl03Commitment(),
-            None,
-            None,
-            &unrevealed_message_indexes,
-            Some(&revealed_message_indexes),
-        );
-
-        log::info!("Signature unblinding and verification...");
-        let unblinded_signature = blind_signature.unblind_sign(&commitment);
-        let verify = unblinded_signature.verify_multiattr(issuer_keypair.public_key(), &a_bases, &messages);
-
-        assert!(
-            verify,
-            "Error! The unblinded signature verification should PASS!"
-        );
-        log::info!("Signature is VALID!");
-
-        let (sd_messages, sd_bases) = unblinded_signature.disclose_selectively(&messages, a_bases.clone(), issuer_keypair.public_key(), &unrevealed_message_indexes);
-        let verify =
-        unblinded_signature.verify_multiattr(issuer_keypair.public_key(), &sd_bases, &sd_messages);
-
-        assert!(
-            verify,
-            "Error! The unblinded signature verification should PASS!"
-        );
-        log::info!("SD Signature is VALID!");
 
         //Verifier generates its pk
         log::info!("Generation of a Commitment Public Key for the computation of the SPoK");
@@ -123,7 +102,7 @@ mod cl03_example {
         //Holder compute the Signature Proof of Knowledge
         log::info!("Computation of a Zero-Knowledge proof-of-knowledge of a signature");
         let signature_pok = PoKSignature::<CL03<S::Ciphersuite>>::proof_gen(
-            unblinded_signature.cl03Signature(),
+            signature.cl03Signature(),
             &verifier_commitment_pk,
             issuer_keypair.public_key(),
             &a_bases,

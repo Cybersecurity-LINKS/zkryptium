@@ -61,6 +61,38 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
         Self::CL03(sig)
     }
 
+    pub fn sign_multiattr(
+        pk: &CL03PublicKey,
+        sk: &CL03SecretKey,
+        a_bases: &Bases,
+        messages: &[CL03Message],
+    ) -> Self {
+        let mut e = random_prime(CS::le);
+        let phi_n = (&sk.p - Integer::from(1)) * (&sk.q - Integer::from(1));
+
+        while ((&e > &Integer::from(2).pow(CS::le - 1))
+            && (&e < &Integer::from(2).pow(CS::le))
+            && (Integer::from(e.gcd_ref(&phi_n)) == 1))
+            == false
+        {
+            e = random_prime(CS::le);
+        }
+
+        let s = random_bits(CS::ls);
+        let e2n = Integer::from(e.invert_ref(&phi_n).unwrap());
+        // v = powmod((powmod(pk['a0'], m, pk['N']) * powmod(pk['b'], s, pk['N']) * pk['c']), (e2n), pk['N'])
+        let mut v: Integer = Integer::from(1);
+        for (index, message) in messages.iter().enumerate() {
+            v = v * Integer::from(a_bases.0[index].pow_mod_ref(&message.value, &pk.N).unwrap())
+        }
+        v = (v * Integer::from(pk.b.pow_mod_ref(&s, &pk.N).unwrap()) * &pk.c)
+            .pow_mod(&e2n, &pk.N)
+            .unwrap();
+
+        let sig = CL03Signature { e, s, v };
+        Self::CL03(sig)
+    }
+
     //TODO: tenere solo verify_multiattr visto che funzione anche con un solo messaggio?
     pub fn verify(&self, pk: &CL03PublicKey, a_bases: &Bases, message: &CL03Message) -> bool {
         let sign = self.cl03Signature();
@@ -114,6 +146,28 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
         }
 
         false
+    }
+
+    pub fn disclose_selectively(&self, messages: &[CL03Message], a_bases: Bases, pk: &CL03PublicKey, unrevealed_indexes: &[usize]) -> (Vec<CL03Message>, Bases) {
+
+        if messages.len() != a_bases.0.len() {
+            panic!("Mismatch between messages and bases length!");
+        }
+
+        let mut sd_messages: Vec<CL03Message> = Vec::from(messages);
+
+        if unrevealed_indexes.len() == 0 {
+            return (sd_messages, a_bases)
+        }
+
+        let mut sd_bases: Bases = a_bases.clone();
+
+        for index in unrevealed_indexes {
+            sd_bases.0[*index] = Integer::from(a_bases.0[*index].pow_mod_ref(&messages[*index].value, &pk.N).unwrap());
+            sd_messages[*index].value = Integer::from(1);
+        }
+
+        (sd_messages, sd_bases)
     }
 
     pub fn cl03Signature(&self) -> &CL03Signature {
