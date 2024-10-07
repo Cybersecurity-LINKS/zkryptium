@@ -160,8 +160,7 @@ fn main() {
 
     let args: Vec<String> = env::args().collect();
 
-    println!("args: {:?}", args);
-    if args.len() != 3 {
+    if args.len() != 2 {
         println!(
             "Usage: {} <cipher_suite>
                 Ciphersuites:
@@ -170,7 +169,6 @@ fn main() {
         );
         return;
     }
-
 
     let cipher_suite = &args[1];
 
