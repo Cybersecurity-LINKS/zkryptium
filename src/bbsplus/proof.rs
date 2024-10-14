@@ -108,7 +108,7 @@ impl BBSplusPoKSignature {
 }
 
 impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-proof-generation-proofgen
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-07#name-proof-generation-proofgen
     ///
     /// # Description
     /// This operation creates BBS proof, which is a zero-knowledge, proof-of-knowledge of a BBS signature, while optionally disclosing any subset of the signed messages.
@@ -264,7 +264,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         Ok(Self::BBSplus(proof))
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-proof-verification-proofver
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-07#name-proof-verification-proofver
     ///
     /// # Description
     /// The ProofVerify operation validates a BBS proof, given the Signer's public key (PK), a header and presentation header values, the disclosed messages and the indexes those messages had in the original vector of signed messages.
@@ -417,7 +417,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-coreproofgen
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-07#name-coreproofgen
 ///
 /// # Description
 /// This operation computes a zero-knowledge proof-of-knowledge of a signature, while optionally selectively disclosing from the original set of signed messages. The Prover may also supply a presentation header (ph).
@@ -524,7 +524,7 @@ struct ProofInitResult {
     domain: Scalar,
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-proof-initialization
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-07#name-proof-initialization
 ///
 /// # Description
 /// This operation initializes the proof and returns one of the inputs passed to the challenge calculation operation ([`proof_challenge_calculate`]), during the [`core_proof_gen`] operation.
@@ -606,7 +606,7 @@ where
     })
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-challenge-calculation
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-07#name-challenge-calculation
 ///
 /// # Description
 /// This operation calculates the challenge scalar value, used during the [`core_proof_gen`] and [`core_proof_verify`], as part of the Fiat-Shamir heuristic, for making the proof protocol non-interactive (in a interactive setting, the challenge would be a random value supplied by the Verifier).
@@ -666,7 +666,7 @@ where
     hash_to_scalar::<CS>(&c_arr, &challenge_dst)
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-proof-finalization
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-07#name-proof-finalization
 ///
 /// # Description
 /// This operation finalizes the proof calculation during the [`core_proof_gen`] operation and returns the PoK [`BBSplusPoKSignature`].
@@ -723,7 +723,7 @@ fn proof_finalize(
     })
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-coreproofverify
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-07#name-coreproofverify
 ///
 /// # Description
 /// This operation checks that a proof is valid for a header, vector of disclosed messages (disclosed_messages) along side their index corresponding to their original position when signed (disclosed_indexes) and presentation header (ph) against a public key (PK).
@@ -790,7 +790,7 @@ where
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-proof-verification-initiali
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-07#name-proof-verification-initiali
 ///
 /// # Description
 /// This operation initializes the proof verification operation and returns part of the input that will be passed to the challenge calculation operation ([`proof_challenge_calculate`]), during the [`core_proof_verify`] operation.

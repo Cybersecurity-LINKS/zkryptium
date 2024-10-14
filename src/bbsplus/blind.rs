@@ -242,7 +242,7 @@ where
 
     // The Blind BBS spec says to pass `generators.append(blind_generators)` to a
     // `calculate_domain`, but it does not name Q1 as its own parameter like
-    // draft-irtf-cfrg-bbs-signatures-06 does. This implementation of calculate_domain matches the
+    // draft-irtf-cfrg-bbs-signatures-07 does. This implementation of calculate_domain matches the
     // general BBS spec, in which Q1 is its own parameter, so it's not included in the generators.
     //
     // It would appear that some of the directions in the spec here need to be clarified. The
