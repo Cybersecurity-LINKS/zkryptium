@@ -82,7 +82,7 @@ impl Generators {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-generators-calculation
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-07#name-generators-calculation
 ///
 /// # Description
 /// Generators creation
