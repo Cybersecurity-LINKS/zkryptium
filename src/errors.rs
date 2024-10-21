@@ -64,4 +64,7 @@ pub enum Error {
 
     #[error("Failed to compute the blind challenge")]
     ChallengeComputationFailed,
+
+    #[error("Invalid number of Generators")]
+    InvalidNumberOfGenerators,
 }
