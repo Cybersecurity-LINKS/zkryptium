@@ -78,7 +78,6 @@ mod bbsplus_example {
             Some(&commitment_with_proof.to_bytes()),
             Some(&header),
             Some(&messages),
-            None,
         )?;
 
         log::info!("Blind Signature Verification...");

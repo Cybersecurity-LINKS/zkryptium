@@ -33,18 +33,23 @@ use bls12_381_plus::{G1Projective, Scalar};
 use elliptic_curve::hash2curve::ExpandMsg;
 
 impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
-    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-01#name-blind-signature-generation
+    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-03#name-blind-signature-generation
     ///
     /// # Description
-    /// This operation returns a BBS blind signature from a secret key (SK), over a header, a set of messages and optionally a commitment value. If supplied, the commitment value must be accompanied by its proof of correctness (commitment_with_proof). The issuer can also further randomize the supplied commitment, by supplying a random scalar (signer_blind)
+    /// This operation returns a BBS blind signature from a secret key (SK), over a header,
+    /// a set of messages and optionally a commitment value. If supplied, the commitment value must be accompanied by
+    /// its proof of correctness (commitment_with_proof). The BlindSign operation makes use of the FinalizeBlindSign
+    /// procedure and the B_calculate procedure defined. The B_calculate is defined to return an array of elements,
+    /// to establish extendability of the scheme by allowing the B_calculate operation to return more elements
+    /// than just the point to be signed.
     ///
     /// # Inputs:
     /// * `sk` (REQUIRED), a secret key
     /// * `pk` (REQUIRED), a public key
-    /// * `commitment_with_proof` (OPTIONAL), an octet string, representing a serialized commitment and commitment_proof. If not supplied, it defaults to the empty string ("").
+    /// * `commitment_with_proof` (OPTIONAL), an octet string, representing a serialized commitment and commitment_proof.
+    ///                                       If not supplied, it defaults to the empty string ("").
     /// * `header` (OPTIONAL), an octet string containing context and application specific information.
     /// * `messages` (OPTIONAL), a vector of octet strings. If not supplied, it defaults to the empty array.
-    /// * `signer_blind` (OPTIONAL), a random scalar value ([`BlindFactor`]) to further randomize the supplied commitment.
     ///
     /// # Output:
     /// a [`BlindSignature::BBSplus`] or [`Error`].
@@ -55,13 +60,12 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         commitment_with_proof: Option<&[u8]>,
         header: Option<&[u8]>,
         messages: Option<&[Vec<u8>]>,
-        signer_blind: Option<&BlindFactor>,
     ) -> Result<Self, Error> {
         let messages = messages.unwrap_or(&[]);
         let L = messages.len();
         let commitment_with_proof = commitment_with_proof.unwrap_or(&[]);
 
-        let mut M = commitment_with_proof.len();
+        let mut M: usize = commitment_with_proof.len();
         if M != 0 {
             M = M
                 .checked_sub(G1Projective::COMPRESSED_BYTES)
@@ -73,16 +77,28 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
                 .checked_div(Scalar::BYTES)
                 .ok_or(Error::InvalidCommitmentProof)?;
         }
-
+            
         let generators = Generators::create::<CS>(L + 1, Some(CS::API_ID_BLIND));
         let blind_generators =
-            Generators::create::<CS>(M + 1, Some(&[b"BLIND_", CS::API_ID_BLIND].concat()));
+            Generators::create::<CS>(M, Some(&[b"BLIND_", CS::API_ID_BLIND].concat()));
 
-        let message_scalars = BBSplusMessage::messages_to_scalar::<CS>(messages, CS::API_ID_BLIND)?;
+        let commit: G1Projective = Commitment::deserialize_and_validate_commit(
+            Some(commitment_with_proof),
+            &blind_generators,
+            Some(CS::API_ID_BLIND)
+        )?;
+        
+        let message_scalars: Vec<BBSplusMessage> = BBSplusMessage::messages_to_scalar::<CS>(messages, CS::API_ID_BLIND)?;
 
+        
+        let B: Vec<G1Projective> = calculate_b(&generators, commit, message_scalars)?;
+        //if res is INVALID, return INVALID
+
+        
         let blind_sig = core_blind_sign::<CS>(
             sk,
             pk,
+            B,
             &generators,
             &blind_generators,
             commitment_with_proof,
@@ -188,6 +204,53 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     }
 }
 
+/// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-03#calculate-b-value
+///
+/// # Description
+/// The B_calculate is defined to return an array of elements, to establish extendability of the scheme 
+/// by allowing the B_calculate operation to return more elements than just the point to be signed.
+///
+/// # Inputs:
+/// * `generators` (REQUIRED), an array of at least one point from the G1 group
+/// * `commitment` (OPTIONAL), a point from the G1 group. If not supplied it defaults to the Identity_G1 point.
+/// * `message_scalars` (OPTIONAL), an array of scalar values. If not supplied, it defaults to the empty array ("()")
+/// 
+/// # Output:
+/// a [`Vec<G1Projective>`] an array of a single element from the G1 subgroup or [`Error`].
+///
+fn calculate_b(
+    generators: &Generators,
+    commitment: G1Projective,
+    message_scalars: Vec<BBSplusMessage>,
+) -> Result<Vec<G1Projective>, Error> {
+
+    let L: usize = message_scalars.len();
+
+    if generators.values.len() != L + 1 {
+        return Err(Error::InvalidNumberOfGenerators);
+    }
+    
+    let Q1: G1Projective = generators.values[0];
+    let H_points: &[G1Projective] = &generators.values[1..];
+
+    let mut B: G1Projective = Q1;
+    for i in 0..L {
+        B += H_points[i] * message_scalars[i].value;
+    }
+
+    B += commitment;
+
+    if B.is_identity().into() {
+        return Err(Error::G1IdentityError);
+    }
+
+    let mut b_value:Vec<G1Projective> = Vec::<G1Projective>::new();
+    b_value.push(B);
+
+    Ok(b_value)
+
+}
+
 /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-01#name-core-blind-sign
 ///
 /// # Description
@@ -209,6 +272,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
 fn core_blind_sign<CS>(
     sk: &BBSplusSecretKey,
     pk: &BBSplusPublicKey,
+    B: Vec<G1Projective>,
     generators: &Generators,
     blind_generators: &Generators,
     commitment_with_proof: &[u8],
@@ -390,7 +454,7 @@ mod tests {
             commitment_with_proof.as_deref(),
             Some(&header),
             Some(&messages),
-            signer_blind.as_ref(),
+            //signer_blind.as_ref(),
         )
         .unwrap();
         let expected_signature = proof_json["signature"].as_str().unwrap();
