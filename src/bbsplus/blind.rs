@@ -108,11 +108,13 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         Ok(Self::BBSplus(blind_sig))
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-01#name-blind-signature-verificatio
+    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-03#name-blind-signature-verificatio
     ///
     /// # Description
-    /// This operation validates a blind BBS signature ([`BBSplusSignature`]), given the Signer's public key (PK), a header (header), a set of known to the Signer messages (messages) and if used, a set of committed messages (committed_messages), the `secret_prover_blind` as returned by the [`Commitment::commit`] operation and a blind factor supplied by the Signer (`signer_blind`).
-    /// This operation makes use of the [`core_verify`] operation
+    /// This operation validates a blind BBS signature ([`BBSplusSignature`]), given the Signer's public key (PK),
+    /// a header (header), a set of known to the Signer messages (messages) and if used, a set of committed messages
+    /// (committed_messages) and the `secret_prover_blind` as returned by the [`Commitment::commit`] operation and
+    /// a blind factor supplied by the Signer (`signer_blind`). This operation makes use of the [`core_verify`] operation
     ///
     /// # Inputs:
     /// * `self`, a signature
@@ -120,8 +122,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     /// * `header` (OPTIONAL), an octet string containing context and application specific information.
     /// * `messages` (OPTIONAL), a vector of octet strings messages supplied by the Signer.  If not supplied, it defaults to the empty array.
     /// * `committed_messages` (OPTIONAL), a vector of octet strings messages committed by the Prover.
-    /// * `secret_prover_blind` (OPTIONAL), a scalar value ([`BlindFactor`]).
-    /// * `signer_blind` (OPTIONAL), a scalar value ([`BlindFactor`]).
+    /// * `secret_prover_blind` (OPTIONAL), a scalar value ([`BlindFactor`]). If not supplied it defaults to zero "0"
     ///
     /// # Output:
     /// a result: [`Ok`] or [`Error`].
@@ -133,30 +134,27 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         messages: Option<&[Vec<u8>]>,
         committed_messages: Option<&[Vec<u8>]>,
         secret_prover_blind: Option<&BlindFactor>,
-        signer_blind: Option<&BlindFactor>,
     ) -> Result<(), Error> {
         let messages = messages.unwrap_or(&[]);
         let committed_messages = committed_messages.unwrap_or(&[]);
+        let secret_prover_blind = secret_prover_blind.unwrap_or(&BlindFactor(Scalar::ZERO));
         let api_id = CS::API_ID_BLIND;
-
-        let L = messages.len();
-        let M = committed_messages.len();
-
-        let generators = Generators::create::<CS>(L + 1, Some(api_id));
-        let blind_generators = Generators::create::<CS>(M + 1, Some(&[b"BLIND_", api_id].concat()));
 
         let message_scalars = BBSplusMessage::messages_to_scalar::<CS>(messages, api_id)?;
 
-        let blind_factor = BBSplusMessage::new(
-            secret_prover_blind.map_or(Scalar::ZERO, |b| b.0)
-                + signer_blind.map_or(Scalar::ZERO, |b| b.0),
-        );
-        let committed_message_scalars =
-            BBSplusMessage::messages_to_scalar::<CS>(committed_messages, api_id)?;
+        let mut committed_message_scalars = Vec::<BBSplusMessage>::new();
+
+        committed_message_scalars.push(BBSplusMessage::new(secret_prover_blind.0));
+        committed_message_scalars.append(&mut BBSplusMessage::messages_to_scalar::<CS>(committed_messages, api_id)?);
+
+        let generators = Generators::create::<CS>(message_scalars.len() + 1, Some(api_id));
+
+        let blind_generators = Generators::create::<CS>(
+            committed_message_scalars.len(),
+            Some(&[b"BLIND_", api_id].concat()));
 
         let tmp_messages = [
             &*message_scalars,
-            core::slice::from_ref(&blind_factor),
             &*committed_message_scalars,
         ]
         .concat();
@@ -438,7 +436,6 @@ mod tests {
                 Some(&messages),
                 committed_messages.as_deref(),
                 prover_blind.as_ref(),
-                signer_blind.as_ref(),
             )
             .is_ok();
 
