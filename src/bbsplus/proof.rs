@@ -160,7 +160,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         Ok(Self::BBSplus(proof))
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-01#name-proof-generation
+    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-03#name-proof-generation
     ///
     /// # Description
     /// This operation creates a BBS proof, which is a zero-knowledge, proof-of-knowledge, of a BBS signature, while optionally disclosing any subset of the signed messages. Note that in contrast to the [`Self::proof_gen`] operation, this operation accepts 2 different lists of messages and disclosed indexes, one for the messages known to the Signer (messages) and the corresponding disclosed indexes (disclosed_indexes) and one for the messages committed by the Prover (committed_messages) and the corresponding disclosed indexes (disclosed_commitment_indexes).
@@ -176,7 +176,6 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     /// * `disclosed_indexes` (OPTIONAL), vector of unsigned integers in ascending order. Indexes of disclosed messages.
     /// * `disclosed_commitment_indexes` (OPTIONAL), vector of unsigned integers in ascending order. Indexes of disclosed committed messages.
     /// * `secret_prover_blind` (OPTIONAL), a scalar value ([`BlindFactor`]).
-    /// * `signer_blind` (OPTIONAL), a scalar value ([`BlindFactor`]).
     ///
     /// # Output:
     /// [`PoKSignature::BBSplus`] or [`Error`]: a PoK of a Signature, a vector of octet strings representing all the disclosed messages and their indexes.
@@ -191,7 +190,6 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         disclosed_indexes: Option<&[usize]>,
         disclosed_commitment_indexes: Option<&[usize]>,
         secret_prover_blind: Option<&BlindFactor>,
-        signer_blind: Option<&BlindFactor>,
     ) -> Result<Self, Error>
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
@@ -202,6 +200,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         let api_id = CS::API_ID_BLIND;
         let messages = messages.unwrap_or(&[]);
         let committed_messages = committed_messages.unwrap_or(&[]);
+        let secret_prover_blind = secret_prover_blind.unwrap_or(&BlindFactor(Scalar::ZERO));
         let L = messages.len();
         let M = committed_messages.len();
 
@@ -223,17 +222,15 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
                 "commitment disclosed index out of range".to_owned(),
             ));
         }
-
-        let generators = Generators::create::<CS>(L + 1, Some(api_id));
-        let blind_generators = Generators::create::<CS>(M + 1, Some(&[b"BLIND_", api_id].concat()));
-
+        
+        let mut committed_message_scalars = Vec::<BBSplusMessage>::new();
+        committed_message_scalars.push(BBSplusMessage::new(secret_prover_blind.0));
+        committed_message_scalars.append(&mut BBSplusMessage::messages_to_scalar::<CS>(committed_messages, api_id)?);
+        
         let message_scalars = BBSplusMessage::messages_to_scalar::<CS>(messages, api_id)?;
-        let blind_factor = BBSplusMessage::new(
-            secret_prover_blind.map_or(Scalar::ZERO, |b| b.0)
-                + signer_blind.map_or(Scalar::ZERO, |b| b.0),
-        );
-        let committed_message_scalars =
-            BBSplusMessage::messages_to_scalar::<CS>(committed_messages, api_id)?;
+
+        let generators = Generators::create::<CS>(message_scalars.len() + 1, Some(api_id));
+        let blind_generators = Generators::create::<CS>(committed_message_scalars.len() + 1, Some(&[b"BLIND_", api_id].concat()));
 
         let indexes = disclosed_indexes
             .iter()
@@ -243,7 +240,6 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
 
         let tmp_messages = [
             &*message_scalars,
-            core::slice::from_ref(&blind_factor),
             &*committed_message_scalars,
         ]
         .concat();
@@ -1285,7 +1281,6 @@ mod tests {
             disclosed_indexes.as_deref(),
             disclosed_commitment_indexes.as_deref(),
             secret_prover_blind.as_ref(),
-            signer_blind.as_ref(),
         )
         .unwrap();
 
