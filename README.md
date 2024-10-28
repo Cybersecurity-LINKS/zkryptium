@@ -14,7 +14,12 @@ ZKryptium provides an implementation in accordance with:
 
 This library enables the creation of zero-knowledge proofs, exposing cryptographic primitives facilitating the development of a Verifiable Credentials (VCs) system capable of handling both Anonymous Credentials and Selective Disclosure Credentials.
 
+## Adopted by
 
+We’re proud to be adopted by companies around the world. Here are a few of the organizations leveraging our library:
+* [IOTA Foundation](https://github.com/iotaledger/identity.rs)
+* [SpruceID](https://github.com/spruceid/ssi)
+* [Hushmesh Inc.](https://github.com/hushmesh/mesh-infrastructure)
 
 
 ## Getting Started
