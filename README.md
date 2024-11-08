@@ -6,9 +6,9 @@
 
 ## Description
 
-ZKryptium provides an implementation in accordance with:
+ZKryptium library provides an implementation in accordance with:
 * **BBS+**([draft-irtf-cfrg-bbs-signatures-07](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-07)) signature scheme
-* **Blind BBS Signatures** ([draft-kalos-bbs-blind-signatures-01](https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-01))
+* **Blind BBS Signatures** ([draft-kalos-bbs-blind-signatures-01](https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-01)) signature scheme
 * **CL2003** (https://link.springer.com/chapter/10.1007/3-540-36413-7_20) signature scheme 
 
 
