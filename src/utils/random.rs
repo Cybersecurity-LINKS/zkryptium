@@ -13,25 +13,29 @@
 // limitations under the License.
 
 use rand::Rng;
-use rug::rand::RandState;
+use rug::rand::{RandGen, RandState};
 use rug::{Complete, Integer};
 use std::cmp::Ordering;
 
+struct Seed;
+impl RandGen for Seed {
+    fn gen(&mut self) -> u32 {
+        let mut rng= rand::thread_rng();
+        rng.gen::<u32>()
+    }
+}
+
 pub fn random_bits(n: u32) -> Integer {
-    let mut rng = rand::thread_rng();
-    let seed = Integer::from(rng.gen::<u32>());
-    let mut rand = RandState::new_mersenne_twister();
-    rand.seed(&seed);
+    let mut seed = Seed;
+    let mut rand = RandState::new_custom(&mut seed);
     let mut i = Integer::from(Integer::random_bits(n, &mut rand));
     i.set_bit(n - 1, true);
     i
 }
 
 pub fn random_number(n: Integer) -> Integer {
-    let mut rng = rand::thread_rng();
-    let seed = Integer::from(rng.gen::<u32>());
-    let mut rand = RandState::new_mersenne_twister();
-    rand.seed(&seed);
+    let mut seed = Seed;
+    let mut rand = RandState::new_custom(&mut seed);
     let number = n.random_below(&mut rand);
     number
 }
@@ -55,10 +59,8 @@ pub fn random_qr(n: &Integer) -> Integer {
 }
 
 pub fn rand_int(a: Integer, b: Integer) -> Integer {
-    let mut rng = rand::thread_rng();
-    let seed = Integer::from(rng.gen::<u32>());
-    let mut rand = RandState::new_mersenne_twister();
-    rand.seed(&seed);
+    let mut seed = Seed;
+    let mut rand = RandState::new_custom(&mut seed);
     let range = (&b - &a).complete() + Integer::from(1);
     // NOTE: return a random integer in the range [a, b], including both end points.
     return a + range.random_below(&mut rand);
