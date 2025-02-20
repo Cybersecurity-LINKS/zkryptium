@@ -1,4 +1,4 @@
-// Copyright 2023 Fondazione LINKS
+// Copyright 2025 Fondazione LINKS
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,8 +13,7 @@
 // limitations under the License.
 
 use super::{
-    ciphersuites::BbsCiphersuite, commitment::BlindFactor, generators::Generators,
-    keys::BBSplusPublicKey, signature::BBSplusSignature,
+    blind::prepare_parameters, ciphersuites::BbsCiphersuite, commitment::BlindFactor, generators::Generators, keys::BBSplusPublicKey, signature::BBSplusSignature
 };
 use crate::{
     errors::Error,
@@ -160,7 +159,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         Ok(Self::BBSplus(proof))
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-03#name-proof-generation
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures#name-proof-generation
     ///
     /// # Description
     /// This operation creates a BBS proof, which is a zero-knowledge, proof-of-knowledge, of a BBS signature, while optionally disclosing any subset of the signed messages. Note that in contrast to the [`Self::proof_gen`] operation, this operation accepts 2 different lists of messages and disclosed indexes, one for the messages known to the Signer (messages) and the corresponding disclosed indexes (disclosed_indexes) and one for the messages committed by the Prover (committed_messages) and the corresponding disclosed indexes (disclosed_commitment_indexes).
@@ -222,33 +221,27 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
                 "commitment disclosed index out of range".to_owned(),
             ));
         }
-        
-        let mut committed_message_scalars = Vec::<BBSplusMessage>::new();
-        committed_message_scalars.push(BBSplusMessage::new(secret_prover_blind.0));
-        committed_message_scalars.append(&mut BBSplusMessage::messages_to_scalar::<CS>(committed_messages, api_id)?);
-        
-        let message_scalars = BBSplusMessage::messages_to_scalar::<CS>(messages, api_id)?;
 
-        let generators = Generators::create::<CS>(message_scalars.len() + 1, Some(api_id));
-        let blind_generators = Generators::create::<CS>(committed_message_scalars.len() + 1, Some(&[b"BLIND_", api_id].concat()));
-
+        let (message_scalars, generators) = prepare_parameters::<CS>(
+            Some(messages),
+            Some(committed_messages),
+            L + 1,
+            M + 1,
+            Some(secret_prover_blind), 
+            Some(api_id)
+        )?;
+        
         let indexes = disclosed_indexes
             .iter()
             .copied()
             .chain(disclosed_commitment_indexes.iter().map(|&j| j + L + 1))
             .collect::<Vec<_>>();
 
-        let tmp_messages = [
-            &*message_scalars,
-            &*committed_message_scalars,
-        ]
-        .concat();
-
         let proof = core_proof_gen::<CS>(
             pk,
             &signature,
-            &generators.append(blind_generators),
-            &tmp_messages,
+            &generators,
+            &message_scalars,
             &indexes,
             header,
             ph,
@@ -316,7 +309,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         result
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-01#name-proof-verification
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures#name-proof-verification
     ///
     /// # Description
     /// The ProofVerify operation validates a BBS proof, given the Signer's public key (PK), a
@@ -370,14 +363,14 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         let U = proof.m_cap.len();
         let M = disclosed_indexes.len() + disclosed_commitment_indexes.len() + U - 1 - L;
 
-        let generators = Generators::create::<CS>(L + 1, Some(api_id));
-        let blind_generators = Generators::create::<CS>(M + 1, Some(&[b"BLIND_", api_id].concat()));
-
-        let message_scalars = [
-            BBSplusMessage::messages_to_scalar::<CS>(disclosed_messages, api_id)?,
-            BBSplusMessage::messages_to_scalar::<CS>(disclosed_committed_messages, api_id)?,
-        ]
-        .concat();
+        let (message_scalars, generators) = prepare_parameters::<CS>(
+            Some(disclosed_messages),
+            Some(disclosed_committed_messages),
+            L + 1,
+            M,
+            None, 
+            Some(api_id)
+        )?;
 
         let indexes = disclosed_indexes
             .iter()
@@ -388,7 +381,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         core_proof_verify::<CS>(
             pk,
             proof,
-            &generators.append(blind_generators),
+            &generators,
             header,
             ph,
             &message_scalars,

@@ -88,7 +88,6 @@ mod bbsplus_example {
                 Some(&messages),
                 Some(&committed_messages),
                 Some(&secret_prover_blind),
-                None
             )
             .is_ok());
         log::info!("Blind Signature is VALID!");
@@ -115,8 +114,7 @@ mod bbsplus_example {
             Some(&committed_messages),
             Some(&disclosed_indexes),
             Some(&disclosed_commitment_indexes),
-            Some(&secret_prover_blind),
-            None,
+            Some(&secret_prover_blind)
         )?;
 
         //Verifier verifies SPok

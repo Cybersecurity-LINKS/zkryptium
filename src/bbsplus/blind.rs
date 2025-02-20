@@ -1,4 +1,4 @@
-// Copyright 2023 Fondazione LINKS
+// Copyright 2025 Fondazione LINKS
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ use bls12_381_plus::{G1Projective, Scalar, group::Curve};
 use elliptic_curve::hash2curve::ExpandMsg;
 
 impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
-    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-03#name-blind-signature-generation
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures#name-blind-signature-generation
     ///
     /// # Description
     /// This operation returns a BBS blind signature from a secret key (SK), over a header,
@@ -80,7 +80,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
             
         let generators = Generators::create::<CS>(L + 1, Some(CS::API_ID_BLIND));
         let blind_generators =
-            Generators::create::<CS>(M, Some(&[b"BLIND_", CS::API_ID_BLIND].concat()));
+            Generators::create::<CS>(M + 1, Some(&[b"BLIND_", CS::API_ID_BLIND].concat()));
 
         let commit: G1Projective = Commitment::<BBSplus<CS>>::deserialize_and_validate_commit(
             Some(commitment_with_proof),
@@ -90,7 +90,6 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         
         let message_scalars: Vec<BBSplusMessage> = BBSplusMessage::messages_to_scalar::<CS>(messages, CS::API_ID_BLIND)?;
 
-        
         let mut B: Vec<G1Projective> = calculate_b(&generators, commit, message_scalars)?;
 
         let B_val = B.pop().unwrap();
@@ -108,7 +107,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         Ok(Self::BBSplus(blind_sig))
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-03#name-blind-signature-verificatio
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures#name-blind-signature-verificatio
     ///
     /// # Description
     /// This operation validates a blind BBS signature ([`BBSplusSignature`]), given the Signer's public key (PK),
@@ -135,35 +134,25 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         committed_messages: Option<&[Vec<u8>]>,
         secret_prover_blind: Option<&BlindFactor>,
     ) -> Result<(), Error> {
+        let api_id: &[u8] = CS::API_ID_BLIND;
         let messages = messages.unwrap_or(&[]);
         let committed_messages = committed_messages.unwrap_or(&[]);
         let secret_prover_blind = secret_prover_blind.unwrap_or(&BlindFactor(Scalar::ZERO));
-        let api_id = CS::API_ID_BLIND;
-
-        let message_scalars = BBSplusMessage::messages_to_scalar::<CS>(messages, api_id)?;
-
-        let mut committed_message_scalars = Vec::<BBSplusMessage>::new();
-
-        committed_message_scalars.push(BBSplusMessage::new(secret_prover_blind.0));
-        committed_message_scalars.append(&mut BBSplusMessage::messages_to_scalar::<CS>(committed_messages, api_id)?);
-
-        let generators = Generators::create::<CS>(message_scalars.len() + 1, Some(api_id));
-
-        let blind_generators = Generators::create::<CS>(
-            committed_message_scalars.len(),
-            Some(&[b"BLIND_", api_id].concat()));
-
-        let tmp_messages = [
-            &*message_scalars,
-            &*committed_message_scalars,
-        ]
-        .concat();
+        
+        let (message_scalars, generators) = prepare_parameters::<CS>(
+            Some(messages),
+            Some(committed_messages),
+            messages.len() + 1,
+            committed_messages.len() + 1,
+            Some(secret_prover_blind), 
+            Some(api_id)
+        )?;
 
         core_verify::<CS>(
             pk,
             self.bbsPlusBlindSignature(),
-            &tmp_messages,
-            generators.append(blind_generators),
+            &message_scalars,
+            generators,
             header,
             Some(api_id),
         )
@@ -199,7 +188,62 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-03#calculate-b-value
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures#name-prepare-parameters
+///
+/// 
+/// # Inputs:
+/// * `messages` (OPTIONAL), a vector of octet strings. If not supplied, it defaults to the empty array "()".
+/// * `committed_messages ` (OPTIONAL), a vector of octet strings. If not supplied, it defaults to the empty array "()".
+/// * `generators_number ` (REQUIRED), the number of generators.
+/// * `blind_generators_number ` (REQUIRED), the number of blind generators.
+/// * `message_scalars` (OPTIONAL), an array of scalar values. If not supplied, it defaults to the empty array ("()")
+/// * `api_id ` (OPTIONAL), an octet string. If not supplied it defaults to the empty octet string ("")
+/// 
+/// # Output:
+/// a [`(Vec<BBSplusMessage>, Generators)`] A vector message_scalars of scalar values and a vector generators of points from the G1 subgroup; or [`Error`].
+///
+pub fn prepare_parameters<CS>(
+    messages: Option<&[Vec<u8>]>,
+    committed_messages: Option<&[Vec<u8>]>,
+    generators_number: usize,
+    blind_generators_number: usize,
+    secret_prover_blind: Option<&BlindFactor>,
+    api_id: Option<&[u8]>
+) -> Result<(Vec<BBSplusMessage>, Generators), Error> 
+where
+    CS: BbsCiphersuite,
+    CS::Expander: for<'a> ExpandMsg<'a>,
+    {
+    let messages = messages.unwrap_or(&[]);
+    let committed_messages = committed_messages.unwrap_or(&[]);
+    
+    let api_id = api_id.unwrap_or(b"");
+
+    let mut message_scalars = BBSplusMessage::messages_to_scalar::<CS>(messages, api_id)?;
+
+    let mut committed_message_scalars = Vec::<BBSplusMessage>::new();
+
+    if let Some(secret_prover_blind ) = secret_prover_blind {
+        committed_message_scalars.push(BBSplusMessage::new(secret_prover_blind.0));
+        
+    }
+
+    committed_message_scalars.append(&mut BBSplusMessage::messages_to_scalar::<CS>(committed_messages, api_id)?);
+
+    let generators = Generators::create::<CS>(generators_number, Some(api_id));
+
+    let blind_generators = Generators::create::<CS>(
+        blind_generators_number,
+        Some(&[b"BLIND_", api_id].concat())
+    );
+
+    message_scalars.append(&mut committed_message_scalars);
+    
+    Ok((message_scalars, generators.append(blind_generators)))
+
+}
+
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures#name-calculate-b-value
 ///
 /// # Description
 /// The B_calculate is defined to return an array of elements, to establish extendability of the scheme 
@@ -246,7 +290,7 @@ fn calculate_b(
 
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-03#finalize-blind-sign
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures#name-finalize-blind-sign
 ///
 /// # Description
 /// This operation computes a blind BBS signature, from a secret key (SK), a set of generators (points of G1),
@@ -277,19 +321,20 @@ where
     CS: BbsCiphersuite,
     CS::Expander: for<'a> ExpandMsg<'a>,
 {
-    let L: usize = generators.values.len() - 1;
+    let L  = generators.values.len() - 1;
 
     if L == 0 {
         return Err(Error::SignatureGenerationError("L value is 0".to_owned()));
     }
 
-    let M: usize = blind_generators.values.len() - 1;
+    let M  = blind_generators.values.len() - 1;
 
     if M == 0 {
         return Err(Error::SignatureGenerationError("M value is 0".to_owned()));
     }
 
-    let Q1: G1Projective = generators.values[0];
+    let Q1  = generators.values[0];
+    //let Q2  = blind_generators.values[0];
 
     let api_id = api_id.unwrap_or(b"");
     let signature_dst = [api_id, CS::H2S].concat();
