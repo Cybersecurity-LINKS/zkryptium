@@ -8,7 +8,7 @@
 
 ZKryptium library provides an implementation of:
 * **BBS+**([draft-irtf-cfrg-bbs-signatures-07](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-07)) signature scheme
-* **Blind BBS Signatures** ([draft-irtf-cfrg-bbs-blind-signatures](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures)) signature scheme
+* **Blind BBS Signatures** ([draft-irtf-cfrg-bbs-blind-signatures-01](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01)) signature scheme
 * **CL2003** (https://link.springer.com/chapter/10.1007/3-540-36413-7_20) signature scheme 
 
 

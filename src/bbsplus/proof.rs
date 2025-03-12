@@ -309,7 +309,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         result
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures#name-proof-verification
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-proof-verification
     ///
     /// # Description
     /// The ProofVerify operation validates a BBS proof, given the Signer's public key (PK), a
@@ -367,7 +367,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
             Some(disclosed_messages),
             Some(disclosed_committed_messages),
             L + 1,
-            M,
+            M + 1, //TODO: Edit taken from Grotto bbs sig library
             None, 
             Some(api_id)
         )?;
@@ -1212,9 +1212,6 @@ mod tests {
         };
 
         let secret_prover_blind = proof_json["proverBlind"].as_str().map(|b| {
-            BlindFactor::from_bytes(&hex::decode(b).unwrap().try_into().unwrap()).unwrap()
-        });
-        let signer_blind = proof_json["signerBlind"].as_str().map(|b| {
             BlindFactor::from_bytes(&hex::decode(b).unwrap().try_into().unwrap()).unwrap()
         });
         let header = hex::decode(proof_json["header"].as_str().unwrap()).unwrap();

@@ -1,4 +1,4 @@
-// Copyright 2023 Fondazione LINKS
+// Copyright 2025 Fondazione LINKS
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -81,7 +81,7 @@ impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
         Ok((Self::BBSplus(commitment_with_proof), secret))
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures#name-commitment-validation-and-d
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-commitment-validation-and-d
     ///
     /// # Description
     /// The following is a helper operation used by the BlindSign procedure to validate an optional commitment.
@@ -107,6 +107,8 @@ impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
             return Ok(G1Projective::IDENTITY);
         }
 
+        let api_id = api_id.unwrap_or(b"");
+
         let commitment_with_proof: Commitment<BBSplus<CS>> = Self::from_bytes(commitment_with_proof)?;
 
         let (commitment, proof) = match commitment_with_proof {
@@ -123,7 +125,7 @@ impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
             commitment,
             &proof,
             &blind_generators.values,
-            api_id
+            Some(api_id)
         ).is_ok() {
             Ok(commitment)
         } else {
@@ -160,7 +162,7 @@ impl BlindFactor {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures#name-commitment-operations
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-commitment-operations
 ///
 /// # Description
 /// This operation is used by the Prover to create a commitment to a set of messages (committed_messages),
@@ -198,7 +200,7 @@ where
 
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures#name-core-commitment-computation
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-core-commitment-computation
 /// 
 /// # Description
 /// 
@@ -229,13 +231,15 @@ where
     let api_id: &[u8] = api_id.unwrap_or(b"");
 
     let M: usize = committed_messages_scalars.len();
-
-    let Q2: G1Projective = blind_generators[0];
-    let Js: &[G1Projective] = &blind_generators[1..M + 1];
-
+    
     if blind_generators.len() != M + 1  {
         return Err(Error::InvalidNumberOfGenerators);
     }
+
+    let blind_gens = blind_generators.clone();
+
+    let Q2: G1Projective = blind_generators[0];
+    let Js: &[G1Projective] = &blind_generators[1..M + 1];
 
     #[cfg(not(test))]
     let random_scalars = calculate_random_scalars(M + 2);
@@ -258,10 +262,6 @@ where
         Cbar += Js[i] * m_tilde[i];
     }
 
-    let mut blind_gens = Vec::new();
-    blind_gens.push(Q2);
-    blind_gens.extend_from_slice(Js);
-
     let challenge = calculate_blind_challenge::<CS>(
         commitment, 
         Cbar,
@@ -273,7 +273,6 @@ where
 
     let mut m_cap = Vec::new();
 
-    //in the draft is m~_1 + msg_i * challenge TODO test with test vector when available
     for m in 0..M {
         let v: Scalar = m_tilde[m] + committed_messages_scalars[m].value * challenge;
         m_cap.push(v);
@@ -286,7 +285,7 @@ where
     Ok((commitment_with_proof, secret_prover_blind))
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures#name-core-commitment-verificatio
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-core-commitment-verificatio
 ///
 /// # Description
 /// This operation is used by the Signer to verify the correctness of a commitment_proof for a supplied commitment,
