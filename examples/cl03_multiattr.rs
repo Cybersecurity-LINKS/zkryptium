@@ -134,7 +134,7 @@ fn main() {
     use std::env;
     use zkryptium::schemes::algorithms::CL03_CL1024_SHA256;
 
-    dotenv::dotenv().ok();
+    dotenvy::dotenv().ok();
     env_logger::init();
 
     let args: Vec<String> = env::args().collect();

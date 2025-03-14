@@ -121,7 +121,7 @@ fn main() {
     use std::env;
     use zkryptium::schemes::algorithms::{BbsBls12381Sha256, BbsBls12381Shake256};
 
-    dotenv::dotenv().ok();
+    dotenvy::dotenv().ok();
     env_logger::init();
 
     let args: Vec<String> = env::args().collect();
