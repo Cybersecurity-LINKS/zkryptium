@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(feature = "bbsplus_blind")]
 pub mod blind;
 pub mod ciphersuites;
+#[cfg(feature = "bbsplus_blind")]
 pub mod commitment;
 pub mod generators;
 pub mod keys;

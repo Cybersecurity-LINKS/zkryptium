@@ -34,6 +34,13 @@ This library enables the creation of zero-knowledge proofs, exposing cryptograph
 zkryptium = { version = "0.3.2", default-features = false, features = ["bbsplus"] }
 ```
 
+##### BBS+ Blind signature:
+
+```toml
+[dependencies]
+zkryptium = { version = "0.3.2", default-features = false, features = ["bbsplus", "bbsplus_blind"] }
+```
+
 ##### CL2003:
 
 ```toml

@@ -26,10 +26,12 @@ use crate::cl03::{
 
 #[cfg(feature = "bbsplus")]
 use crate::bbsplus::{
-    commitment::BBSplusCommitment,
     proof::{BBSplusPoKSignature, BBSplusZKPoK},
     signature::BBSplusSignature,
 };
+
+#[cfg(feature = "bbsplus_blind")]
+use crate::bbsplus::commitment::BBSplusCommitment;
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum BlindSignature<S: Scheme> {
@@ -42,7 +44,7 @@ pub enum BlindSignature<S: Scheme> {
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Commitment<S: Scheme> {
-    #[cfg(feature = "bbsplus")]
+    #[cfg(feature = "bbsplus_blind")]
     BBSplus(BBSplusCommitment),
     #[cfg(feature = "cl03")]
     CL03(CL03Commitment),

@@ -72,6 +72,7 @@ impl Generators {
         }
     }
 
+    #[cfg(feature = "bbsplus_blind")]
     /// Utility to append one list of Generators to another.
     /// # Panics
     /// Panics if the Generators have different base points.

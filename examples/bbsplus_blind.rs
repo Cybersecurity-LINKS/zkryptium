@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(feature = "bbsplus")]
+#[cfg(feature = "bbsplus_blind")]
 mod bbsplus_example {
     use elliptic_curve::hash2curve::ExpandMsg;
     use rand::Rng;
@@ -149,7 +149,7 @@ mod bbsplus_example {
     }
 }
 
-#[cfg(feature = "bbsplus")]
+#[cfg(feature = "bbsplus_blind")]
 fn main() {
     use crate::bbsplus_example::bbsplus_main;
     use std::env;
@@ -191,5 +191,5 @@ fn main() {
     }
 }
 
-#[cfg(not(feature = "bbsplus"))]
+#[cfg(not(feature = "bbsplus_blind"))]
 fn main() {}

@@ -13,7 +13,8 @@
 // limitations under the License.
 
 use super::{
-    blind::prepare_parameters, ciphersuites::BbsCiphersuite, commitment::BlindFactor, generators::Generators, keys::BBSplusPublicKey, signature::BBSplusSignature
+    ciphersuites::BbsCiphersuite, generators::Generators, keys::BBSplusPublicKey,
+    signature::BBSplusSignature
 };
 use crate::{
     errors::Error,
@@ -32,6 +33,11 @@ use crate::{
 use bls12_381_plus::{multi_miller_loop, G1Projective, G2Prepared, G2Projective, Scalar};
 use elliptic_curve::{group::Curve, hash2curve::ExpandMsg, Group};
 use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "bbsplus_blind")]
+use super::{
+    blind::prepare_parameters, commitment::BlindFactor
+};
 
 #[cfg(not(test))]
 use crate::utils::util::bbsplus_utils::calculate_random_scalars;
@@ -159,6 +165,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         Ok(Self::BBSplus(proof))
     }
 
+    #[cfg(feature = "bbsplus_blind")]
     /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures#name-proof-generation
     ///
     /// # Description
@@ -309,6 +316,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         result
     }
 
+    #[cfg(feature = "bbsplus_blind")]
     /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-proof-verification
     ///
     /// # Description
@@ -917,8 +925,8 @@ impl BBSplusZKPoK {
 mod tests {
     use crate::{
         bbsplus::{
-            ciphersuites::BbsCiphersuite, commitment::BlindFactor, keys::BBSplusPublicKey,
-            proof::seeded_random_scalars, signature::BBSplusSignature,
+            ciphersuites::BbsCiphersuite, keys::BBSplusPublicKey,
+            proof::seeded_random_scalars
         },
         schemes::{
             algorithms::{BBSplus, BbsBls12381Sha256, BbsBls12381Shake256, Scheme},
@@ -926,6 +934,11 @@ mod tests {
         },
         utils::util::bbsplus_utils::{get_messages_vec, ScalarExt},
     };
+
+    #[cfg(feature = "bbsplus_blind")]
+    use crate::bbsplus::{
+            commitment::BlindFactor, signature::BBSplusSignature
+        };
     use elliptic_curve::hash2curve::ExpandMsg;
 
     //mocked_rng - SHA256 - UPDATED
@@ -986,13 +999,14 @@ mod tests {
     }
 
     // BLIND PROOF OF KNOWLEDGE OF A SIGNATURE
-
+    #[cfg(feature = "bbsplus_blind")]
     macro_rules! blind_proof_tests {
         ( $( ($t:ident, $p:literal): { $( ($n:ident, $f:literal), )+ },)+ ) => { $($(
             #[test] fn $n() { blind_proof_check::<$t>($p, $f, "./fixture_data_blind/"); }
         )+)+ }
     }
 
+    #[cfg(feature = "bbsplus_blind")]
     blind_proof_tests! {
         (BbsBls12381Sha256, "./fixture_data_blind/bls12-381-sha-256/"): {
             (blind_proof_check_sha256_1, "proof/proof001.json"),
@@ -1169,6 +1183,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "bbsplus_blind")]
     fn blind_proof_check<S: Scheme>(pathname: &str, proof_filename: &str, messages_path: &str)
     where
         S::Ciphersuite: BbsCiphersuite,

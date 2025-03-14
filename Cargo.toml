@@ -48,15 +48,16 @@ name = "zkryptium"
 path = "src/lib.rs"
 
 [features]
-default = ["bbsplus"]
+default = ["bbsplus", "bbsplus_blind"]
 cl03 = ["dep:rug"]
 bbsplus = ["dep:bls12_381_plus"]
+bbsplus_blind = ["bbsplus"]
 
 
 [[example]]
 name = "bbsplus_blind"
 path = "examples/bbsplus_blind.rs"
-required-features = ["bbsplus"]
+required-features = ["bbsplus", "bbsplus_blind"]
 
 [[example]]
 name = "bbsplus"
