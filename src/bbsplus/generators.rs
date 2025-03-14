@@ -83,10 +83,15 @@ impl Generators {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-07#name-generators-calculation
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-generators-calculation
 ///
 /// # Description
-/// Generators creation
+/// The create_generators procedure defines how to create a set of randomly sampled points from the G1 subgroup, 
+/// called the generators. It makes use of the primitives defined in [RFC9380] (more specifically of hash_to_curve and expand_message)
+/// to hash a seed to a set of generators. Those primitives are implicitly defined by the ciphersuite, through the choice of a hash-to-curve suite  
+/// Since create_generators generates constant points, as an optimization, implementations MAY cache its result for a specific count
+/// (which can be arbitrarily large, depending on the application). Care must be taken, to guarantee that the generators will be
+/// fetched from the cache in the same order they had when they where created (i.e., an application should not sort or in any way rearrange the cached generators).
 ///
 /// # Inputs:
 /// * `count` (REQUIRED), unsigned integer. Number of generators to create.

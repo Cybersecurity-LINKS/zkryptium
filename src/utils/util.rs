@@ -89,7 +89,7 @@ pub mod bbsplus_utils {
         out
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-07#name-hash-to-scalar
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-hash-to-scalar
     ///
     /// # Description
     /// This operation describes how to hash an arbitrary octet string to a scalar values in the multiplicative group of integers mod r
@@ -128,10 +128,12 @@ pub mod bbsplus_utils {
         ))
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-07#name-domain-calculation
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-domain-calculation
     ///
     /// # Description
-    /// This operation calculates the domain value, a scalar representing the distillation of all essential contextual information for a signature. The same domain value must be calculated by all parties (the Signer, the Prover and the Verifier) for both the signature and proofs to be validated.
+    /// This operation calculates the domain value, a scalar representing the distillation of all essential
+    /// contextual information for a signature. The same domain value must be calculated by all parties
+    /// (the Signer, the Prover and the Verifier) for both the signature and proofs to be validated.
     ///
     /// # Inputs:
     ///
@@ -286,7 +288,7 @@ pub mod bbsplus_utils {
         Scalar::random(rng)
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-07#name-random-scalars
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-random-scalars
     ///
     /// # Description
     /// This operation returns the requested number of pseudo-random scalars, using the `get_random` function
@@ -309,7 +311,7 @@ pub mod bbsplus_utils {
         random_scalars
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-07#name-mocked-random-scalars
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-mocked-random-scalars
     ///
     /// # Description
     /// The seeded_random_scalars will deterministically calculate count random-looking scalars from a single SEED, given a domain separation tag (DST).
@@ -329,11 +331,6 @@ pub mod bbsplus_utils {
         CS: BbsCiphersuite,
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
-        // let binding = hex::decode("332e313431353932363533353839373933323338343632363433333833323739").unwrap();
-        // let seed = seed.unwrap_or(&binding);
-        // let binding2 = [CS::API_ID, CS::MOCKED_SCALAR].concat();
-        // let dst = dst.unwrap_or(&binding2);
-
         let out_len = CS::EXPAND_LEN * count;
         let mut v = vec![0u8; out_len];
 
@@ -496,7 +493,6 @@ pub mod cl03_utils {
 
     pub trait IntegerExt {
         fn to_bytes_be(&self, len: usize) -> Vec<u8>;
-        // fn from_bytes_be(bytes: &[u8], len: usize) -> Self;
     }
 
     impl IntegerExt for Integer {
@@ -506,10 +502,6 @@ pub mod cl03_utils {
             bytes
         }
 
-        // fn from_bytes_be(bytes: &[u8], len: usize) -> Self {
-        //     let i = Integer::from_digits(&bytes[0usize .. len], Order::MsfBe);
-        //     i
-        // }
     }
 }
 
