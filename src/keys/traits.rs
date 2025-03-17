@@ -14,15 +14,23 @@
 
 use serde::{de::DeserializeOwned, Serialize};
 
+/// A trait representing a public key with serialization and deserialization capabilities.
 pub trait PublicKey: Serialize + DeserializeOwned + Send + Sync + 'static {
+    /// The output type for the public key.
     type Output: ?Sized;
 
+    /// Converts the public key to bytes.
     fn to_bytes(&self) -> Self::Output;
+    /// Encodes the public key as a string.
     fn encode(&self) -> String;
 }
+/// A trait representing a private key with serialization and deserialization capabilities.
 pub trait PrivateKey: Serialize + DeserializeOwned + Send + Sync + 'static {
+    /// The output type for the private key.
     type Output: ?Sized;
 
+    /// Converts the private key to bytes.
     fn to_bytes(&self) -> Self::Output;
+    /// Encodes the private key as a string.
     fn encode(&self) -> String;
 }

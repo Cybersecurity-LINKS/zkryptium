@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #[cfg(feature = "bbsplus")]
+/// Utilities for BBS+ signatures.
 pub mod bbsplus_utils {
     use crate::{
         bbsplus::ciphersuites::BbsCiphersuite, bbsplus::keys::BBSplusPublicKey, errors::Error,
@@ -66,14 +67,20 @@ pub mod bbsplus_utils {
     /// * `n` (REQUIRED), number of bytes
     ///
     /// # Output
-    /// * Vec<u8>, a secret
+    /// * `Vec<u8>`, a secret
     pub fn generate_random_secret(n: usize) -> Vec<u8> {
         let mut rng = thread_rng();
         let mut secret = vec![0; n]; // Initialize a vector of length n with zeros
         rng.fill_bytes(&mut secret); // Fill the vector with random bytes
         secret
     }
-
+    /// # Description
+    /// An operation that transforms a non-negative integer into an octet string,
+    /// defined in Section 4 of <https://www.rfc-editor.org/info/rfc8017>.
+    /// # Input
+    /// * `N` (REQUIRED), a non-negative integer
+    /// # Output
+    /// * `[u8; N]` an octet string in big-endian order.
     pub fn i2osp<const N: usize>(x: usize) -> [u8; N] {
         const SYS_LEN: usize = (usize::BITS / 8) as usize;
         assert!(N >= SYS_LEN || x >> (8 * N) == 0, "i2osp overflow");
@@ -89,7 +96,7 @@ pub mod bbsplus_utils {
         out
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-hash-to-scalar
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-hash-to-scalar>
     ///
     /// # Description
     /// This operation describes how to hash an arbitrary octet string to a scalar values in the multiplicative group of integers mod r
@@ -187,9 +194,13 @@ pub mod bbsplus_utils {
         hash_to_scalar::<CS>(&dom_input, &domain_dst)
     }
 
+    /// Trait for extending Scalar functionality.
     pub trait ScalarExt {
+        /// Converts the scalar to a big-endian byte array.
         fn to_bytes_be(&self) -> [u8; 32];
+        /// Converts a big-endian byte array to a scalar.
         fn from_bytes_be(bytes: &[u8]) -> Result<Scalar, Error>;
+        /// Encodes the scalar to a hexadecimal string.
         fn encode(&self) -> String;
     }
 
@@ -216,6 +227,15 @@ pub mod bbsplus_utils {
         }
     }
 
+    /// Serializes an array of elements into a vector of bytes.
+    ///
+    /// # Arguments
+    ///
+    /// * `array` - A slice of elements to be serialized.
+    ///
+    /// # Returns
+    ///
+    /// A vector of bytes representing the serialized elements.
     pub fn serialize<T>(array: &[T]) -> Vec<u8>
     where
         T: Any,
@@ -265,6 +285,16 @@ pub mod bbsplus_utils {
         result
     }
 
+    /// Retrieves messages from the provided list based on the specified indexes.
+    ///
+    /// # Arguments
+    ///
+    /// * `messages` - A slice of `BBSplusMessage` from which to retrieve messages.
+    /// * `indexes` - A slice of `usize` representing the indexes of the messages to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// A vector of `BBSplusMessage` containing the messages at the specified indexes.
     pub fn get_messages(messages: &[BBSplusMessage], indexes: &[usize]) -> Vec<BBSplusMessage> {
         let mut out: Vec<BBSplusMessage> = Vec::new();
         for &i in indexes {
@@ -274,6 +304,16 @@ pub mod bbsplus_utils {
         out
     }
 
+    /// Retrieves messages from the provided list based on the specified indexes.
+    ///
+    /// # Arguments
+    ///
+    /// * `messages` - A slice of `Vec<u8>` from which to retrieve messages.
+    /// * `indexes` - A slice of `usize` representing the indexes of the messages to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// A vector of `Vec<u8>` containing the messages at the specified indexes.
     pub fn get_messages_vec(messages: &[Vec<u8>], indexes: &[usize]) -> Vec<Vec<u8>> {
         let mut out: Vec<Vec<u8>> = Vec::new();
         for &i in indexes {
@@ -288,7 +328,7 @@ pub mod bbsplus_utils {
         Scalar::random(rng)
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-random-scalars
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-random-scalars>
     ///
     /// # Description
     /// This operation returns the requested number of pseudo-random scalars, using the `get_random` function
@@ -351,7 +391,7 @@ pub mod bbsplus_utils {
         scalars
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-blind-challenge-calculation
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-blind-challenge-calculation>
     ///
     /// # Description
     /// Utility function to generate a challenge

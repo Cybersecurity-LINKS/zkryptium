@@ -13,11 +13,18 @@
 // limitations under the License.
 
 #[cfg(feature = "bbsplus_blind")]
+/// Module for blind signatures
 pub mod blind;
+/// Module for ciphersuites
 pub mod ciphersuites;
 #[cfg(feature = "bbsplus_blind")]
+/// Module for commitments
 pub mod commitment;
+/// Module for generators
 pub mod generators;
+/// Module for keys
 pub mod keys;
+/// Module for proofs
 pub mod proof;
+/// Module for signatures
 pub mod signature;

@@ -15,5 +15,7 @@
 #[cfg(feature = "cl03")]
 pub mod random;
 
+/// Documentation for the message module
 pub mod message;
+///Documentation for the utils module
 pub mod util;

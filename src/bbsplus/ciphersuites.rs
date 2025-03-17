@@ -18,32 +18,55 @@ use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use sha3::Shake256;
 
+/// A trait representing the BBS ciphersuite.
 pub trait BbsCiphersuite: Eq + 'static + Ciphersuite {
+    /// The identifier for the ciphersuite.
     const ID: &'static [u8];
-    const API_ID: &'static [u8]; // ciphersuite_id || "H2G_HM2S_"
+    /// The API identifier for the ciphersuite.
+    /// ciphersuite_id || "H2G_HM2S_"
+    const API_ID: &'static [u8];
+    /// The API identifier for the ciphersuite for blind signature operations.
     const API_ID_BLIND: &'static [u8];
+    /// The domain separation tag for commitments.
     const COMMIT_DST: &'static [u8];
+    /// The domain separation tag for blind proof operations.
     const BLIND_PROOF_DST: &'static [u8];
+    /// The domain separation tag for key generation.
     const KEYGEN_DST: &'static [u8] = b"KEYGEN_DST_";
+    /// Seed for message generator.
     const GENERATOR_SEED: &'static [u8] = b"MESSAGE_GENERATOR_SEED";
+    /// The domain separation tag for the generator seed.
     const GENERATOR_SEED_DST: &'static [u8] = b"SIG_GENERATOR_SEED_";
+    /// The domain separation tag for the generator.
     const GENERATOR_DST: &'static [u8] = b"SIG_GENERATOR_DST_";
+    /// The domain separation tag for mapping a message to a scalar.
     const MAP_MSG_SCALAR: &'static [u8] = b"MAP_MSG_TO_SCALAR_AS_HASH_";
+    /// The domain separation tag for hashing to scalar.
     const H2S: &'static [u8] = b"H2S_";
+    /// The domain separation tag for mocked scalar generation.
     const MOCKED_SCALAR_DST: &'static [u8];
+    /// Seed for mocked scalar generation.
     const SEED_MOCKED_SCALAR: &'static [u8] = b"3.141592653589793238462643383279";
 
+    /// A constant representing the P1 parameter.
     const P1: &'static str;
+    /// The domain separation tag for the generator signature.
     const GENERATOR_SIG_DST: &'static [u8];
+    /// The expander used for hashing to the curve.
     type Expander: for<'a> ExpandMsg<'a>;
+    /// The length of the expander output.
     const EXPAND_LEN: usize = 48;
+    /// The length of the octet scalar.
     const OCTECT_SCALAR_LEN: usize = 32;
+    /// The length of the input keying material.
     const IKM_LEN: usize = 32;
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+/// A struct representing the BLS12-381 ciphersuite with SHAKE-256.
 pub struct Bls12381Shake256 {}
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+/// A struct representing the BLS12-381 ciphersuite with SHA-256.
 pub struct Bls12381Sha256 {}
 
 impl BbsCiphersuite for Bls12381Shake256 {

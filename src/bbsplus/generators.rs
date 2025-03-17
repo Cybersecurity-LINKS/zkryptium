@@ -21,8 +21,11 @@ use serde::ser::{SerializeStruct, Serializer};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, PartialEq, Eq, Debug, Deserialize)]
+/// A struct representing a set of generators and a base point in the G1 subgroup.
 pub struct Generators {
+    /// The base point in the G1 subgroup.
     pub g1_base_point: G1Projective,
+    /// The set of generators in the G1 subgroup.
     pub values: Vec<G1Projective>,
 }
 

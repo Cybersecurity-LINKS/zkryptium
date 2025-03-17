@@ -18,6 +18,7 @@ use serde::Serialize;
 use std::env;
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+/// A struct representing a key pair consisting of a public key and a private key.
 pub struct KeyPair<S: Scheme> {
     pub(crate) public: S::PubKey,
     pub(crate) private: S::PrivKey,
@@ -27,11 +28,13 @@ impl<S> KeyPair<S>
 where
     S: Scheme,
 {
-    pub fn public_key(&self) -> &S::PubKey {
+    /// Returns a reference to the public key.
+        pub fn public_key(&self) -> &S::PubKey {
         &self.public
     }
 
-    pub fn private_key(&self) -> &S::PrivKey {
+    /// Returns a reference to the private key.
+        pub fn private_key(&self) -> &S::PrivKey {
         &self.private
     }
 
@@ -40,6 +43,11 @@ where
         (self.private, self.public)
     }
 
+    /// Writes the key pair to a file in JSON format.
+    ///
+    /// # Arguments
+    ///
+    /// * `file` - An optional string specifying the file path. If not provided, the default path "../fixtures/fixture_data/keyPair.json" is used.
     pub fn write_keypair_to_file(&self, file: Option<String>) {
         println!("writhing to file...");
 

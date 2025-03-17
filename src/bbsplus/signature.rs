@@ -29,14 +29,23 @@ use elliptic_curve::{group::Curve, hash2curve::ExpandMsg};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+/// A BBS+ signature consisting of a group element `A` and a scalar `e`.
 pub struct BBSplusSignature {
+    /// Group element `A` in the BBS+ signature.
     pub A: G1Projective,
+    /// Scalar `e` in the BBS+ signature.
     pub e: Scalar,
 }
 
 impl BBSplusSignature {
+    /// The number of bytes in the serialized BBS+ signature.
     pub const BYTES: usize = 80;
 
+    /// Converts the `BBSplusSignature` to a byte array.
+    ///
+    /// # Returns
+    ///
+    /// * `[u8; Self::BYTES]` - A byte array representing the serialized signature.
     pub fn to_bytes(&self) -> [u8; Self::BYTES] {
         let mut bytes = [0u8; Self::BYTES];
         bytes[0..G1Projective::COMPRESSED_BYTES]
@@ -46,6 +55,15 @@ impl BBSplusSignature {
         bytes
     }
 
+    /// Creates a `BBSplusSignature` from a byte array.
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - A byte array representing the serialized signature.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Self, Error>` - A result containing the deserialized `BBSplusSignature` or an error.
     pub fn from_bytes(data: &[u8; Self::BYTES]) -> Result<Self, Error> {
         let A: G1Projective = parse_g1_projective(&data[0..G1Projective::COMPRESSED_BYTES])
             .map_err(|_| Error::InvalidSignature)?;
@@ -57,6 +75,7 @@ impl BBSplusSignature {
 }
 
 impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
+    /// Returns the group element `A` in the BBS+ signature.
     pub fn a(&self) -> G1Projective {
         match self {
             Self::BBSplus(inner) => inner.A,
@@ -64,6 +83,7 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         }
     }
 
+    /// Returns the scalar `e` in the BBS+ signature.
     pub fn e(&self) -> Scalar {
         match self {
             Self::BBSplus(inner) => inner.e,
@@ -71,7 +91,7 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         }
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-signature-generation-sign
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-signature-generation-sign>
     /// # Description
     /// The `sign` API returns a BBS signature from a secret key (SK), over a header and a set of messages.
     ///
@@ -107,7 +127,7 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         Ok(Self::BBSplus(signature))
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-signature-verification-veri
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-signature-verification-veri>
     /// # Description
     /// The `verify` API validates a BBS signature, given a public key (PK), a header and a set of messages
     /// # Inputs:
@@ -117,7 +137,7 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
     /// * `header` (OPTIONAL), an octet string containing context and application specific information.
     ///
     /// # Output:
-    /// * a result either [`Ok()`] or [`Error`]
+    /// * a result either [`value@Ok`] or [`Error`]
     pub fn verify(
         &self,
         pk: &BBSplusPublicKey,
@@ -142,6 +162,7 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         )
     }
 
+    /// Returns a reference to the inner `BBSplusSignature`.
     pub fn bbsPlusSignature(&self) -> &BBSplusSignature {
         match self {
             Self::BBSplus(inner) => inner,
@@ -149,10 +170,24 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         }
     }
 
+    /// Converts the `Signature` to a byte array.
+    ///
+    /// # Returns
+    ///
+    /// * `[u8; BBSplusSignature::BYTES]` - A byte array representing the serialized signature.
     pub fn to_bytes(&self) -> [u8; BBSplusSignature::BYTES] {
         self.bbsPlusSignature().to_bytes()
     }
 
+    /// Creates a `Signature` from a byte array.
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - A byte array representing the serialized signature.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Self, Error>` - A result containing the deserialized `Signature` or an error.
     pub fn from_bytes(data: &[u8; BBSplusSignature::BYTES]) -> Result<Self, Error> {
         Ok(Self::BBSplus(BBSplusSignature::from_bytes(data)?))
     }

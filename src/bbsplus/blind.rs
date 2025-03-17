@@ -33,7 +33,7 @@ use bls12_381_plus::{G1Projective, Scalar, group::Curve};
 use elliptic_curve::hash2curve::ExpandMsg;
 
 impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-blind-signature-generation
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-blind-signature-generation>
     ///
     /// # Description
     /// This operation returns a BBS blind signature from a secret key (SK), over a header,
@@ -115,7 +115,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     /// This operation validates a blind BBS signature ([`BBSplusSignature`]), given the Signer's public key (PK),
     /// a header (header), a set of known to the Signer messages (messages) and if used, a set of committed messages
     /// (committed_messages) and the `secret_prover_blind` as returned by the [`Commitment::commit`] operation and
-    /// a blind factor supplied by the Signer (`signer_blind`). This operation makes use of the [`core_verify`] operation
+    /// a blind factor supplied by the Signer (`signer_blind`). This operation makes use of the `core_verify` operation
     ///
     /// # Inputs:
     /// * `self`, a signature
@@ -160,6 +160,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         )
     }
 
+    /// Returns the `A` component of the BBS+ blind signature.
     pub fn A(&self) -> G1Projective {
         match self {
             Self::BBSplus(inner) => inner.A,
@@ -167,6 +168,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         }
     }
 
+    /// Returns the `e` component of the BBS+ blind signature.
     pub fn e(&self) -> Scalar {
         match self {
             Self::BBSplus(inner) => inner.e,
@@ -174,6 +176,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         }
     }
 
+    /// Returns the BBS+ blind signature.
     pub fn bbsPlusBlindSignature(&self) -> &BBSplusSignature {
         match self {
             Self::BBSplus(inner) => inner,
@@ -181,16 +184,18 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         }
     }
 
+    /// Converts the BBS+ blind signature to a byte array.
     pub fn to_bytes(&self) -> [u8; BBSplusSignature::BYTES] {
         self.bbsPlusBlindSignature().to_bytes()
     }
 
+    /// Converts a byte array to a BBS+ blind signature.
     pub fn from_bytes(data: &[u8; BBSplusSignature::BYTES]) -> Result<Self, Error> {
         Ok(Self::BBSplus(BBSplusSignature::from_bytes(data)?))
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-prepare-parameters
+/// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-prepare-parameters>
 ///
 /// 
 /// # Inputs:

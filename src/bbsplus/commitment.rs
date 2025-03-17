@@ -35,12 +35,16 @@ use crate::utils::util::bbsplus_utils::calculate_random_scalars;
 use crate::utils::util::bbsplus_utils::seeded_random_scalars;
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+/// A struct representing a BBS+ commitment, which includes the commitment itself and a proof of knowledge.
 pub struct BBSplusCommitment {
+    /// The commitment itself.
     pub commitment: G1Projective,
+    /// The proof of knowledge.
     pub proof: BBSplusZKPoK,
 }
 
 impl BBSplusCommitment {
+    /// Converts the BBSplusCommitment to a byte vector.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::new();
 
@@ -49,6 +53,33 @@ impl BBSplusCommitment {
         bytes
     }
 
+    /// Converts a byte slice to a BBSplusCommitment.
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - A byte slice representing the serialized BBSplusCommitment.
+    ///
+    /// # Returns
+    ///
+    /// * A result containing the `BBSplusCommitment` or an error.
+    /// Converts a byte slice to a Commitment.
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - A byte slice representing the serialized Commitment.
+    ///
+    /// # Returns
+    ///
+    /// * A result containing the `Commitment` or an error.
+    /// Converts a byte slice to a Commitment.
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - A byte slice representing the serialized Commitment.
+    ///
+    /// # Returns
+    ///
+    /// * A result containing the `Commitment` or an error.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         let commitment = parse_g1_projective(&bytes[0..G1Projective::COMPRESSED_BYTES])
             .map_err(|_| Error::InvalidCommitment)?;
@@ -81,7 +112,7 @@ impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
         Ok((Self::BBSplus(commitment_with_proof), secret))
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-commitment-validation-and-d
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-commitment-validation-and-d>
     ///
     /// # Description
     /// The following is a helper operation used by the BlindSign procedure to validate an optional commitment.
@@ -133,30 +164,52 @@ impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
         }
     }
 
+    /// Converts the Commitment to a byte vector.
     pub fn to_bytes(&self) -> Vec<u8> {
         match self {
             Commitment::BBSplus(inner) => inner.to_bytes(),
             _ => panic!("{}", Error::UnespectedError),
         }
     }
-
+    
+    /// Converts a byte slice to a Commitment
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - A byte array representing the serialized Commitment.
+    ///
+    /// # Returns
+    ///
+    /// * A result containing the `Commitment` or an error.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         Ok(Self::BBSplus(BBSplusCommitment::from_bytes(bytes)?))
     }
 }
 
 #[derive(Debug)]
+/// A struct representing a blind factor used in BBS+ commitments.
 pub struct BlindFactor(pub(crate) Scalar);
 
 impl BlindFactor {
+    /// Generates a random blind factor.
     pub fn random() -> Self {
         Self(get_random())
     }
 
+    /// Converts the BlindFactor to a byte array.
     pub fn to_bytes(&self) -> [u8; 32] {
         self.0.to_be_bytes()
     }
 
+    /// Converts a byte array to a BlindFactor.
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - A byte array representing the serialized BlindFactor.
+    ///
+    /// # Returns
+    ///
+    /// * A result containing the `BlindFactor` or an error.
     pub fn from_bytes(bytes: &[u8; 32]) -> Result<Self, Error> {
         Ok(Self(Scalar::from_bytes_be(bytes)?))
     }

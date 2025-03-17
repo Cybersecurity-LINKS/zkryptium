@@ -45,6 +45,7 @@ use crate::utils::util::bbsplus_utils::calculate_random_scalars;
 use crate::utils::util::bbsplus_utils::seeded_random_scalars;
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+/// Represents a BBS+ Proof of Knowledge Signature.
 pub struct BBSplusPoKSignature {
     Abar: G1Projective,
     Bbar: G1Projective,
@@ -57,6 +58,7 @@ pub struct BBSplusPoKSignature {
 }
 
 impl BBSplusPoKSignature {
+    /// Converts the `BBSplusPoKSignature` to a byte vector.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::new();
 
@@ -73,6 +75,33 @@ impl BBSplusPoKSignature {
         bytes
     }
 
+    /// Creates a `BBSplusPoKSignature` from a byte slice.
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - A byte slice representing the serialized `BBSplusPoKSignature`.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Self, Error>` - A result containing the deserialized `BBSplusPoKSignature` or an error.
+    /// Creates a `PoKSignature` from a byte slice.
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - A byte slice representing the serialized `PoKSignature`.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Self, Error>` - A result containing the deserialized `PoKSignature` or an error.
+    /// Creates a `BBSplusPoKSignature` from a byte slice.
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - A byte slice representing the serialized `BBSplusPoKSignature`.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Self, Error>` - A result containing the deserialized `BBSplusPoKSignature` or an error.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         let Abar = parse_g1_projective(&bytes[0..48])
             .map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
@@ -174,7 +203,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     }
 
     #[cfg(feature = "bbsplus_blind")]
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures#name-proof-generation
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures#name-proof-generation>
     ///
     /// # Description
     /// This operation creates a BBS proof, which is a zero-knowledge, proof-of-knowledge, of a BBS signature, while optionally disclosing 
@@ -272,7 +301,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         Ok(Self::BBSplus(proof))
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-proof-verification-proofver
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-proof-verification-proofver>
     ///
     /// # Description
     /// The ProofVerify operation validates a BBS proof, given the Signer's public key (PK), a header and presentation header values,
@@ -409,15 +438,18 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
             Some(api_id),
         )
     }
-
+    
+    /// Converts the `PoKSignature` to a byte vector.
     pub fn to_bytes(&self) -> Vec<u8> {
         self.to_bbsplus_proof().to_bytes()
     }
 
+    /// Creates a `PoKSignature` from a byte slice.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         Ok(Self::BBSplus(BBSplusPoKSignature::from_bytes(bytes)?))
     }
 
+    /// Converts the `PoKSignature` to a `BBSplusPoKSignature`.
     pub fn to_bbsplus_proof(&self) -> &BBSplusPoKSignature {
         match self {
             Self::BBSplus(inner) => inner,
@@ -896,6 +928,13 @@ pub struct BBSplusZKPoK {
 }
 
 impl BBSplusZKPoK {
+    /// Creates a new `BBSplusZKPoK` instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `s_cap` - A scalar value representing the s_cap.
+    /// * `m_cap` - A vector of scalar values representing the m_cap.
+    /// * `challenge` - A scalar value representing the challenge.
     pub fn new(s_cap: Scalar, m_cap: Vec<Scalar>, challenge: Scalar) -> Self {
         Self {
             s_cap,
@@ -904,6 +943,7 @@ impl BBSplusZKPoK {
         }
     }
 
+    /// Converts the `BBSplusZKPoK` to a byte vector.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::new();
 
@@ -915,6 +955,14 @@ impl BBSplusZKPoK {
         bytes
     }
 
+    /// Creates a `BBSplusZKPoK` from a byte slice.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `bytes` - A byte slice representing the `BBSplusZKPoK`.
+    /// 
+    /// # Output
+    /// * A Result containing the `BBSplusZKPoK` or an Error.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         let s_cap = Scalar::from_bytes_be(
             &<[u8; 32]>::try_from(&bytes[0..32])
