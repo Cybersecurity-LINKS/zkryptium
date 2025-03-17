@@ -12,6 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! # **Blind BBS Signature Extension**
+//! The [Blind BBS Signature Extension](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01) builds on the BBS scheme
+//! to support blind signing, where a signer can authenticate a message without knowing its content. This is achieved through a blinding process
+//! applied to the message by the recipient before sending it to the signer. The signer then issues a signature over the blinded content, ensuring privacy.
+//! Key features of the Blind BBS Signature Extension:
+//! - **Message Blinding**: This extension allows recipients to obscure (blind) their messages before sending them to a signer.
+//!                         This process ensures that the signer cannot learn the message's content.
+//! 
+//! Together, the BBS Signature Scheme and its Blind Signature Extension offer a robust solution for privacy-preserving
+//! cryptographic systems, supporting applications in identity, authentication, and secure, anonymous transactions.
+//! #Usage
+//! 
+//! ```toml
+//! [dependencies]
+//! zkryptium = { version = "0.4", default-features = false, features = ["bbsplus", "bbsplus_blind"] }
+//! ```
+
 use super::{
     commitment::BlindFactor,
     keys::{BBSplusPublicKey, BBSplusSecretKey},
