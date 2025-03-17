@@ -5,10 +5,6 @@
     "commit": {
       "DST": "BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_COMMIT_MOCK_RANDOM_SCALARS_DST_",
       "count": 7
-    },
-    "signature": {
-      "DST": "BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_SIGNATURE_MOCK_RANDOM_SCALARS_DST_",
-      "count": 1
     }
   },
   "signerKeyPair": {
@@ -26,13 +22,12 @@
     ""
   ],
   "proverBlind": "4fba5396baa36b2fde81d46a9b9ee89c425dbc5e1ffd65c20249afb4abd37589",
-  "signerBlind": "10e75ca49d242390896d9dd943b97ff23b8cb780bf27df185f51b33abaaa94e2",
-  "signature": "a85e436a6956de97d72409a4a125bdb0ec61838b2d022963e1599d43f5a66e1dc223396f0a4de94b110068f48e9e596a5836f2b435d94238e257348346f6902363d9fd0212b4cfb10c71b1a60a6051ac",
+  "signature": "b7446e6ae4e8b5707ac0108f3b1049e9ea01bd6b2b4a7dcf06e5ad1c62a9c0b1585829f0e30fba6c9761469ed908deca52ba5499cef2827b99527b4adf1f30522ce32366385ba87594b8d0e44d156eec",
   "result": {
     "valid": true
   },
   "trace": {
-    "B": "8cef19ef65942ba26e3937da185d026a80296b776e7f2a5bc510ac19e5080aa7f6488ca9636aaa9a3057d0982fc3f6d8",
+    "B": "b21004683409ac48cab4ac654761afa96b90d72742c2a3d1c66343df47713737e6b2367f1dbf0bd917e6f8bc3fd1440a",
     "domain": "13c94073eb7dbd279f60d5907c19d83e4a9ae19f99d6b3ca020785730a3f37eb"
   }
 }

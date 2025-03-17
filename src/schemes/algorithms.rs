@@ -1,4 +1,4 @@
-// Copyright 2023 Fondazione LINKS
+// Copyright 2025 Fondazione LINKS
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,14 +30,17 @@ use crate::cl03::{
 };
 
 #[cfg(feature = "bbsplus")]
+/// Type alias for BBS+ scheme using BLS12-381 curve and SHAKE256 hash function.
 pub type BbsBls12381Shake256 = BBSplus<Bls12381Shake256>;
 #[cfg(feature = "bbsplus")]
+/// Type alias for BBS+ scheme using BLS12-381 curve and SHA256 hash function.
 pub type BbsBls12381Sha256 = BBSplus<Bls12381Sha256>;
 
 #[cfg(feature = "cl03")]
 pub type CL03_CL1024_SHA256 = CL03<CL1024Sha256>;
 
 #[cfg(feature = "bbsplus")]
+/// A struct representing the BBS+ scheme with a specific ciphersuite.
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct BBSplus<CS: BbsCiphersuite>(PhantomData<CS>);
 
@@ -45,7 +48,9 @@ pub struct BBSplus<CS: BbsCiphersuite>(PhantomData<CS>);
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct CL03<CS: CLCiphersuite>(PhantomData<CS>);
 
+/// A trait representing a cryptographic ciphersuite.
 pub trait Ciphersuite: 'static + Eq {
+    /// The hash algorithm used by the ciphersuite.
     type HashAlg: HashMarker;
 }
 #[cfg(feature = "bbsplus")]
@@ -57,9 +62,13 @@ impl Ciphersuite for Bls12381Shake256 {
     type HashAlg = sha3::Shake256;
 }
 
+/// A trait representing a cryptographic scheme.
 pub trait Scheme: Eq + 'static + Sized + Serialize + DeserializeOwned {
+    /// The ciphersuite used by the scheme.
     type Ciphersuite: Ciphersuite;
+    /// The private key type used by the scheme.
     type PrivKey: PrivateKey;
+    /// The public key type used by the scheme.
     type PubKey: PublicKey;
 }
 

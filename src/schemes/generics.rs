@@ -1,4 +1,4 @@
-// Copyright 2023 Fondazione LINKS
+// Copyright 2025 Fondazione LINKS
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,52 +26,73 @@ use crate::cl03::{
 
 #[cfg(feature = "bbsplus")]
 use crate::bbsplus::{
-    commitment::BBSplusCommitment,
     proof::{BBSplusPoKSignature, BBSplusZKPoK},
     signature::BBSplusSignature,
 };
 
+#[cfg(feature = "bbsplus_blind")]
+use crate::bbsplus::commitment::BBSplusCommitment;
+
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+/// An enum representing a blind signature scheme.
 pub enum BlindSignature<S: Scheme> {
     #[cfg(feature = "bbsplus")]
+    /// BBS+ signature variant
     BBSplus(BBSplusSignature),
     #[cfg(feature = "cl03")]
+    /// CL03 signature variant
     CL03(CL03BlindSignature),
+    /// Unreachable variant to satisfy the type system
     _Unreachable(std::marker::PhantomData<S>),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+/// An enum representing a commitment scheme.
 pub enum Commitment<S: Scheme> {
-    #[cfg(feature = "bbsplus")]
+    #[cfg(feature = "bbsplus_blind")]
+    /// BBS+ commitment variant
     BBSplus(BBSplusCommitment),
     #[cfg(feature = "cl03")]
+    /// CL03 commitment variant
     CL03(CL03Commitment),
+    /// Unreachable variant to satisfy the type system
     _Unreachable(std::marker::PhantomData<S>),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+/// An enum representing a proof of knowledge signature scheme.
 pub enum PoKSignature<S: Scheme> {
     #[cfg(feature = "bbsplus")]
+    /// BBS+ proof of knowledge signature variant
     BBSplus(BBSplusPoKSignature),
     #[cfg(feature = "cl03")]
+    /// CL03 proof of knowledge signature variant
     CL03(CL03PoKSignature),
+    /// Unreachable variant to satisfy the type system
     _Unreachable(PhantomData<S>),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+/// An enum representing a zero-knowledge proof of knowledge scheme.
 pub enum ZKPoK<S: Scheme> {
     #[cfg(feature = "bbsplus")]
+    /// BBS+ zero-knowledge proof of knowledge variant
     BBSplus(BBSplusZKPoK),
     #[cfg(feature = "cl03")]
     CL03(CL03ZKPoK),
+    /// Unreachable variant to satisfy the type system
     _Unreachable(PhantomData<S>),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+/// An enum representing a signature scheme.
 pub enum Signature<S: Scheme> {
     #[cfg(feature = "bbsplus")]
+    /// BBS+ signature variant
     BBSplus(BBSplusSignature),
     #[cfg(feature = "cl03")]
+    /// CL03 signature variant
     CL03(CL03Signature),
+    /// Unreachable variant to satisfy the type system
     _Unreachable(PhantomData<S>),
 }

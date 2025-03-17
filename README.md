@@ -7,8 +7,8 @@
 ## Description
 
 ZKryptium library provides an implementation of:
-* **BBS+**([draft-irtf-cfrg-bbs-signatures-07](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-07)) signature scheme
-* **Blind BBS Signatures** ([draft-kalos-bbs-blind-signatures-01](https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-01)) signature scheme
+* **BBS+**([draft-irtf-cfrg-bbs-signatures-08](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08)) signature scheme
+* **Blind BBS Signatures** ([draft-irtf-cfrg-bbs-blind-signatures-01](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01)) signature scheme with some fixes taken from [grotto-bbs-signatures](https://github.com/Wind4Greg/grotto-bbs-signatures)
 * **CL2003** (https://link.springer.com/chapter/10.1007/3-540-36413-7_20) signature scheme 
 
 
@@ -32,6 +32,13 @@ This library enables the creation of zero-knowledge proofs, exposing cryptograph
 ```toml
 [dependencies]
 zkryptium = { version = "0.3.2", default-features = false, features = ["bbsplus"] }
+```
+
+##### BBS+ Blind signature:
+
+```toml
+[dependencies]
+zkryptium = { version = "0.3.2", default-features = false, features = ["bbsplus", "bbsplus_blind"] }
 ```
 
 ##### CL2003:

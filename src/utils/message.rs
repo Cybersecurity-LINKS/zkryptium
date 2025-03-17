@@ -1,4 +1,4 @@
-// Copyright 2023 Fondazione LINKS
+// Copyright 2025 Fondazione LINKS
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #[cfg(feature = "bbsplus")]
+/// Module for handling BBS+ messages and related operations.
 pub mod bbsplus_message {
 
     use crate::bbsplus::ciphersuites::BbsCiphersuite;
@@ -23,16 +24,19 @@ pub mod bbsplus_message {
     use serde::{Deserialize, Serialize};
 
     #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+    /// A struct representing a BBS+ message with a scalar value.
     pub struct BBSplusMessage {
+        /// The scalar value of the BBS+ message.
         pub value: Scalar,
     }
 
     impl BBSplusMessage {
+        /// Creates a new `BBSplusMessage` with the given scalar value.
         pub fn new(msg: Scalar) -> Self {
             Self { value: msg }
         }
 
-        /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-07#name-messages-to-scalars
+        /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-messages-to-scalars>
         ///
         /// # Description
         /// The messages_to_scalars operation is used to map a list of messages to their respective scalar values
@@ -84,10 +88,16 @@ pub mod bbsplus_message {
             Ok(Self { value: scalar })
         }
 
+        /// Converts the BBSplusMessage to a big-endian byte array.
         pub fn to_bytes_be(&self) -> [u8; Scalar::BYTES] {
             self.value.to_be_bytes()
         }
 
+        /// Converts a big-endian byte array to a BBSplusMessage.
+        ///         
+        /// # Output:
+        /// * a [`BBSplusMessage`], which is a wrapper to a `Scalar` or [`Error`].
+        ///
         pub fn from_bytes_be(bytes: &[u8; Scalar::BYTES]) -> Result<Self, Error> {
             let s = Scalar::from_be_bytes(bytes);
             if s.is_none().into() {
