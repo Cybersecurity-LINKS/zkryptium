@@ -51,3 +51,6 @@ pub mod keys;
 pub mod proof;
 /// Module for signatures
 pub mod signature;
+#[cfg(feature = "bbsplus_nym")]
+/// Module for Pseudonyms
+pub mod pseudonym;

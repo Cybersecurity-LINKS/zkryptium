@@ -27,6 +27,8 @@ pub trait BbsCiphersuite: Eq + 'static + Ciphersuite {
     const API_ID: &'static [u8];
     /// The API identifier for the ciphersuite for blind signature operations.
     const API_ID_BLIND: &'static [u8];
+    /// The API identifier for the ciphersuite for operations with psepseudonyms.
+    const API_ID_NYM: &'static [u8];
     /// The domain separation tag for commitments.
     const COMMIT_DST: &'static [u8];
     /// The domain separation tag for blind proof operations.
@@ -75,6 +77,7 @@ impl BbsCiphersuite for Bls12381Shake256 {
     const MOCKED_SCALAR_DST: &'static [u8] =
         b"BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_H2G_HM2S_MOCK_RANDOM_SCALARS_DST_";
     const API_ID_BLIND: &'static [u8] = b"BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_BLIND_H2G_HM2S_";
+    const API_ID_NYM: &'static [u8] = b"BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_H2G_HM2S_PSEUDONYM_";
     const COMMIT_DST: &'static [u8] =
         b"BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_H2G_HM2S_COMMIT_MOCK_RANDOM_SCALARS_DST_";
     const BLIND_PROOF_DST: &'static [u8] =
@@ -91,6 +94,7 @@ impl BbsCiphersuite for Bls12381Sha256 {
     const MOCKED_SCALAR_DST: &'static [u8] =
         b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_MOCK_RANDOM_SCALARS_DST_";
     const API_ID_BLIND: &'static [u8] = b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_BLIND_H2G_HM2S_";
+    const API_ID_NYM: &'static [u8] = b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_PSEUDONYM_";
     const COMMIT_DST: &'static [u8] =
         b"BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_COMMIT_MOCK_RANDOM_SCALARS_DST_";
     const BLIND_PROOF_DST: &'static [u8] =

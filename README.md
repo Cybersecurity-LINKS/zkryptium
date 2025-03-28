@@ -9,6 +9,7 @@
 ZKryptium library provides an implementation of:
 * **BBS+**([draft-irtf-cfrg-bbs-signatures-08](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08)) signature scheme
 * **Blind BBS Signatures** ([draft-irtf-cfrg-bbs-blind-signatures-01](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01)) signature scheme with some fixes taken from [grotto-bbs-signatures](https://github.com/Wind4Greg/grotto-bbs-signatures)
+* **BBS per Verifier Linkability** ([draft-irtf-cfrg-bbs-blind-signatures-01](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01))
 * **CL2003** (https://link.springer.com/chapter/10.1007/3-540-36413-7_20) signature scheme 
 
 
