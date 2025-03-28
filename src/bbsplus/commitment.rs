@@ -270,7 +270,7 @@ where
 /// # Output:
 /// ([`BBSplusCommitment`], [`BlindFactor`]), a tuple (commit_with_proof + proof, secret_prover_blind) or [`Error`].
 ///
-fn core_commit<CS>(
+pub(super) fn core_commit<CS>(
     blind_generators: Vec<G1Projective>,
     committed_messages_scalars: Option<Vec<BBSplusMessage>>,
     api_id: Option<&[u8]>,
@@ -305,10 +305,11 @@ where
     let m_tilde: &[Scalar] = &random_scalars[2..(M + 2)];
 
     let mut commitment: G1Projective = Q2 * secret_prover_blind;
-
+    
     for i in 0..M {
         commitment += Js[i] * committed_messages_scalars[i].value;
     }
+println!("Commitment: {}", hex::encode(commitment.to_affine().to_compressed()));
 
     let mut Cbar = Q2 * s_tilde;
     for i in 0..M {
