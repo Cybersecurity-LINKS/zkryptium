@@ -25,7 +25,7 @@ use crate::bbsplus::{
 
 #[cfg(feature = "cl03")]
 use crate::cl03::{
-    ciphersuites::{CL1024Sha256, CLCiphersuite},
+    ciphersuites::{CL1024Sha256, CL3072Sha256, CLCiphersuite},
     keys::{CL03PublicKey, CL03SecretKey},
 };
 
@@ -36,6 +36,8 @@ pub type BbsBls12381Sha256 = BBSplus<Bls12381Sha256>;
 
 #[cfg(feature = "cl03")]
 pub type CL03_CL1024_SHA256 = CL03<CL1024Sha256>;
+#[cfg(feature = "cl03")]
+pub type CL03_CL3072_SHA256 = CL03<CL3072Sha256>;
 
 #[cfg(feature = "bbsplus")]
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]

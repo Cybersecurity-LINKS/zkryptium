@@ -206,8 +206,8 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
 #[cfg(test)]
 mod tests {
 
-    use crate::cl03::ciphersuites::CLCiphersuite;
-    use crate::schemes::algorithms::CL03_CL1024_SHA256;
+    use crate::cl03::ciphersuites::{CLCiphersuite};
+    use crate::schemes::algorithms::{CL03_CL1024_SHA256, CL03_CL3072_SHA256};
     use crate::{
         cl03::bases::Bases,
         keys::pair::KeyPair,
@@ -221,6 +221,29 @@ mod tests {
     #[test]
     fn signature_cl1024_sha256() {
         signature::<CL03_CL1024_SHA256>();
+    }
+
+    #[test]
+    fn signature_cl3072_sha256() {
+        signature::<CL03_CL3072_SHA256>();
+    }
+
+    #[test]
+    fn keypair_cl1024_sha256() {
+        keypair::<CL03_CL1024_SHA256>();
+    }
+
+    #[test]
+    fn keypair_cl3072_sha256() {
+        keypair::<CL03_CL3072_SHA256>();
+    }
+
+    fn keypair<S: Scheme>()
+    where
+        S::Ciphersuite: CLCiphersuite,
+        <S::Ciphersuite as Ciphersuite>::HashAlg: Digest,
+    {
+         KeyPair::<CL03<S::Ciphersuite>>::generate();
     }
 
     fn signature<S: Scheme>()

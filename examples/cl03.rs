@@ -154,6 +154,7 @@ mod cl03_example {
 fn main() {
     use std::env;
     use zkryptium::schemes::algorithms::CL03_CL1024_SHA256;
+    use zkryptium::schemes::algorithms::CL03_CL3072_SHA256;
 
     dotenv::dotenv().ok();
     env_logger::init();
@@ -164,7 +165,8 @@ fn main() {
         println!(
             "Usage: {} <cipher_suite>
                 Ciphersuites:
-                    - CL1024-SHA-256",
+                    - CL1024-SHA-256
+                    - CL3072-SHA-256",
             args[0]
         );
         return;
@@ -177,6 +179,11 @@ fn main() {
             println!("\n");
             log::info!("Ciphersuite: CL1024-SHA-256");
             cl03_example::cl03_main::<CL03_CL1024_SHA256>();
+        }
+        "CL3072-SHA-256" => {
+            println!("\n");
+            log::info!("Ciphersuite: CL3072-SHA-256");
+            cl03_example::cl03_main::<CL03_CL3072_SHA256>();
         }
         _ => {
             println!("Unknown cipher suite: {}", cipher_suite);

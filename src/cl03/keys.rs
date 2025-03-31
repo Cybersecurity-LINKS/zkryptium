@@ -138,11 +138,11 @@ impl PublicKey for CL03PublicKey {
 
 impl PrivateKey for CL03SecretKey {
     type Output = [u8; 512];
-    fn encode(&self) -> String {
+    fn to_bytes(&self) -> Self::Output {
         todo!()
     }
 
-    fn to_bytes(&self) -> Self::Output {
+    fn encode(&self) -> String {
         todo!()
     }
 }
@@ -150,24 +150,30 @@ impl PrivateKey for CL03SecretKey {
 impl<CS: CLCiphersuite> KeyPair<CL03<CS>> {
     pub fn generate() -> Self {
         let n = CS::SECPARAM;
-        let mut pprime = random_prime(n);
-        let mut p = Integer::from(2) * pprime.clone() + Integer::from(1);
+        let mut pprime;
+        let mut p;
+        let preps = 3 + 24;         // "is_probably_prime" subtracts 24 from reps.
+        let qreps = CS::QSEC + 24;  // "is_probably_prime" subtracts 24 from reps.
+        // Rationale is: according to NIST FIPS 186-4 Appendix C, table C1 (Minimum MR iterations
+        // for DSA key generation) shows that the necessary amount of iterations is half the
+        // security bits. Function "is_probably_prime" internally executes "reps - 24" rounds of MR
+        // testing.
         loop {
-            if p.is_probably_prime(50) != IsPrime::No {
-                break;
-            }
             pprime = random_prime(n);
             p = Integer::from(2) * pprime + Integer::from(1);
-        }
-
-        let mut qprime = random_prime(n);
-        let mut q = Integer::from(2) * qprime.clone() + Integer::from(1);
-        loop {
-            if p != q && q.is_probably_prime(100) != IsPrime::No {
+            if p.is_probably_prime(preps) != IsPrime::No {
                 break;
             }
+        }
+
+        let mut qprime;
+        let mut q;
+        loop {
             qprime = random_prime(n);
             q = Integer::from(2) * qprime + Integer::from(1);
+            if p != q && q.is_probably_prime(qreps) != IsPrime::No {
+                break;
+            }
         }
 
         let N = p.clone() * q.clone();
@@ -204,34 +210,37 @@ impl CL03CommitmentPublicKey {
     //trusted_party_pk -> N = None
     pub fn generate<CS: CLCiphersuite>(N: Option<Integer>, n_attributes: Option<usize>) -> Self {
         let n = CS::SECPARAM; //SECPARAM
+        let preps = 3 + 24;         // "is_probably_prime" subtracts 24 from reps.
+        let qreps = CS::QSEC + 24; // "is_probably_prime" subtracts 24 from reps.
         let n_attributes = n_attributes.unwrap_or(1);
         let N = N.unwrap_or_else(|| {
-            let mut pprime = random_prime(n);
-            let mut p = Integer::from(2) * pprime.clone() + Integer::from(1);
+            let mut pprime;
+            let mut p;
             loop {
                 // println!("{} INT", p);
                 // let digits = p.to_digits::<u8>(Order::MsfBe);
                 // let bignum = BigUint::from_bytes_be(&digits);
                 // println!("{} BIGNUM", bignum);
-                if p.is_probably_prime(50) != IsPrime::No {
-                    break;
-                }
                 pprime = random_prime(n);
                 p = Integer::from(2) * pprime + Integer::from(1);
+
+                if p.is_probably_prime(preps) != IsPrime::No {
+                    break;
+                }
             }
 
-            let mut qprime = random_prime(n);
-            let mut q = Integer::from(2) * qprime.clone() + Integer::from(1);
+            let mut qprime;
+            let mut q;
             loop {
                 // println!("{} INT", p);
                 // let digits = p.to_digits::<u8>(Order::MsfBe);
                 // let bignum = BigUint::from_bytes_be(&digits);
                 // println!("{} BIGNUM", bignum);
-                if p != q && q.is_probably_prime(100) != IsPrime::No {
-                    break;
-                }
                 qprime = random_prime(n);
                 q = Integer::from(2) * qprime + Integer::from(1);
+                if p != q && q.is_probably_prime(qreps) != IsPrime::No {
+                    break;
+                }
             }
 
             let N = p.clone() * q.clone();
