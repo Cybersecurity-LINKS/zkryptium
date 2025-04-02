@@ -219,6 +219,7 @@ pub mod bbsplus_message {
 }
 
 #[cfg(feature = "cl03")]
+/// Module for handling CL03 messages and related operations.
 pub mod cl03_message {
 
     use crate::cl03::ciphersuites::CLCiphersuite;
@@ -227,19 +228,24 @@ pub mod cl03_message {
     use serde::{Deserialize, Serialize};
 
     #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+    /// A struct representing a CL03 message with an integer value.
     pub struct CL03Message {
+        /// The integer value of the CL03 message.
         pub value: Integer,
     }
 
     impl CL03Message {
+        /// Creates a new `CL03Message` with the given integer value.
         pub fn new(msg: Integer) -> Self {
             Self { value: msg }
         }
 
+        ///Gets the integer value of the CL03 message.
         pub fn get_value(&self) -> Integer {
             self.value.clone()
         }
 
+        /// Create a new `CL03Message` from the hash of byte array.
         pub fn map_message_to_integer_as_hash<C: CLCiphersuite>(data: &[u8]) -> Self
         where
             C::HashAlg: Digest,

@@ -70,7 +70,8 @@ cargo run --features="cl03" --example cl03_multiattr <ciphersuite>
 ```
 ##### Available Ciphersuites:
 - CL1024-SHA-256
-
+- CL2048-SHA-256
+- CL3072-SHA-256
 
 ## Test
 

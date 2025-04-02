@@ -501,10 +501,11 @@ pub mod bbsplus_utils {
 }
 
 #[cfg(feature = "cl03")]
+/// Utilities for CL03 signatures.
 pub mod cl03_utils {
     use rug::{integer::Order, Integer};
 
-    //b*x = a mod m -> return x
+    /// Function for b * x = a mod m: returns x.
     pub fn divm(a: &Integer, b: &Integer, m: &Integer) -> Integer {
         let mut num = a.clone();
         let den;
@@ -531,7 +532,9 @@ pub mod cl03_utils {
         }
     }
 
+    /// Trait IntegerExt
     pub trait IntegerExt {
+        /// Converts the integer to a byte array of the specified length.
         fn to_bytes_be(&self, len: usize) -> Vec<u8>;
     }
 

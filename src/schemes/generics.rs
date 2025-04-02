@@ -78,6 +78,7 @@ pub enum ZKPoK<S: Scheme> {
     #[cfg(feature = "bbsplus")]
     /// BBS+ zero-knowledge proof of knowledge variant
     BBSplus(BBSplusZKPoK),
+    ///CL03 zero-knowledge proof of knowledge variant
     #[cfg(feature = "cl03")]
     CL03(CL03ZKPoK),
     /// Unreachable variant to satisfy the type system
