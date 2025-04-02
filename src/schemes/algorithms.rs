@@ -25,10 +25,9 @@ use crate::bbsplus::{
 
 #[cfg(feature = "cl03")]
 use crate::cl03::{
-    ciphersuites::{CL1024Sha256, CLCiphersuite},
+    ciphersuites::{CL1024Sha256, CL2048Sha256, CL3072Sha256, CLCiphersuite},
     keys::{CL03PublicKey, CL03SecretKey},
 };
-
 #[cfg(feature = "bbsplus")]
 /// Type alias for BBS+ scheme using BLS12-381 curve and SHAKE256 hash function.
 pub type BbsBls12381Shake256 = BBSplus<Bls12381Shake256>;
@@ -38,6 +37,10 @@ pub type BbsBls12381Sha256 = BBSplus<Bls12381Sha256>;
 
 #[cfg(feature = "cl03")]
 pub type CL03_CL1024_SHA256 = CL03<CL1024Sha256>;
+#[cfg(feature = "cl03")]
+pub type CL03_CL2048_SHA256 = CL03<CL2048Sha256>;
+#[cfg(feature = "cl03")]
+pub type CL03_CL3072_SHA256 = CL03<CL3072Sha256>;
 
 #[cfg(feature = "bbsplus")]
 /// A struct representing the BBS+ scheme with a specific ciphersuite.

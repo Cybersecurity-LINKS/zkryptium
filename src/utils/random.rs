@@ -16,26 +16,36 @@ use rand::Rng;
 use rug::rand::{RandGen, RandState};
 use rug::{Complete, Integer};
 use std::cmp::Ordering;
+use rand_chacha::{ChaCha20Rng};
+use rand_chacha::rand_core::{RngCore, SeedableRng};
 
-struct Seed;
-impl RandGen for Seed {
+struct CryptographicallySecurePRNG(ChaCha20Rng);
+
+impl RandGen for CryptographicallySecurePRNG {
     fn gen(&mut self) -> u32 {
-        let mut rng= rand::thread_rng();
-        rng.gen::<u32>()
+        self.0.next_u32()
     }
 }
 
 pub fn random_bits(n: u32) -> Integer {
-    let mut seed = Seed;
-    let mut rand = RandState::new_custom(&mut seed);
+
+    let mut rng = rand::thread_rng();
+    let seed = rng.gen();
+    let mut binding = CryptographicallySecurePRNG(ChaCha20Rng::from_seed(seed));
+    let mut rand = RandState::new_custom(&mut binding);
+
     let mut i = Integer::from(Integer::random_bits(n, &mut rand));
     i.set_bit(n - 1, true);
     i
 }
 
 pub fn random_number(n: Integer) -> Integer {
-    let mut seed = Seed;
-    let mut rand = RandState::new_custom(&mut seed);
+
+    let mut rng = rand::thread_rng();
+    let seed = rng.gen();
+    let mut binding = CryptographicallySecurePRNG(ChaCha20Rng::from_seed(seed));
+    let mut rand = RandState::new_custom(&mut binding);
+
     let number = n.random_below(&mut rand);
     number
 }
@@ -59,8 +69,12 @@ pub fn random_qr(n: &Integer) -> Integer {
 }
 
 pub fn rand_int(a: Integer, b: Integer) -> Integer {
-    let mut seed = Seed;
-    let mut rand = RandState::new_custom(&mut seed);
+
+    let mut rng = rand::thread_rng();
+    let seed = rng.gen();
+    let mut binding = CryptographicallySecurePRNG(ChaCha20Rng::from_seed(seed));
+    let mut rand = RandState::new_custom(&mut binding);
+
     let range = (&b - &a).complete() + Integer::from(1);
     // NOTE: return a random integer in the range [a, b], including both end points.
     return a + range.random_below(&mut rand);
