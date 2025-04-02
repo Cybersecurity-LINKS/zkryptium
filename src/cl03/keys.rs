@@ -199,6 +199,7 @@ impl<CS: CLCiphersuite> KeyPair<CL03<CS>> {
     }
 }
 
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct CL03CommitmentPublicKey {
     pub N: Integer,
     pub h: Integer,

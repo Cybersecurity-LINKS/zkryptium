@@ -92,14 +92,14 @@ mod cl03_example {
             .map(|(_, m)| m.clone())
             .collect();
 
-        //Verifier generates its pk
+        // Verifier generates its pk
         log::info!("Generation of a Commitment Public Key for the computation of the SPoK");
         let verifier_commitment_pk = CL03CommitmentPublicKey::generate::<S::Ciphersuite>(
             Some(issuer_keypair.public_key().N.clone()),
             Some(MSGS.len()),
         );
 
-        //Holder compute the Signature Proof of Knowledge
+        // Holder compute the Signature Proof of Knowledge
         log::info!("Computation of a Zero-Knowledge proof-of-knowledge of a signature");
         let signature_pok = PoKSignature::<CL03<S::Ciphersuite>>::proof_gen(
             signature.cl03Signature(),
@@ -132,7 +132,7 @@ mod cl03_example {
 #[cfg(feature = "cl03")]
 fn main() {
     use std::env;
-    use zkryptium::schemes::algorithms::CL03_CL1024_SHA256;
+    use zkryptium::schemes::algorithms::{CL03_CL1024_SHA256, CL03_CL2048_SHA256, CL03_CL3072_SHA256};
 
     dotenv::dotenv().ok();
     env_logger::init();
@@ -143,7 +143,9 @@ fn main() {
         println!(
             "Usage: {} <cipher_suite>
                 Ciphersuites:
-                    - CL1024-SHA-256",
+                    - CL1024-SHA-256
+                    - CL2048-SHA-256
+                    - CL3072-SHA-256",
             args[0]
         );
         return;
@@ -156,6 +158,16 @@ fn main() {
             println!("\n");
             log::info!("Ciphersuite: CL1024-SHA-256");
             cl03_example::cl03_main::<CL03_CL1024_SHA256>();
+        }
+        "CL2048-SHA-256" => {
+            println!("\n");
+            log::info!("Ciphersuite: CL2048-SHA-256");
+            cl03_example::cl03_main::<CL03_CL2048_SHA256>();
+        }
+        "CL3072-SHA-256" => {
+            println!("\n");
+            log::info!("Ciphersuite: CL3072-SHA-256");
+            cl03_example::cl03_main::<CL03_CL3072_SHA256>();
         }
         _ => {
             println!("Unknown cipher suite: {}", cipher_suite);
