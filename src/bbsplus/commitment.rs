@@ -1,4 +1,4 @@
-// Copyright 2023 Fondazione LINKS
+// Copyright 2025 Fondazione LINKS
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,12 +35,16 @@ use crate::utils::util::bbsplus_utils::calculate_random_scalars;
 use crate::utils::util::bbsplus_utils::seeded_random_scalars;
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+/// A struct representing a BBS+ commitment, which includes the commitment itself and a proof of knowledge.
 pub struct BBSplusCommitment {
+    /// The commitment itself.
     pub commitment: G1Projective,
+    /// The proof of knowledge.
     pub proof: BBSplusZKPoK,
 }
 
 impl BBSplusCommitment {
+    /// Converts the BBSplusCommitment to a byte vector.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::new();
 
@@ -49,6 +53,33 @@ impl BBSplusCommitment {
         bytes
     }
 
+    /// Converts a byte slice to a BBSplusCommitment.
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - A byte slice representing the serialized BBSplusCommitment.
+    ///
+    /// # Returns
+    ///
+    /// * A result containing the `BBSplusCommitment` or an error.
+    /// Converts a byte slice to a Commitment.
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - A byte slice representing the serialized Commitment.
+    ///
+    /// # Returns
+    ///
+    /// * A result containing the `Commitment` or an error.
+    /// Converts a byte slice to a Commitment.
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - A byte slice representing the serialized Commitment.
+    ///
+    /// # Returns
+    ///
+    /// * A result containing the `Commitment` or an error.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         let commitment = parse_g1_projective(&bytes[0..G1Projective::COMPRESSED_BYTES])
             .map_err(|_| Error::InvalidCommitment)?;
@@ -61,7 +92,10 @@ impl BBSplusCommitment {
 
 impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
     /// # Description
-    /// This operation is used by the Prover to create a commitment to a set of messages (committed_messages), that they intend to include to the blind signature. Note that this operation returns both the serialized combination of the commitment and its proof of correctness (commitment_with_proof), as well as the random scalar used to blind the commitment (secret_prover_blind).
+    /// This operation is used by the Prover to create a commitment to a set of messages (committed_messages),
+    /// that they intend to include to the blind signature. Note that this operation returns both
+    /// the serialized combination of the commitment and its proof of correctness (commitment_with_proof),
+    /// as well as the random scalar used to blind the commitment (secret_prover_blind).
     ///
     /// # Inputs:
     /// * `committed_messages` (OPTIONAL), a vector of octet strings. If not supplied it defaults to the empty array.
@@ -78,14 +112,17 @@ impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
         Ok((Self::BBSplus(commitment_with_proof), secret))
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-01#name-commitment-validation-and-d
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-commitment-validation-and-d>
     ///
     /// # Description
-    /// The following is an API used by the `core_blind_sign` procedure to validate an optional commitment. The commitment input to `core_blind_sign` is optional. If a commitment is not supplied, or if it is the Identity_G1, the following operation will return the Identity_G1 as the commitment point, which will be ignored by all computations during `core_blind_sign`.
+    /// The following is a helper operation used by the BlindSign procedure to validate an optional commitment.
+    /// If a commitment is not supplied, or if it is the Identity_G1, the following operation will return the Identity_G1
+    /// as the "default" commitment point, which will be ignored by all computations during BlindSign.
     ///
     /// # Inputs:
-    /// * `commitment_with_proof` (OPTIONAL), octet string representing the serialization of [`BBSplusCommitment`]. If it is not supplied it defaults to the empty octet string.
-    /// * `blind_generators` (REQUIRED), vector of points of G1.
+    /// * `commitment_with_proof` (OPTIONAL), octet string representing the serialization of [`BBSplusCommitment`]. 
+    ///                                       If it is not supplied it defaults to the empty octet string.
+    /// * `blind_generators` (OPTIONAL), vector of points of G1. If it is not supplied it defaults to the empty set
     /// * `api_id` (OPTIONAL), octet string. If not supplied it defaults to the empty octet string ("").
     ///
     /// # Output:
@@ -96,12 +133,14 @@ impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
         blind_generators: &Generators,
         api_id: Option<&[u8]>,
     ) -> Result<G1Projective, Error> {
-        let commitment_with_proof = commitment_with_proof.unwrap_or(&[]);
+        let commitment_with_proof: &[u8] = commitment_with_proof.unwrap_or(&[]);
         if commitment_with_proof.is_empty() {
             return Ok(G1Projective::IDENTITY);
         }
 
-        let commitment_with_proof = Self::from_bytes(commitment_with_proof)?;
+        let api_id = api_id.unwrap_or(b"");
+
+        let commitment_with_proof: Commitment<BBSplus<CS>> = Self::from_bytes(commitment_with_proof)?;
 
         let (commitment, proof) = match commitment_with_proof {
             Commitment::BBSplus(inner) => (inner.commitment, inner.proof),
@@ -113,46 +152,76 @@ impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
             return Err(Error::NotEnoughGenerators);
         }
 
-        if verify_commitment::<CS>(commitment, &proof, &blind_generators.values, api_id).is_ok() {
+        if core_commit_verify::<CS>(
+            commitment,
+            &proof,
+            &blind_generators.values,
+            Some(api_id)
+        ).is_ok() {
             Ok(commitment)
         } else {
             Err(Error::InvalidCommitmentProof)
         }
     }
 
+    /// Converts the Commitment to a byte vector.
     pub fn to_bytes(&self) -> Vec<u8> {
         match self {
             Commitment::BBSplus(inner) => inner.to_bytes(),
             _ => panic!("{}", Error::UnespectedError),
         }
     }
-
+    
+    /// Converts a byte slice to a Commitment
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - A byte array representing the serialized Commitment.
+    ///
+    /// # Returns
+    ///
+    /// * A result containing the `Commitment` or an error.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         Ok(Self::BBSplus(BBSplusCommitment::from_bytes(bytes)?))
     }
 }
 
 #[derive(Debug)]
+/// A struct representing a blind factor used in BBS+ commitments.
 pub struct BlindFactor(pub(crate) Scalar);
 
 impl BlindFactor {
+    /// Generates a random blind factor.
     pub fn random() -> Self {
         Self(get_random())
     }
 
+    /// Converts the BlindFactor to a byte array.
     pub fn to_bytes(&self) -> [u8; 32] {
         self.0.to_be_bytes()
     }
 
+    /// Converts a byte array to a BlindFactor.
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - A byte array representing the serialized BlindFactor.
+    ///
+    /// # Returns
+    ///
+    /// * A result containing the `BlindFactor` or an error.
     pub fn from_bytes(bytes: &[u8; 32]) -> Result<Self, Error> {
         Ok(Self(Scalar::from_bytes_be(bytes)?))
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-01#name-commitment-computation
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-commitment-operations
 ///
 /// # Description
-/// This operation is used by the Prover to create a commitment to a set of messages (committed_messages), that they intend to include to the blind signature. Note that this operation returns both the serialized combination of the commitment and its proof of correctness (commitment_with_proof), as well as the random scalar used to blind the commitment (secret_prover_blind).
+/// This operation is used by the Prover to create a commitment to a set of messages (committed_messages),
+/// that they intend to include to the blind signature. Note that this operation returns both
+/// the serialized combination of the commitment and its proof of correctness (commitment_with_proof),
+/// as well as the random scalar used to blind the commitment (secret_prover_blind).
 ///
 /// # Inputs:
 /// * `committed_messages` (OPTIONAL), a vector of octet strings. If not supplied it defaults to the empty array.
@@ -169,32 +238,76 @@ where
     CS: BbsCiphersuite,
     CS::Expander: for<'a> ExpandMsg<'a>,
 {
-    let committed_messages = committed_messages.unwrap_or(&[]);
+    let committed_messages: &[Vec<u8>] = committed_messages.unwrap_or(&[]);
     let api_id = api_id.unwrap_or(b"");
 
-    let M = committed_messages.len();
-    let generators = Generators::create::<CS>(M + 1, Some(&[b"BLIND_", api_id].concat())).values;
-
-    let Q2 = generators[0];
-    let Js = &generators[1..M + 1];
-
-    let commited_message_scalars =
+    let commited_message_scalars: Vec<BBSplusMessage> =
         BBSplusMessage::messages_to_scalar::<CS>(committed_messages, api_id)?;
+    
+    let blind_generators: Vec<G1Projective> = Generators::create::<CS>(
+        commited_message_scalars.len() + 1, 
+        Some(&[b"BLIND_", api_id].concat())
+    ).values;
+
+    core_commit::<CS>(blind_generators,Some(commited_message_scalars), Some(api_id))
+
+}
+
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-core-commitment-computation
+/// 
+/// # Description
+/// 
+/// This operation is used by the Prover to create a commitment to a set of messages (committed_messages), 
+/// that they intend to include to the blind signature. Note that this operation returns both 
+/// the serialized combination of the commitment and its proof of correctness (commitment_with_proof), 
+/// as well as the random scalar used to blind the commitment (secret_prover_blind).
+/// 
+/// # Inputs:
+/// * `blind_generators`  (REQUIRED), vector of pseudo-random points in G1.
+/// * `committed_messages_scalars ` (OPTIONAL), a vector of scalars. If not supplied, it defaults to the empty array ("()").
+/// * `api_id`  (OPTIONAL), an octet string. If not supplied it defaults to the empty octet string ("").
+///
+/// # Output:
+/// ([`BBSplusCommitment`], [`BlindFactor`]), a tuple (commit_with_proof + proof, secret_prover_blind) or [`Error`].
+///
+fn core_commit<CS>(
+    blind_generators: Vec<G1Projective>,
+    committed_messages_scalars: Option<Vec<BBSplusMessage>>,
+    api_id: Option<&[u8]>,
+) -> Result<(BBSplusCommitment, BlindFactor), Error> 
+where
+    CS: BbsCiphersuite,
+    CS::Expander: for<'a> ExpandMsg<'a>,
+    {
+
+    let committed_messages_scalars: Vec<BBSplusMessage> = committed_messages_scalars.unwrap_or(Vec::new());
+    let api_id: &[u8] = api_id.unwrap_or(b"");
+
+    let M: usize = committed_messages_scalars.len();
+    
+    if blind_generators.len() != M + 1  {
+        return Err(Error::InvalidNumberOfGenerators);
+    }
+
+    let blind_gens = blind_generators.clone();
+
+    let Q2: G1Projective = blind_generators[0];
+    let Js: &[G1Projective] = &blind_generators[1..M + 1];
 
     #[cfg(not(test))]
     let random_scalars = calculate_random_scalars(M + 2);
 
     #[cfg(test)]
-    let random_scalars = seeded_random_scalars::<CS>(M + 2, CS::SEED_MOCKED_SCALAR, CS::COMMIT_DST);
+    let random_scalars: Vec<Scalar> = seeded_random_scalars::<CS>(M + 2, CS::SEED_MOCKED_SCALAR, CS::COMMIT_DST);
 
-    let secret_prover_blind = random_scalars[0];
-    let s_tilde = random_scalars[1];
-    let m_tilde = &random_scalars[2..(M + 2)];
+    let secret_prover_blind: Scalar = random_scalars[0];
+    let s_tilde: Scalar = random_scalars[1];
+    let m_tilde: &[Scalar] = &random_scalars[2..(M + 2)];
 
-    let mut commitment = Q2 * secret_prover_blind;
+    let mut commitment: G1Projective = Q2 * secret_prover_blind;
 
     for i in 0..M {
-        commitment += Js[i] * commited_message_scalars[i].value;
+        commitment += Js[i] * committed_messages_scalars[i].value;
     }
 
     let mut Cbar = Q2 * s_tilde;
@@ -202,30 +315,34 @@ where
         Cbar += Js[i] * m_tilde[i];
     }
 
-    let mut gens = Vec::new();
-    gens.push(Q2);
-    gens.extend_from_slice(Js);
+    let challenge = calculate_blind_challenge::<CS>(
+        commitment, 
+        Cbar,
+        &blind_gens,
+        Some(api_id)
+    )?;
 
-    let challenge = calculate_blind_challenge::<CS>(commitment, Cbar, &gens, Some(api_id))?;
-    let s_cap = s_tilde + secret_prover_blind * challenge;
+    let s_cap: Scalar = s_tilde + secret_prover_blind * challenge;
 
     let mut m_cap = Vec::new();
+
     for m in 0..M {
-        let v = m_tilde[m] + commited_message_scalars[m].value * challenge;
+        let v: Scalar = m_tilde[m] + committed_messages_scalars[m].value * challenge;
         m_cap.push(v);
     }
 
-    let proof = BBSplusZKPoK::new(s_cap, m_cap, challenge);
-    let commitment_with_proof = BBSplusCommitment { commitment, proof };
-    let secret_prover_blind = BlindFactor(secret_prover_blind);
+    let proof: BBSplusZKPoK = BBSplusZKPoK::new(s_cap, m_cap, challenge);
+    let commitment_with_proof: BBSplusCommitment = BBSplusCommitment { commitment, proof };
+    let secret_prover_blind: BlindFactor = BlindFactor(secret_prover_blind);
 
     Ok((commitment_with_proof, secret_prover_blind))
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-kalos-bbs-blind-signatures-01#name-commitment-verification
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-core-commitment-verificatio
 ///
 /// # Description
-/// This operation is used by the Signer to verify the correctness of a commitment_proof for a supplied commitment, over a list of points of G1 called the blind_generators, used to compute that commitment.
+/// This operation is used by the Signer to verify the correctness of a commitment_proof for a supplied commitment,
+/// over a list of points of G1 called the blind_generators, used to compute that commitment.
 ///
 /// # Inputs:
 /// * `commitment` (REQUIRED), a commitment.
@@ -236,7 +353,7 @@ where
 /// # Output:
 /// a result [`Ok`] or [`Error`].
 ///
-fn verify_commitment<CS>(
+ fn core_commit_verify<CS>(
     commitment: G1Projective,
     commitment_proof: &BBSplusZKPoK,
     blind_generators: &[G1Projective],
@@ -251,11 +368,11 @@ where
 
     let blind_generators = blind_generators
         .get(..M + 1)
-        .ok_or(Error::NotEnoughGenerators)?;
+        .ok_or(Error::InvalidNumberOfGenerators)?;
 
-    let G2 = blind_generators[0];
-    let Js = &blind_generators[1..];
-    let mut Cbar = G2 * commitment_proof.s_cap;
+    let G2: G1Projective = blind_generators[0];
+    let Js: &[G1Projective] = &blind_generators[1..];
+    let mut Cbar: G1Projective = G2 * commitment_proof.s_cap;
     for i in 0..M {
         Cbar += Js[i] * commitment_proof.m_cap[i];
     }
@@ -269,7 +386,7 @@ where
     } else {
         Ok(())
     }
-}
+} 
 
 #[cfg(test)]
 mod tests {

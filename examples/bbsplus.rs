@@ -1,4 +1,4 @@
-// Copyright 2023 Fondazione LINKS
+// Copyright 2025 Fondazione LINKS
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -121,7 +121,7 @@ fn main() {
     use std::env;
     use zkryptium::schemes::algorithms::{BbsBls12381Sha256, BbsBls12381Shake256};
 
-    dotenv::dotenv().ok();
+    dotenvy::dotenv().ok();
     env_logger::init();
 
     let args: Vec<String> = env::args().collect();

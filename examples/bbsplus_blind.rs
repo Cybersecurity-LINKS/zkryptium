@@ -1,4 +1,4 @@
-// Copyright 2023 Fondazione LINKS
+// Copyright 2025 Fondazione LINKS
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(feature = "bbsplus")]
+#[cfg(feature = "bbsplus_blind")]
 mod bbsplus_example {
     use elliptic_curve::hash2curve::ExpandMsg;
     use rand::Rng;
@@ -78,18 +78,16 @@ mod bbsplus_example {
             Some(&commitment_with_proof.to_bytes()),
             Some(&header),
             Some(&messages),
-            None,
         )?;
 
         log::info!("Blind Signature Verification...");
         assert!(blind_signature
-            .verify(
+            .verify_blind_sign(
                 issuer_pk,
                 Some(&header),
                 Some(&messages),
                 Some(&committed_messages),
                 Some(&secret_prover_blind),
-                None
             )
             .is_ok());
         log::info!("Blind Signature is VALID!");
@@ -116,8 +114,7 @@ mod bbsplus_example {
             Some(&committed_messages),
             Some(&disclosed_indexes),
             Some(&disclosed_commitment_indexes),
-            Some(&secret_prover_blind),
-            None,
+            Some(&secret_prover_blind)
         )?;
 
         //Verifier verifies SPok
@@ -152,13 +149,13 @@ mod bbsplus_example {
     }
 }
 
-#[cfg(feature = "bbsplus")]
+#[cfg(feature = "bbsplus_blind")]
 fn main() {
     use crate::bbsplus_example::bbsplus_main;
     use std::env;
     use zkryptium::schemes::algorithms::{BbsBls12381Sha256, BbsBls12381Shake256};
 
-    dotenv::dotenv().ok();
+    dotenvy::dotenv().ok();
     env_logger::init();
 
     let args: Vec<String> = env::args().collect();
@@ -194,5 +191,5 @@ fn main() {
     }
 }
 
-#[cfg(not(feature = "bbsplus"))]
+#[cfg(not(feature = "bbsplus_blind"))]
 fn main() {}

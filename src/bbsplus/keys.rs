@@ -1,4 +1,4 @@
-// Copyright 2023 Fondazione LINKS
+// Copyright 2025 Fondazione LINKS
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,9 +30,11 @@ use elliptic_curve::{group::Curve, hash2curve::ExpandMsg};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+/// Represents a BBS+ public key.
 pub struct BBSplusPublicKey(pub G2Projective);
 
 impl BBSplusPublicKey {
+    /// The length of the coordinate in bytes.
     pub const COORDINATE_LEN: usize = G2Affine::UNCOMPRESSED_BYTES / 2;
 
     /// Get (x, y) coordinates
@@ -47,6 +49,16 @@ impl BBSplusPublicKey {
         (x, y)
     }
 
+    /// Creates a `BBSplusPublicKey` from the given x and y coordinates.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - A byte array representing the x-coordinate.
+    /// * `y` - A byte array representing the y-coordinate.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Self, Error>` - A result containing the `BBSplusPublicKey` or an error.
     pub fn from_coordinates(
         x: &[u8; Self::COORDINATE_LEN],
         y: &[u8; Self::COORDINATE_LEN],
@@ -67,15 +79,26 @@ impl BBSplusPublicKey {
         Ok(Self(g2))
     }
 
+    /// Converts the public key to a compressed byte array.
     pub fn to_bytes(&self) -> [u8; G2Affine::COMPRESSED_BYTES] {
         self.0.to_affine().to_compressed()
     }
 
+    /// Encodes the public key to a hexadecimal string.
     pub fn encode(&self) -> String {
         let pk_bytes = self.to_bytes();
         hex::encode(pk_bytes)
     }
 
+    /// Creates a `BBSplusPublicKey` from a byte array.
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - A byte array representing the public key.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Self, Error>` - A result containing the `BBSplusPublicKey` or an error.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         let g2 = parse_g2_projective_compressed(&bytes[0..G2Affine::COMPRESSED_BYTES])
             .map_err(|_| Error::KeyDeserializationError)?;
@@ -84,6 +107,7 @@ impl BBSplusPublicKey {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+/// Represents a BBS+ secret key.
 pub struct BBSplusSecretKey(pub Scalar);
 
 impl BBSplusSecretKey {
@@ -93,6 +117,7 @@ impl BBSplusSecretKey {
         bytes
     }
 
+    /// Encodes the secret key to a hexadecimal string.
     pub fn encode(&self) -> String {
         let sk_bytes = self.to_bytes();
         hex::encode(sk_bytes)
@@ -103,6 +128,15 @@ impl BBSplusSecretKey {
         BBSplusPublicKey(sk_to_pk(self.0))
     }
 
+    /// Creates a `BBSplusSecretKey` from a byte array.
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - A byte array representing the private key.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Self, Error>` - A result containing the `BBSplusSecretKey` or an error.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         let bytes: [u8; Scalar::BYTES] = bytes
             .try_into()
@@ -192,7 +226,7 @@ impl<CS: BbsCiphersuite> KeyPair<BBSplus<CS>> {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-06#name-secret-key -> SK = KeyGen(key_material, key_info, key_dst)
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-secret-key -> SK = KeyGen(key_material, key_info, key_dst)
 ///
 /// # Description
 /// This operation generates a secret key (SK) deterministically from a secret octet string (key_material)
@@ -239,7 +273,7 @@ where
     Ok(sk)
 }
 
-/// https://identity.foundation/bbs-signature/draft-irtf-cfrg-bbs-signatures.html#name-public-key -> PK = SkToPk(SK)
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08##name-public-key
 ///
 /// # Description
 /// This operation takes a secret key (SK) and outputs a corresponding public key (PK).
@@ -268,14 +302,14 @@ mod tests {
 
     #[test]
     fn keypair_sha256() {
-        key_pair_gen::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/keyPair.json");
+        key_pair_gen::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/keypair.json");
     }
 
     //KEYPAIR - SHAKE256
 
     #[test]
     fn keypair_shake256() {
-        key_pair_gen::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/keyPair.json");
+        key_pair_gen::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/keypair.json");
     }
 
     fn key_pair_gen<S: Scheme>(filename: &str)

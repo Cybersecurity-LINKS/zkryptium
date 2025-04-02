@@ -1,4 +1,4 @@
-// Copyright 2023 Fondazione LINKS
+// Copyright 2025 Fondazione LINKS
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,20 +28,24 @@ impl RandGen for CryptographicallySecurePRNG {
 }
 
 pub fn random_bits(n: u32) -> Integer {
+
     let mut rng = rand::thread_rng();
     let seed = rng.gen();
     let mut binding = CryptographicallySecurePRNG(ChaCha20Rng::from_seed(seed));
     let mut rand = RandState::new_custom(&mut binding);
+
     let mut i = Integer::from(Integer::random_bits(n, &mut rand));
     i.set_bit(n - 1, true);
     i
 }
 
 pub fn random_number(n: Integer) -> Integer {
+
     let mut rng = rand::thread_rng();
     let seed = rng.gen();
     let mut binding = CryptographicallySecurePRNG(ChaCha20Rng::from_seed(seed));
     let mut rand = RandState::new_custom(&mut binding);
+
     let number = n.random_below(&mut rand);
     number
 }
@@ -65,10 +69,12 @@ pub fn random_qr(n: &Integer) -> Integer {
 }
 
 pub fn rand_int(a: Integer, b: Integer) -> Integer {
+
     let mut rng = rand::thread_rng();
     let seed = rng.gen();
     let mut binding = CryptographicallySecurePRNG(ChaCha20Rng::from_seed(seed));
     let mut rand = RandState::new_custom(&mut binding);
+
     let range = (&b - &a).complete() + Integer::from(1);
     // NOTE: return a random integer in the range [a, b], including both end points.
     return a + range.random_below(&mut rand);
