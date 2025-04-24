@@ -84,6 +84,14 @@ impl Generators {
         self.values.extend(other.values);
         self
     }
+
+    #[cfg(feature = "bbsplus_nym")]
+    /// Utility to get last generator in the list
+    /// # Panics
+    /// Panics if the Generators have different base points.
+    pub(crate) fn last(&self) -> Option<&G1Projective> {
+        self.values.last()
+    }
 }
 
 /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-generators-calculation
