@@ -19,16 +19,23 @@ use elliptic_curve::hash2curve::ExpandMsg;
 use crate::errors::Error;
 use crate::schemes::algorithms::BBSplus;
 use crate::bbsplus::commitment::BBSplusCommitment; // Import the missing type
-use crate::schemes::generics::{BlindSignature, Commitment};
+use crate::schemes::generics::{BlindSignature, Commitment, PoKSignature};
 use crate::utils::message::bbsplus_message::BBSplusMessage;
-use crate::utils::util::bbsplus_utils::{get_random, ScalarExt};
+use crate::utils::util::bbsplus_utils::{get_messages, get_random, ScalarExt};
+use crate::utils::util::get_remaining_indexes;
 
 use super::blind::{finalize_blind_sign, prepare_parameters};
 use super::ciphersuites::BbsCiphersuite;
 use super::commitment::{core_commit, BlindFactor};
 use super::generators::Generators;
 use super::keys::{BBSplusPublicKey, BBSplusSecretKey};
-use super::signature::core_verify;
+use super::proof::{proof_init, BBSplusPoKSignature};
+use super::signature::{core_verify, BBSplusSignature};
+
+#[cfg(not(test))]
+use crate::utils::util::bbsplus_utils::calculate_random_scalars;
+#[cfg(test)]
+use crate::utils::util::bbsplus_utils::seeded_random_scalars;
 
 //#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 ///
@@ -309,6 +316,270 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     }
 
 }
+
+impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01#name-proof-generation-with-pseud>
+    ///
+    /// # Description
+    /// This section defines the ProofGenWithNym operations, for calculating a BBS proof with a pseudonym.
+    /// The BBS proof is extended to include a zero-knowledge proof of correctness of the pseudonym value,
+    /// i.e., that is correctly calculated using the (undisclosed) pseudonym secret (nym_secret),
+    /// and that is "bound" to the underlying BBS signature (i.e., that the nym_secret value is signed by the Signer).
+    /// Validating the proof, guarantees authenticity and integrity of the header,
+    /// presentation header and disclosed messages, knowledge of a valid BBS signature as well as correctness and ownership of the pseudonym.
+    /// To support pseudonyms, the ProofGenWithNym procedure takes the pseudonym secret nym_secret, as well as the context
+    /// identifier context_id, which the pseudonym will be bounded to.
+    ///
+    /// # Inputs:
+    /// * `pk` (REQUIRED), the Signer public key.
+    /// * `signature` (REQUIRED), an octet string.
+    /// * `header` (OPTIONAL), an octet string containing context and application.
+    /// * `ph` (OPTIONAL), an octet string containing the presentation header.
+    /// * `nym_secret` (REQUIRED), a scalar value ([`PseudonymSecret`]).
+    /// * `context_id` (REQUIRED), an octet string containing the Context (or verifier) id
+    /// * `messages` (OPTIONAL), a vector of octet strings messages supplied by the Signer.  If not supplied, it defaults to the empty array.
+    /// * `committed_messages` (OPTIONAL), a vector of octet strings messages committed by the Prover.
+    /// * `disclosed_indexes` (OPTIONAL), vector of unsigned integers in ascending order. Indexes of disclosed messages.
+    /// * `disclosed_commitment_indexes` (OPTIONAL), vector of unsigned integers in ascending order. Indexes of disclosed committed messages.
+    /// * `secret_prover_blind` (OPTIONAL), a scalar value ([`BlindFactor`]).
+    ///
+    /// # Output:
+    /// [`PoKSignature::BBSplus`] or [`Error`]: a PoK of a Signature, a vector of octet strings representing all the disclosed messages and their indexes.
+    ///
+    pub fn proof_gen_with_nym(
+        pk: &BBSplusPublicKey,
+        signature: &[u8],
+        header: Option<&[u8]>,
+        ph: Option<&[u8]>,
+        nym_secret: &PseudonymSecret,
+        context_id: &[u8],
+        messages: Option<&[Vec<u8>]>,
+        committed_messages: Option<&[Vec<u8>]>,
+        disclosed_indexes: Option<&[usize]>,
+        disclosed_commitment_indexes: Option<&[usize]>,
+        secret_prover_blind: Option<&BlindFactor>,
+    ) -> Result<Self, Error>
+    where
+        CS::Expander: for<'a> ExpandMsg<'a>,
+    {
+        let signature = BBSplusSignature::from_bytes(
+            signature.try_into().map_err(|_| Error::InvalidSignature)?,
+        )?;
+        let api_id = CS::API_ID_BLIND;
+        let messages = messages.unwrap_or(&[]);
+        let committed_messages = committed_messages.unwrap_or(&[]);
+        let secret_prover_blind = secret_prover_blind.unwrap_or(&BlindFactor(Scalar::ZERO));
+        let L = messages.len();
+        let M = committed_messages.len();
+
+        let disclosed_indexes = disclosed_indexes.unwrap_or(&[]);
+        let disclosed_commitment_indexes = disclosed_commitment_indexes.unwrap_or(&[]);
+
+        if disclosed_indexes.len() > L {
+            return Err(Error::BlindProofGenError(
+                "number of disclosed indexes is grater than the number of messages".to_owned(),
+            ));
+        } else if disclosed_indexes.iter().any(|&i| i >= L) {
+            return Err(Error::BlindProofGenError(
+                "disclosed index out of range".to_owned(),
+            ));
+        } else if disclosed_commitment_indexes.len() > M {
+            return Err(Error::BlindProofGenError("number of commitment disclosed indexes is grater than the number of committed messages".to_owned()));
+        } else if disclosed_commitment_indexes.iter().any(|&i| i >= M) {
+            return Err(Error::BlindProofGenError(
+                "commitment disclosed index out of range".to_owned(),
+            ));
+        }
+
+        let (mut message_scalars, generators) = prepare_parameters::<CS>(
+            Some(messages),
+            Some(committed_messages),
+            L + 1,
+            M + 2,
+            Some(secret_prover_blind), 
+            Some(api_id)
+        )?;
+
+        message_scalars.push(nym_secret.into());
+
+        let indexes = disclosed_indexes
+            .iter()
+            .copied()
+            .chain(disclosed_commitment_indexes.iter().map(|&j| j + L + 1))
+            .collect::<Vec<_>>();
+
+        let proof = core_proof_gen_with_nym::<CS>(
+            pk,
+            &signature,
+            &generators,
+            &message_scalars,
+            &indexes,
+            header,
+            ph,
+            Some(api_id),
+            CS::SEED_MOCKED_SCALAR,
+            &CS::BLIND_PROOF_DST,
+        )?;
+
+        Ok(Self::BBSplus(proof))
+    }
+
+
+
+}
+
+
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01#name-core-proof-generation
+///
+/// # Description
+/// This operations computes a BBS proof and a zero-knowledge proof of correctness of the pseudonym in "parallel"
+/// (meaning using common randomness), as to both create a proof that the pseudonym was correctly calculated
+/// using an undisclosed value that the Prover knows (i.e., the nym_secret value), but also that this value is
+/// "signed" by the BBS signature (the last undisclosed message). As a result, validating the proof guarantees
+/// that the pseudonym is correctly computed and that it was computed using the Prover identifier that was included in the BBS signature
+///
+/// # Inputs:
+/// * `pk` (REQUIRED), the Signer public key.
+/// * `signature` (REQUIRED), a [`BBSplusSignature`].
+/// * `context_id` (REQUIRED), an octet string containing the Context (or verifier) id
+/// * `generators` (REQUIRED), vector of pseudo-random points in G1.
+/// * `header` (OPTIONAL), an octet string containing context and application.
+/// * `ph` (OPTIONAL), an octet string containing the presentation header.
+/// * `messages` (OPTIONAL), a vector of scalars ([`BBSplusMessage`]) representing the signed messages.
+/// * `disclosed_indexes` (OPTIONAL), vector of usize in ascending order. Indexes of disclosed messages.
+/// * `api_id` (OPTIONAL), an octet string.
+///
+/// # Output:
+/// a PoK of a Signature [`BBSplusPoKSignature`] and the pseudonym [`G1projective`]  or [`Error`].
+///
+fn core_proof_gen_with_nym<CS>(
+    pk: &BBSplusPublicKey,
+    signature: &BBSplusSignature,
+    context_id: &[u8],
+    generators: &Generators,
+    messages: &[BBSplusMessage],
+    disclosed_indexes: &[usize],
+    header: Option<&[u8]>,
+    ph: Option<&[u8]>,
+    api_id: Option<&[u8]>,
+    _seed: &[u8],
+    _dst: &[u8],
+) -> Result<(BBSplusPoKSignature, PseudonymSecret), Error>
+where
+    CS: BbsCiphersuite,
+    CS::Expander: for<'a> ExpandMsg<'a>,
+{
+    let L = messages.len();
+    if L > generators.values.len() - 1 {
+        return Err(Error::NotEnoughGenerators);
+    }
+
+    let mut disclosed_indexes = disclosed_indexes.to_vec();
+    disclosed_indexes.sort();
+    disclosed_indexes.dedup();
+
+    let R = disclosed_indexes.len();
+
+    if R > L - 1 {
+        return Err(Error::ProofGenError(format!(
+            "Invalid disclosed index"
+        )));
+    }
+
+    let U = L
+        .checked_sub(R)
+        .ok_or_else(|| Error::ProofGenError("R > L".to_owned()))?;
+
+    if let Some(invalid_index) = disclosed_indexes.iter().find(|&&i| i > L - 1) {
+        return Err(Error::ProofGenError(format!(
+            "Invalid disclosed index: {}",
+            invalid_index
+        )));
+    }
+
+    let undisclosed_indexes: Vec<usize> = get_remaining_indexes(L, &disclosed_indexes);
+
+    let disclosed_messages = get_messages(messages, &disclosed_indexes);
+    let undisclosed_messages = get_messages(messages, &undisclosed_indexes);
+
+    #[cfg(not(test))]
+    let random_scalars = calculate_random_scalars(5 + U);
+
+    #[cfg(test)]
+    let random_scalars = seeded_random_scalars::<CS>(5 + U, _seed, _dst);
+
+    let init_res = proof_init::<CS>(
+        pk,
+        signature,
+        generators,
+        &random_scalars,
+        header,
+        messages,
+        &undisclosed_indexes,
+        api_id,
+    )?;
+
+    let pseudonym_init_res = pseudonym_proof_init::<CS>(
+        context_id,
+        &PseudonymSecret(messages.last().expect("message scalar not found").value),
+        &random_scalars.last().expect("Random scalar not found"),
+    )?;
+
+    let pseudonym= pseudonym_init_res[0];
+
+    let challenge = proof_challenge_calculate::<CS>(
+        &init_res,
+        &disclosed_indexes,
+        &disclosed_messages,
+        ph,
+        api_id,
+    )?;
+
+    let proof = proof_finalize(
+        &init_res,
+        challenge,
+        signature.e,
+        &random_scalars,
+        &undisclosed_messages,
+    )?;
+
+    //TODO CREATE PSEUDONYM TYPE
+
+    Ok(proof, pseudonym)
+}
+
+///https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01#name-pseudonym-proof-generation-i
+///
+///  # Inputs:
+/// * `context_id` (REQUIRED), an octet string containing the Context (or verifier) id
+/// * `nym_secret` (REQUIRED), a [`PseudonymSecret`] value
+/// * `random_scalar` (REQUIRED), a random [`Scalar`]
+/// 
+/// # Output:
+/// a  tuple consisting of three elements from the G1 group or [`Error`].
+fn pseudonym_proof_init<CS>(
+    context_id: &[u8],
+    nym_secret: &PseudonymSecret,
+    random_scalar: &Scalar
+) -> Result<[G1Projective; 3], Error> 
+where
+    CS: BbsCiphersuite,
+    CS::Expander: for<'a> ExpandMsg<'a>
+    {
+
+    let OP = G1Projective::hash::<CS::Expander>(context_id, CS::API_ID_NYM);
+
+    let pseudonym = OP * nym_secret.0;
+
+    let Ut = OP * random_scalar;
+
+    if pseudonym.is_identity().into() {
+        return Err(Error::G1IdentityError)
+    }
+
+    Ok([pseudonym, OP, Ut])
+}
+
 
 /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01#name-calculate-b
 ///

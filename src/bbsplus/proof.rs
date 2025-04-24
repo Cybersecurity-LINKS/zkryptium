@@ -586,7 +586,7 @@ struct ProofInitResult {
 /// # Output:
 /// a [`ProofInitResult`] or [`Error`].
 ///
-fn proof_init<CS>(
+pub(super) fn proof_init<CS>(
     pk: &BBSplusPublicKey,
     signature: &BBSplusSignature,
     generators: &Generators,
