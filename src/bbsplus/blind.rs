@@ -83,13 +83,14 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         let commitment_with_proof = commitment_with_proof.unwrap_or(&[]);
 
         let mut M: usize = commitment_with_proof.len();
-        
+        //commitment_with_proof = g1_point + [s_hat, m_hat0...m_hatM, challenge]
+        //M = (length(commitment_with_proof) - point_length - 2*scalar_length)/scalar_length
         if M != 0 {
             M = M
                 .checked_sub(G1Projective::COMPRESSED_BYTES)
                 .ok_or(Error::InvalidCommitmentProof)?;
             M = M
-                .checked_sub(Scalar::BYTES)
+                .checked_sub(Scalar::BYTES * 2)
                 .ok_or(Error::InvalidCommitmentProof)?;
             M = M
                 .checked_div(Scalar::BYTES)
@@ -338,7 +339,7 @@ fn calculate_b(
 /// # Output:
 /// a [`BBSplusSignature`] or [`Error`].
 ///
-fn finalize_blind_sign<CS>(
+pub(super) fn finalize_blind_sign<CS>(
     sk: &BBSplusSecretKey,
     pk: &BBSplusPublicKey,
     B: G1Projective,
@@ -373,15 +374,14 @@ where
     let tmp_generators = [
         &generators.values[1..],
         core::slice::from_ref(&Q2),  //TODO: Edit taken from Grotto bbs sig library
-        &blind_generators
-            .values
-            .get(1..blind_generators.values.len() - 1)
-            .unwrap_or_default(),
+        &blind_generators.values[1..]
     ]
     .concat();
 
     let domain = calculate_domain::<CS>(pk, Q1, &tmp_generators, header, Some(api_id))?;
+    
     let B = B + Q1 * domain;//TODO: Edit taken from Grotto bbs sig library
+    
     let mut e_octs: Vec<u8> = Vec::new();
 
     e_octs.extend_from_slice(&sk.to_bytes());

@@ -290,7 +290,7 @@ where
     }
 
     let blind_gens = blind_generators.clone();
-
+    
     let Q2: G1Projective = blind_generators[0];
     let Js: &[G1Projective] = &blind_generators[1..M + 1];
 
@@ -309,7 +309,6 @@ where
     for i in 0..M {
         commitment += Js[i] * committed_messages_scalars[i].value;
     }
-println!("Commitment: {}", hex::encode(commitment.to_affine().to_compressed()));
 
     let mut Cbar = Q2 * s_tilde;
     for i in 0..M {
