@@ -1,10 +1,10 @@
 {
-  "caseName": "pid as committed message commitment with proof",
+  "caseName": "valid no committed messages commitment with proof",
   "mockRngParameters": {
     "SEED": "3.141592653589793238462643383279",
     "commit": {
       "DST": "BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_H2G_HM2S_COMMIT_MOCK_RANDOM_SCALARS_DST_",
-      "count": 3
+      "count": 2
     }
   },
   "committedMessages": [],
@@ -15,14 +15,11 @@
     "valid": true
   },
   "trace": {
-    "info": "from Blind BBS commit",
-    "M": 1,
-    "secret_prover_blind": "643a0c0bc86a50e0d8c00bfe6c8debd85373597e1aef6cc912838bf7dc376e48",
-    "s_tilde": "40e7b7bc3a17cbd4fa61f81728b6f1224a934a34f8cd57000c360f1b301690b8",
-    "m_tildes": [
-      "43a77228890e6cf2c297292b8989751a6e0c9713caa592f39e61e23a997321cb"
-    ],
-    "C": "990c1837a8af86843213e5b12fbfc962efcaf8fd0e5812a6237b91b00a47b5a34714a60b4c365f72b47a4d9b656dde47",
-    "Cbar": "af2bff5e3e7c5942772258e38dd17f0350e38345b1631f992fa66f285c20df9025a99c4d796d3db248b5155e4f7200c8"
+    "random_scalars": {
+      "s_tilde": "40e7b7bc3a17cbd4fa61f81728b6f1224a934a34f8cd57000c360f1b301690b8",
+      "m_tildes": [
+        "43a77228890e6cf2c297292b8989751a6e0c9713caa592f39e61e23a997321cb"
+      ]
+    }
   }
 }

@@ -1,0 +1,36 @@
+{
+  "caseName": "valid multiple committed messages commitment with proof",
+  "mockRngParameters": {
+    "SEED": "3.141592653589793238462643383279",
+    "commit": {
+      "DST": "BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_H2G_HM2S_COMMIT_MOCK_RANDOM_SCALARS_DST_",
+      "count": 8
+    }
+  },
+  "committedMessages": [
+    "5982967821da3c5983496214df36aa5e58de6fa25314af4cf4c00400779f08c3",
+    "a75d8b634891af92282cc81a675972d1929d3149863c1fc0",
+    "835889a40744813a892eff9deb1edaeb",
+    "e1ca9729410dc6ba",
+    ""
+  ],
+  "proverNym": "6830ea571e9fca0194d9ebd5c571369d8b81655afe0bbb9c6f5efe934f699418",
+  "proverBlind": "1ade8b27cccac993dfe3d57be0cd1a200a5cae52d9ea525f106c94f06fea89c3",
+  "commitmentWithProof": "a9577c3e2f15081c03d2e86789c1d9208bc04409b1ca33c25d06017c8fef5d139aee028ac96b9c09636a45846e9a5ee51f83bfd55f12193061e3f707d11d9993d6e08293de7f3dd0a298c21f369208b43b7b401706a9a0a5dcfa12d28d5a59b09da337b435cf4aa2a869842c8e1409004865ce6ff78d345e5c8142c9c440b677824ce06a8f70c50bbbb01838a91eb0041fd853c2005109d3aec272dd03346f37fc90828490fbedc4fc88e7307662b785653aba1a28a45bca913b7dd778e8bd141652e6f0507c3f836c8852b8ddbf2c62659dbd7b83f096e7b351f2f0dc6046bce3c8d0c5bb892a7a3d76d6bac899b3d356b099f88287ac25e6879d5808f832927c8e28acae41ab3699b5c0f9da4f58bf67d7e87c5ddb6dadd80fe281e158cc7a24bc398f84022dc0dc3a123971f7546c",
+  "result": {
+    "valid": true
+  },
+  "trace": {
+    "random_scalars": {
+      "s_tilde": "4cdc5d3fdbe932953dd181851ebf6c134103666761013ff3db4e6dbe47d3992a",
+      "m_tildes": [
+        "3aca8b66d624ae8974e93fd1f654ddc5f071c9b026eb6eb116401a4cce87d699",
+        "0eb04c03f3571cc6cfaf29f19126d032b85bc1e9ac0af917ec5dc8ba61ce2d28",
+        "0824fe0cfae8bdb1d2c88cd0d8a4c1b432a48f7f12e35afe5494400a3caaa974",
+        "05faf4555ddc6450e9f4b26ac7ed56ae57998c529d3a898f93f72406d9c63990",
+        "253782ab563a180dcdb220d0b75ad1499c70c8e7da183c2720f313368cf001a3",
+        "58ca8d9150a51f432c32e41bbfc4b630333ccd19fd8daa6d581ff651392dbece"
+      ]
+    }
+  }
+}

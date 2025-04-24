@@ -1,5 +1,5 @@
 {
-  "caseName": "Nym commitment with proof",
+  "caseName": "valid no committed messages commitment with proof",
   "mockRngParameters": {
     "SEED": "3.141592653589793238462643383279",
     "commit": {
@@ -15,13 +15,11 @@
     "valid": true
   },
   "trace": {
-    "M": 1,
-    "secret_prover_blind": "3ba0a2583bc7229fa9f2ae3a6697091032947c3a48f302b7fd2b08ca9d193041",
-    "s_tilde": "3a3b481c984f4396a13b1f65368aa393d08455fbfd351ab80f593aa5de8b4b1d",
-    "m_tildes": [
-      "5e82a40ae25e65fb04d7722f36ecd62fa4f07c8815e74f0a14a7e0a6547a36ce"
-    ],
-    "C": "b989fc492e2047f602504eb3e236c0acb04224c77ad0d4cbd31c887b9eb05a1f27d7acfb266fe0ae062914bfa060984c",
-    "Cbar": "af8152d30fc149adb48825795fc0bf51c509c584cb164a703252dd8857e6ffda60b1a82f1cd2277dff24dd002227bacf"
+    "random_scalars": {
+      "s_tilde": "3a3b481c984f4396a13b1f65368aa393d08455fbfd351ab80f593aa5de8b4b1d",
+      "m_tildes": [
+        "5e82a40ae25e65fb04d7722f36ecd62fa4f07c8815e74f0a14a7e0a6547a36ce"
+      ]
+    }
   }
 }
