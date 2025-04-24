@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::ops::Add;
+
 use bls12_381_plus::{G1Projective, Scalar};
 use elliptic_curve::hash2curve::ExpandMsg;
 use crate::errors::Error;
@@ -21,15 +23,16 @@ use crate::schemes::generics::{BlindSignature, Commitment};
 use crate::utils::message::bbsplus_message::BBSplusMessage;
 use crate::utils::util::bbsplus_utils::{get_random, ScalarExt};
 
-use super::blind::finalize_blind_sign;
+use super::blind::{finalize_blind_sign, prepare_parameters};
 use super::ciphersuites::BbsCiphersuite;
 use super::commitment::{core_commit, BlindFactor};
 use super::generators::Generators;
 use super::keys::{BBSplusPublicKey, BBSplusSecretKey};
+use super::signature::core_verify;
 
 //#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 ///
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 /// A struct representing a pseudonym secret factor used in BBS+ pseudonyms.
 pub struct PseudonymSecret(pub(crate) Scalar);
 
@@ -79,6 +82,14 @@ impl Into<BBSplusMessage> for &PseudonymSecret {
     }
 }
 
+impl<'a, 'b> Add<&'b PseudonymSecret> for &'a PseudonymSecret {
+    type Output = PseudonymSecret;
+
+    #[inline]
+    fn add(self, rhn: &'b PseudonymSecret) -> PseudonymSecret {
+        PseudonymSecret(self.0 + rhn.0)
+    }
+}
 
 impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>>{
     /// # Description
@@ -237,6 +248,64 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         )?;
 
         Ok(Self::BBSplus(blind_sig))
+    }
+
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01#name-verification-and-finalizati
+    ///
+    /// # Description
+    /// The following operation both verifies the generated blind signature, as well as calculating and returning the final nym_secret,
+    /// used to calculate the pseudonym value during proof generation.
+    ///
+    /// # Inputs:
+    /// * `self`, a blind signature computed with the `blind_sign_with_nym` operation
+    /// * `pk` (REQUIRED), a public key
+    /// * `header` (OPTIONAL), an octet string containing context and application specific information.
+    /// * `messages` (OPTIONAL), a vector of octet strings messages supplied by the Signer.  If not supplied, it defaults to the empty array.
+    /// * `committed_messages` (OPTIONAL), a vector of octet strings messages committed by the Prover.
+    /// * `prover_nym` (OPTIONAL), a scalar value ([`PseudonymSecret`]). If not supplied it defaults to zero "0"
+    /// * `signer_nym_entropy` (OPTIONAL), a scalar value ([`PseudonymSecret`]). If not supplied it defaults to zero "0"
+    /// * `secret_prover_blind` (OPTIONAL), a scalar value ([`BlindFactor`]). If not supplied it defaults to zero "0"
+    ///
+    /// # Output:
+    /// * `nym_secret`, a scalar value ([`PseudonymSecret`]) or [`Error`].
+    pub fn verify_finalize_with_nym(
+        &self,
+        pk: &BBSplusPublicKey,
+        header: Option<&[u8]>,
+        messages: Option<&[Vec<u8>]>,
+        committed_messages: Option<&[Vec<u8>]>,
+        prover_nym: Option<&PseudonymSecret>,
+        signer_nym_entropy: Option<&PseudonymSecret>,
+        secret_prover_blind: Option<&BlindFactor>,
+    ) -> Result<PseudonymSecret, Error> {
+        let api_id: &[u8] = CS::API_ID_NYM;
+        let messages = messages.unwrap_or(&[]);
+        let committed_messages = committed_messages.unwrap_or(&[]);
+        let secret_prover_blind = secret_prover_blind.unwrap_or(&BlindFactor(Scalar::ZERO));
+        let prover_nym = prover_nym.unwrap_or(&PseudonymSecret(Scalar::ZERO));
+        let signer_nym_entropy = signer_nym_entropy.unwrap_or(&PseudonymSecret(Scalar::ZERO));
+
+        let nym_secret = prover_nym + signer_nym_entropy;
+        
+        let (mut message_scalars, generators) = prepare_parameters::<CS>(
+            Some(messages),
+            Some(committed_messages),
+            messages.len() + 1,
+            committed_messages.len() + 2,
+            Some(secret_prover_blind), 
+            Some(api_id)
+        )?;
+
+        message_scalars.push((&nym_secret).into());
+
+        core_verify::<CS>(
+            pk,
+            self.bbsPlusBlindSignature(),
+            &message_scalars,
+            generators,
+            header,
+            Some(api_id),
+        ).map(|()| nym_secret)
     }
 
 }
@@ -461,6 +530,12 @@ mod tests {
             .as_str()
             .unwrap()
         ).unwrap();
+
+        let prover_nym = PseudonymSecret::from_hex(
+            proof_json["proverNym"]
+            .as_str()
+            .unwrap()
+        ).unwrap();
         
         let signature = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign_with_nym(
             &sk,
@@ -476,19 +551,24 @@ mod tests {
 
         assert_eq!(hex::encode(&signature_oct), expected_signature);
 
-/*         let result = signature
-            .verify_blind_sign(
+        let nym_secret = signature
+            .verify_finalize_with_nym(
                 &pk,
                 Some(&header),
                 Some(&messages),
                 committed_messages.as_deref(),
+                Some(&prover_nym),
+                Some(&signer_nym_entropy),
                 prover_blind.as_ref(),
-            )
-            .is_ok();
+            ).unwrap();
 
-        let expected_result = proof_json["result"]["valid"].as_bool().unwrap(); 
+        let expected_nym_secret = PseudonymSecret::from_hex(
+            proof_json["nym_secret"]
+            .as_str()
+            .unwrap()
+        ).unwrap();
 
-        assert_eq!(result, expected_result);*/
+        assert_eq!(nym_secret, expected_nym_secret);
     }
 }
 
