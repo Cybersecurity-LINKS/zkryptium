@@ -84,24 +84,6 @@ impl BBSplusPoKSignature {
     /// # Returns
     ///
     /// * `Result<Self, Error>` - A result containing the deserialized `BBSplusPoKSignature` or an error.
-    /// Creates a `PoKSignature` from a byte slice.
-    ///
-    /// # Arguments
-    ///
-    /// * `bytes` - A byte slice representing the serialized `PoKSignature`.
-    ///
-    /// # Returns
-    ///
-    /// * `Result<Self, Error>` - A result containing the deserialized `PoKSignature` or an error.
-    /// Creates a `BBSplusPoKSignature` from a byte slice.
-    ///
-    /// # Arguments
-    ///
-    /// * `bytes` - A byte slice representing the serialized `BBSplusPoKSignature`.
-    ///
-    /// # Returns
-    ///
-    /// * `Result<Self, Error>` - A result containing the deserialized `BBSplusPoKSignature` or an error.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         let Abar = parse_g1_projective(&bytes[0..48])
             .map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
@@ -557,13 +539,13 @@ where
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct ProofInitResult {
-    Abar: G1Projective,
-    Bbar: G1Projective,
-    D: G1Projective,
-    T1: G1Projective,
-    T2: G1Projective,
-    domain: Scalar,
+pub(super) struct ProofInitResult {
+    pub Abar: G1Projective,
+    pub Bbar: G1Projective,
+    pub D: G1Projective,
+    pub T1: G1Projective,
+    pub T2: G1Projective,
+    pub domain: Scalar,
 }
 
 /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-proof-initialization
@@ -726,7 +708,7 @@ where
 /// # Output:
 /// a proof ([`BBSplusPoKSignature`]) or [`Error`].
 ///
-fn proof_finalize(
+pub(super) fn proof_finalize(
     init_res: &ProofInitResult,
     challenge: Scalar,
     e: Scalar,
