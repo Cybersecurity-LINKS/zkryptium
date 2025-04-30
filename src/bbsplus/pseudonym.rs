@@ -16,12 +16,13 @@ use std::ops::Add;
 
 use bls12_381_plus::{G1Projective, Scalar};
 use elliptic_curve::hash2curve::ExpandMsg;
+use serde::{Deserialize, Serialize};
 use crate::errors::Error;
 use crate::schemes::algorithms::BBSplus;
-use crate::bbsplus::commitment::BBSplusCommitment; // Import the missing type
+use crate::bbsplus::commitment::BBSplusCommitment;
 use crate::schemes::generics::{BlindSignature, Commitment, PoKSignature};
 use crate::utils::message::bbsplus_message::BBSplusMessage;
-use crate::utils::util::bbsplus_utils::{get_messages, get_random, ScalarExt};
+use crate::utils::util::bbsplus_utils::{get_messages, get_random, hash_to_scalar, parse_g1_projective, i2osp, ScalarExt};
 use crate::utils::util::get_remaining_indexes;
 
 use super::blind::{finalize_blind_sign, prepare_parameters};
@@ -29,17 +30,63 @@ use super::ciphersuites::BbsCiphersuite;
 use super::commitment::{core_commit, BlindFactor};
 use super::generators::Generators;
 use super::keys::{BBSplusPublicKey, BBSplusSecretKey};
-use super::proof::{proof_init, BBSplusPoKSignature};
+use super::proof::{proof_finalize, proof_init, BBSplusPoKSignature, ProofInitResult};
 use super::signature::{core_verify, BBSplusSignature};
+use bls12_381_plus::group::Curve;
 
 #[cfg(not(test))]
 use crate::utils::util::bbsplus_utils::calculate_random_scalars;
 #[cfg(test)]
 use crate::utils::util::bbsplus_utils::seeded_random_scalars;
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct PseudonymProofInitResult {
+    pseudonym: G1Projective,
+    OP: G1Projective,
+    Ut: G1Projective
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+/// Represents a BBS+ Pseudonym.
+/// See https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01#name-pseudonyms
+pub struct BBSplusPseudonym{
+    pseudonym: G1Projective
+}
+
+impl BBSplusPseudonym {
+    /// Converts the `BBSplusPseudonym` to a byte vector.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes: Vec<u8> = Vec::new();
+
+        bytes.extend_from_slice(&self.pseudonym.to_affine().to_compressed());
+        bytes
+    }
+
+    /// Creates a `BBSplusPseudonym` from a byte slice.
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - A byte slice representing the serialized `BBSplusPseudonym`.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Self, Error>` - A result containing the deserialized `BBSplusPseudonym` or an error.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        let pseudonym = parse_g1_projective(&bytes[0..48])
+            .map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
+
+        Ok(Self{pseudonym})
+    }
+}
+
+
+
+
+
+
 //#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 ///
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 /// A struct representing a pseudonym secret factor used in BBS+ pseudonyms.
 pub struct PseudonymSecret(pub(crate) Scalar);
 
@@ -83,7 +130,7 @@ impl PseudonymSecret {
 
 }
 
-impl Into<BBSplusMessage> for &PseudonymSecret {
+impl Into<BBSplusMessage> for PseudonymSecret {
     fn into(self) -> BBSplusMessage {
         BBSplusMessage::new(self.0)
     }
@@ -155,7 +202,7 @@ where
     let mut commited_message_scalars =
         BBSplusMessage::messages_to_scalar::<CS>(committed_messages, api_id)?;
 
-    commited_message_scalars.push(prover_nym.into());
+    commited_message_scalars.push(BBSplusMessage::new(prover_nym.0));
     
     let blind_generators = Generators::create::<CS>(
         commited_message_scalars.len() + 1, 
@@ -303,7 +350,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
             Some(api_id)
         )?;
 
-        message_scalars.push((&nym_secret).into());
+        message_scalars.push(nym_secret.clone().into());
 
         core_verify::<CS>(
             pk,
@@ -351,14 +398,14 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         signature: &[u8],
         header: Option<&[u8]>,
         ph: Option<&[u8]>,
-        nym_secret: &PseudonymSecret,
+        nym_secret: &[u8],
         context_id: &[u8],
         messages: Option<&[Vec<u8>]>,
         committed_messages: Option<&[Vec<u8>]>,
         disclosed_indexes: Option<&[usize]>,
         disclosed_commitment_indexes: Option<&[usize]>,
         secret_prover_blind: Option<&BlindFactor>,
-    ) -> Result<Self, Error>
+    ) -> Result<(Self, BBSplusPseudonym), Error>
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
@@ -369,6 +416,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         let messages = messages.unwrap_or(&[]);
         let committed_messages = committed_messages.unwrap_or(&[]);
         let secret_prover_blind = secret_prover_blind.unwrap_or(&BlindFactor(Scalar::ZERO));
+        let pseudonym_secret = PseudonymSecret::from_bytes(nym_secret.try_into().map_err(|_| Error::InvalidPseudonym)?)?;
         let L = messages.len();
         let M = committed_messages.len();
 
@@ -400,7 +448,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
             Some(api_id)
         )?;
 
-        message_scalars.push(nym_secret.into());
+        message_scalars.push(pseudonym_secret.into());
 
         let indexes = disclosed_indexes
             .iter()
@@ -408,9 +456,10 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
             .chain(disclosed_commitment_indexes.iter().map(|&j| j + L + 1))
             .collect::<Vec<_>>();
 
-        let proof = core_proof_gen_with_nym::<CS>(
+        let (proof,  pseudonym) = core_proof_gen_with_nym::<CS>(
             pk,
             &signature,
+            context_id,
             &generators,
             &message_scalars,
             &indexes,
@@ -421,7 +470,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
             &CS::BLIND_PROOF_DST,
         )?;
 
-        Ok(Self::BBSplus(proof))
+        Ok((Self::BBSplus(proof), pseudonym))
     }
 
 
@@ -450,7 +499,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
 /// * `api_id` (OPTIONAL), an octet string.
 ///
 /// # Output:
-/// a PoK of a Signature [`BBSplusPoKSignature`] and the pseudonym [`G1projective`]  or [`Error`].
+/// a PoK of a Signature [`BBSplusPoKSignature`] and the pseudonym [`BBSplusPseudonym`]  or [`Error`].
 ///
 fn core_proof_gen_with_nym<CS>(
     pk: &BBSplusPublicKey,
@@ -464,7 +513,7 @@ fn core_proof_gen_with_nym<CS>(
     api_id: Option<&[u8]>,
     _seed: &[u8],
     _dst: &[u8],
-) -> Result<(BBSplusPoKSignature, PseudonymSecret), Error>
+) -> Result<(BBSplusPoKSignature, BBSplusPseudonym), Error>
 where
     CS: BbsCiphersuite,
     CS::Expander: for<'a> ExpandMsg<'a>,
@@ -525,10 +574,13 @@ where
         &random_scalars.last().expect("Random scalar not found"),
     )?;
 
-    let pseudonym= pseudonym_init_res[0];
+    let pseudonym= BBSplusPseudonym{
+        pseudonym: pseudonym_init_res.pseudonym
+    };
 
-    let challenge = proof_challenge_calculate::<CS>(
+    let challenge = proof_with_nym_challenge_calculate::<CS>(
         &init_res,
+        &pseudonym_init_res,
         &disclosed_indexes,
         &disclosed_messages,
         ph,
@@ -543,9 +595,7 @@ where
         &undisclosed_messages,
     )?;
 
-    //TODO CREATE PSEUDONYM TYPE
-
-    Ok(proof, pseudonym)
+    Ok((proof, pseudonym))
 }
 
 ///https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01#name-pseudonym-proof-generation-i
@@ -556,12 +606,12 @@ where
 /// * `random_scalar` (REQUIRED), a random [`Scalar`]
 /// 
 /// # Output:
-/// a  tuple consisting of three elements from the G1 group or [`Error`].
+/// [`PseudonymProofInitResult`], a tuple consisting of three elements from the G1 group or [`Error`].
 fn pseudonym_proof_init<CS>(
     context_id: &[u8],
     nym_secret: &PseudonymSecret,
     random_scalar: &Scalar
-) -> Result<[G1Projective; 3], Error> 
+) -> Result<PseudonymProofInitResult, Error> 
 where
     CS: BbsCiphersuite,
     CS::Expander: for<'a> ExpandMsg<'a>
@@ -577,8 +627,73 @@ where
         return Err(Error::G1IdentityError)
     }
 
-    Ok([pseudonym, OP, Ut])
+    Ok(PseudonymProofInitResult{pseudonym, OP, Ut})
 }
+
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01#name-challenge-calculation
+///
+/// # Inputs:
+/// * `init_res` (REQUIRED), [`ProofInitResult`] returned after initializing the proof generation or verification operations, 
+///                             consisting of 5 points of G1 and a scalar value, in that order.
+/// * `pseudonym_init_res` (REQUIRED), [`PseudonymProofInitResult`] vector representing the value returned
+///                                 after initializing the pseudonym proof, consisting of 3 points of G1.
+/// * `header` (OPTIONAL), an octet string containing context and application.
+/// * `dsclosed_messages` (OPTIONAL), a vector of scalars ([`BBSplusMessage`]) representing the disclosed messages to the Verifier.
+/// * `disclosed_indexes` (OPTIONAL), vector of usize in ascending order. Indexes of disclosed messages.
+/// * `ph` (OPTIONAL), an octet string containing the presentation header.
+/// * `api_id` (OPTIONAL), an octet string.
+///
+/// # Output:
+/// a challenge ([`Scalar`]) or [`Error`].
+///
+fn proof_with_nym_challenge_calculate<CS>(
+    init_res: &ProofInitResult,
+    pseudonym_init_res: &PseudonymProofInitResult,
+    disclosed_indexes: &[usize],
+    disclosed_messages: &[BBSplusMessage],
+    ph: Option<&[u8]>,
+    api_id: Option<&[u8]>,
+) -> Result<Scalar, Error>
+where
+    CS: BbsCiphersuite,
+{
+    let R = disclosed_indexes.len();
+
+    if disclosed_messages.len() != R {
+        return Err(Error::ProofGenError(
+            "Number of disclosed indexes different from number of disclosed messages".to_owned(),
+        ));
+    }
+
+    let api_id = api_id.unwrap_or(b"");
+    let challenge_dst = [api_id, CS::H2S].concat();
+
+    let ph = ph.unwrap_or(b"");
+
+    let mut c_arr: Vec<u8> = Vec::new();
+    c_arr.extend_from_slice(&i2osp::<8>(R));
+    for (i, m) in core::iter::zip(disclosed_indexes, disclosed_messages) {
+        c_arr.extend_from_slice(&i2osp::<8>(*i));
+        c_arr.extend_from_slice(&m.value.to_bytes_be());
+    }
+    c_arr.extend_from_slice(&init_res.Abar.to_affine().to_compressed());
+    c_arr.extend_from_slice(&init_res.Bbar.to_affine().to_compressed());
+    c_arr.extend_from_slice(&init_res.D.to_affine().to_compressed());
+    c_arr.extend_from_slice(&init_res.T1.to_affine().to_compressed());
+    c_arr.extend_from_slice(&init_res.T2.to_affine().to_compressed());
+    c_arr.extend_from_slice(&pseudonym_init_res.pseudonym.to_affine().to_compressed());
+    c_arr.extend_from_slice(&pseudonym_init_res.OP.to_affine().to_compressed());
+    c_arr.extend_from_slice(&pseudonym_init_res.Ut.to_affine().to_compressed());
+    c_arr.extend_from_slice(&init_res.domain.to_bytes_be());
+
+    let ph_i2osp = i2osp::<8>(ph.len());
+
+    c_arr.extend_from_slice(&ph_i2osp);
+    c_arr.extend_from_slice(ph);
+
+    hash_to_scalar::<CS>(&c_arr, &challenge_dst)
+}
+
 
 
 /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01#name-calculate-b
@@ -645,11 +760,13 @@ mod tests {
     use elliptic_curve::hash2curve::ExpandMsg;
 
     use crate::{
-        bbsplus::{ciphersuites::BbsCiphersuite, commitment::BlindFactor, generators::Generators, keys::{BBSplusPublicKey, BBSplusSecretKey}, pseudonym::PseudonymSecret},
+        bbsplus::{ciphersuites::BbsCiphersuite, commitment::BlindFactor, generators::Generators, keys::{BBSplusPublicKey, BBSplusSecretKey}, 
+        pseudonym::PseudonymSecret, signature::BBSplusSignature},
         schemes::{
             algorithms::{BBSplus, BbsBls12381Sha256, BbsBls12381Shake256, Scheme},
-            generics::{BlindSignature, Commitment},
+            generics::{BlindSignature, Commitment, PoKSignature},
         },
+        utils::util::bbsplus_utils::{get_messages_vec, ScalarExt},
     };
 
     // Commitment
@@ -841,6 +958,183 @@ mod tests {
 
         assert_eq!(nym_secret, expected_nym_secret);
     }
+
+
+    macro_rules! blind_proof_tests {
+        ( $( ($t:ident, $p:literal): { $( ($n:ident, $f:literal), )+ },)+ ) => { $($(
+            #[test] fn $n() { nym_proof_check::<$t>($p, $f, "./fixture_data_nym/"); }
+        )+)+ }
+    }
+
+    blind_proof_tests! {
+        (BbsBls12381Sha256, "./fixture_data_blind/bls12-381-sha-256/"): {
+            (nym_proof_check_sha256_1, "nymProof/nymProof001.json"),
+            (nym_proof_check_sha256_2, "nymProof/nymProof002.json"),
+            (nym_proof_check_sha256_3, "nymProof/nymProof003.json"),
+            (nym_proof_check_sha256_4, "nymProof/nymProof004.json"),
+            (nym_proof_check_sha256_5, "nymProof/nymProof005.json"),
+            (nym_proof_check_sha256_6, "nymProof/nymProof006.json"),
+            (nym_proof_check_sha256_7, "nymProof/nymProof007.json"),
+        },
+        (BbsBls12381Shake256, "./fixture_data_blind/bls12-381-shake-256/"): {
+            (nym_proof_check_shake256_1, "nymProof/nymProof001.json"),
+            (nym_proof_check_shake256_2, "nymProof/nymProof002.json"),
+            (nym_proof_check_shake256_3, "nymProof/nymProof003.json"),
+            (nym_proof_check_shake256_4, "nymProof/nymProof004.json"),
+            (nym_proof_check_shake256_5, "nymProof/nymProof005.json"),
+            (nym_proof_check_shake256_6, "nymProof/nymProof006.json"),
+            (nym_proof_check_shake256_7, "nymProof/nymProof007.json"),
+        },
+    }
+
+
+    fn nym_proof_check<S: Scheme>(pathname: &str, proof_filename: &str, messages_path: &str)
+    where
+        S::Ciphersuite: BbsCiphersuite,
+        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
+    {
+        let data = std::fs::read_to_string([pathname, proof_filename].concat())
+            .expect("Unable to read file");
+        let proof_json: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
+
+        let messages_data = std::fs::read_to_string([messages_path, "messages.json"].concat())
+            .expect("Unable to read file");
+        let messages_json: serde_json::Value =
+            serde_json::from_str(&messages_data).expect("Unable to parse");
+
+        println!("{}", proof_json["caseName"]);
+
+        let pk_hex = proof_json["signerPublicKey"].as_str().unwrap();
+
+        let pk = BBSplusPublicKey::from_bytes(&hex::decode(pk_hex).unwrap()).unwrap();
+
+        let committed_messages: Option<Vec<String>> = messages_json["committedMessages"]
+            .as_array()
+            .and_then(|cm| {
+                cm.iter()
+                    .map(|m| serde_json::from_value(m.clone()).unwrap())
+                    .collect()
+            });
+        let committed_messages: Option<Vec<Vec<u8>>> = match committed_messages {
+            Some(cm) => Some(cm.iter().map(|m| hex::decode(m).unwrap()).collect()),
+            None => None,
+        };
+
+        let messages: Option<Vec<String>> = messages_json["messages"].as_array().and_then(|cm| {
+            cm.iter()
+                .map(|m| serde_json::from_value(m.clone()).unwrap())
+                .collect()
+        });
+        let messages: Option<Vec<Vec<u8>>> = match messages {
+            Some(m) => Some(m.iter().map(|m| hex::decode(m).unwrap()).collect()),
+            None => None,
+        };
+
+        let secret_prover_blind = proof_json["proverBlind"].as_str().map(|b| {
+            BlindFactor::from_bytes(&hex::decode(b).unwrap().try_into().unwrap()).unwrap()
+        });
+        let header = hex::decode(proof_json["header"].as_str().unwrap()).unwrap();
+        let ph = hex::decode(proof_json["presentationHeader"].as_str().unwrap()).unwrap();
+        let signature = BBSplusSignature::from_bytes(
+            &hex::decode(proof_json["signature"].as_str().unwrap())
+                .unwrap()
+                .try_into()
+                .unwrap(),
+        )
+        .unwrap();
+
+        let (disclosed_messages, disclosed_indexes) = proof_json["revealedMessages"]
+            .as_object()
+            .map(|values| {
+                let messages = values
+                    .values()
+                    .map(|h| hex::decode(h.as_str().unwrap()).unwrap())
+                    .collect::<Vec<_>>();
+                let indexes = values
+                    .keys()
+                    .map(|s| s.parse().unwrap())
+                    .collect::<Vec<_>>();
+                (messages, indexes)
+            })
+            .map_or((None, None), |(m, i)| (Some(m), Some(i))); // unzip() in 1.66+
+
+        let (disclosed_committed_messages, disclosed_commitment_indexes) = proof_json
+            ["revealedCommittedMessages"]
+            .as_object()
+            .map(|values| {
+                let messages = values
+                    .values()
+                    .map(|h| hex::decode(h.as_str().unwrap()).unwrap())
+                    .collect::<Vec<_>>();
+                let indexes = values
+                    .keys()
+                    .map(|s| s.parse().unwrap())
+                    .collect::<Vec<_>>();
+                (messages, indexes)
+            })
+            .map_or((None, None), |(m, i)| (Some(m), Some(i))); // unzip() in 1.66+
+
+        let used_committed_messages = if disclosed_commitment_indexes.is_some() {
+            committed_messages
+        } else {
+            None
+        };
+
+        //context_id
+        //nym_secret
+
+        let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen_with_nym(
+            &pk,
+            &signature.to_bytes(),
+            Some(&header),
+            Some(&ph),
+            messages.as_deref(),
+            used_committed_messages.as_deref(),
+            disclosed_indexes.as_deref(),
+            disclosed_commitment_indexes.as_deref(),
+            secret_prover_blind.as_ref(),
+        )
+        .unwrap();
+
+        let expected_proof = proof_json["proof"].as_str().unwrap();
+
+        assert_eq!(hex::encode(proof.to_bytes()), expected_proof);
+
+/*         let result = proof
+            .blind_proof_verify(
+                &pk,
+                Some(&header),
+                Some(&ph),
+                messages.as_ref().map(Vec::len),
+                disclosed_messages.as_deref(),
+                disclosed_committed_messages.as_deref(),
+                disclosed_indexes.as_deref(),
+                disclosed_commitment_indexes.as_deref(),
+            )
+            .is_ok();
+
+        let expected_result = proof_json["result"]["valid"].as_bool().unwrap();
+
+        assert_eq!(result, expected_result); */
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }
 
 
