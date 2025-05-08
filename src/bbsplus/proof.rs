@@ -47,14 +47,14 @@ use crate::utils::util::bbsplus_utils::seeded_random_scalars;
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 /// Represents a BBS+ Proof of Knowledge Signature.
 pub struct BBSplusPoKSignature {
-    Abar: G1Projective,
-    Bbar: G1Projective,
-    D: G1Projective,
-    e_cap: Scalar,
-    r1_cap: Scalar,
-    r3_cap: Scalar,
-    m_cap: Vec<Scalar>,
-    challenge: Scalar,
+    pub(crate) Abar: G1Projective,
+    pub(crate) Bbar: G1Projective,
+    pub(crate) D: G1Projective,
+    pub(crate) e_cap: Scalar,
+    pub(crate) r1_cap: Scalar,
+    pub(crate) r3_cap: Scalar,
+    pub(crate) m_cap: Vec<Scalar>,
+    pub(crate) challenge: Scalar,
 }
 
 impl BBSplusPoKSignature {
@@ -836,7 +836,7 @@ where
 /// # Output:
 /// a [`ProofInitResult`] or [`Error`].
 ///
-fn proof_verify_init<CS>(
+pub(crate) fn proof_verify_init<CS>(
     pk: &BBSplusPublicKey,
     proof: &BBSplusPoKSignature,
     generators: &Generators,
