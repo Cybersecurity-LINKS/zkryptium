@@ -49,7 +49,7 @@ struct PseudonymProofInitResult {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct PseudonymProofVerifyInitResult {
-    pseudonym: &BBSplusPseudonym,
+    pseudonym: BBSplusPseudonym,
     OP: G1Projective,
     Uv: G1Projective
 }
@@ -87,8 +87,6 @@ impl BBSplusPseudonym {
     }
 }
 
-//#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-///
 #[derive(Debug, PartialEq, Clone)]
 /// A struct representing a pseudonym secret factor used in BBS+ pseudonyms.
 pub struct PseudonymSecret(pub(crate) Scalar);
@@ -491,6 +489,8 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     /// * `header` (OPTIONAL), an octet string containing context and application.
     /// * `ph` (OPTIONAL), an octet string containing the presentation header.
     /// * `pseudonym` (REQUIRED), a ([`BBSplusPseudonym`]) value
+    /// * `context_id` (REQUIRED), an octet string, representing the unique proof Verifier identifieran octet string,
+    ///                             representing the unique proofVerifier identifier
     /// * `L` (OPTIONAL), an integer, representing the total number of Signer known messages if not supplied it defaults to 0.
     /// * `disclosed_messages` (OPTIONAL), a vector of octet string representing the messages disclosed to the Verifier.
     /// * `disclosed_committed_messages` (OPTIONAL), a vector of octet string representing the committed messages disclosed to the Verifier.
@@ -506,6 +506,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         header: Option<&[u8]>,
         ph: Option<&[u8]>,
         pseudonym: &BBSplusPseudonym,
+        context_id: &[u8],
         L: Option<usize>,
         disclosed_messages: Option<&[Vec<u8>]>,
         disclosed_committed_messages: Option<&[Vec<u8>]>,
@@ -546,9 +547,11 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
             .chain(disclosed_commitment_indexes.iter().map(|j| j + L + 1))
             .collect::<Vec<_>>();
 
-        core_proof_verify::<CS>(
+        core_proof_verify_with_nym::<CS>(
             pk,
             proof,
+            pseudonym,
+            context_id,
             &generators,
             header,
             ph,
@@ -557,8 +560,6 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
             Some(api_id),
         ) 
     }
-
-
 
 }
 
@@ -612,10 +613,18 @@ where
         api_id,
     )?;
 
-    let challenge = proof_challenge_calculate::<CS>(
+    let pseudonym_init_res = pseudonym_proof_verify_init::<CS>(
+        pseudonym,
+        context_id,
+        proof.m_cap.last().expect("pseudonym not found"),
+        &proof.challenge,
+    )?;
+
+    let challenge = verify_proof_with_nym_challenge_calculate::<CS>(
         &init_res,
-        disclosed_indexes,
-        disclosed_messages,
+        &pseudonym_init_res,
+        &disclosed_indexes,
+        &disclosed_messages,
         ph,
         api_id,
     )?;
@@ -796,7 +805,7 @@ where
 ///  # Inputs:
 /// * `pseudonym` (REQUIRED), a [`BBSplusPseudonym`] value
 /// * `context_id` (REQUIRED), an octet string containing the Context (or verifier) id
-/// * `nym_secret_commitment` (REQUIRED), a [`PseudonymSecret`] value
+/// * `nym_secret_commitment` (REQUIRED), a [`Scalar`] value
 /// * `proof_challenge` (REQUIRED), a random [`Scalar`]
 /// 
 /// # Output:
@@ -804,7 +813,7 @@ where
 fn pseudonym_proof_verify_init<CS>(
     pseudonym: &BBSplusPseudonym,
     context_id: &[u8],
-    nym_secret_commitment: &PseudonymSecret,
+    nym_secret_commitment: &Scalar,
     proof_challenge: &Scalar
 ) -> Result<PseudonymProofVerifyInitResult, Error> 
 where
@@ -814,13 +823,13 @@ where
 
     let OP = G1Projective::hash::<CS::Expander>(context_id, CS::API_ID_NYM);
 
-    let Uv: G1Projective = OP * nym_secret_commitment.0 - pseudonym.pseudonym * proof_challenge;
+    let Uv: G1Projective = OP * nym_secret_commitment - pseudonym.pseudonym * proof_challenge;
 
     if Uv.is_identity().into() {
         return Err(Error::G1IdentityError)
     }
 
-    Ok(PseudonymProofVerifyInitResult{pseudonym, OP, Uv})
+    Ok(PseudonymProofVerifyInitResult{pseudonym: pseudonym.clone(), OP, Uv})
 }
 
 /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01#name-challenge-calculation
@@ -877,6 +886,54 @@ where
     c_arr.extend_from_slice(&pseudonym_init_res.pseudonym.to_affine().to_compressed());
     c_arr.extend_from_slice(&pseudonym_init_res.OP.to_affine().to_compressed());
     c_arr.extend_from_slice(&pseudonym_init_res.Ut.to_affine().to_compressed());
+    c_arr.extend_from_slice(&init_res.domain.to_bytes_be());
+
+    let ph_i2osp = i2osp::<8>(ph.len());
+
+    c_arr.extend_from_slice(&ph_i2osp);
+    c_arr.extend_from_slice(ph);
+
+    hash_to_scalar::<CS>(&c_arr, &challenge_dst)
+}
+
+fn verify_proof_with_nym_challenge_calculate<CS>(
+    init_res: &ProofInitResult,
+    pseudonym_init_res: &PseudonymProofVerifyInitResult,
+    disclosed_indexes: &[usize],
+    disclosed_messages: &[BBSplusMessage],
+    ph: Option<&[u8]>,
+    api_id: Option<&[u8]>,
+) -> Result<Scalar, Error>
+where
+    CS: BbsCiphersuite,
+{
+    let R = disclosed_indexes.len();
+
+    if disclosed_messages.len() != R {
+        return Err(Error::ProofGenError(
+            "Number of disclosed indexes different from number of disclosed messages".to_owned(),
+        ));
+    }
+
+    let api_id = api_id.unwrap_or(b"");
+    let challenge_dst = [api_id, CS::H2S].concat();
+
+    let ph = ph.unwrap_or(b"");
+
+    let mut c_arr: Vec<u8> = Vec::new();
+    c_arr.extend_from_slice(&i2osp::<8>(R));
+    for (i, m) in core::iter::zip(disclosed_indexes, disclosed_messages) {
+        c_arr.extend_from_slice(&i2osp::<8>(*i));
+        c_arr.extend_from_slice(&m.value.to_bytes_be());
+    }
+    c_arr.extend_from_slice(&init_res.Abar.to_affine().to_compressed());
+    c_arr.extend_from_slice(&init_res.Bbar.to_affine().to_compressed());
+    c_arr.extend_from_slice(&init_res.D.to_affine().to_compressed());
+    c_arr.extend_from_slice(&init_res.T1.to_affine().to_compressed());
+    c_arr.extend_from_slice(&init_res.T2.to_affine().to_compressed());
+    c_arr.extend_from_slice(&pseudonym_init_res.pseudonym.pseudonym.to_affine().to_compressed());
+    c_arr.extend_from_slice(&pseudonym_init_res.OP.to_affine().to_compressed());
+    c_arr.extend_from_slice(&pseudonym_init_res.Uv.to_affine().to_compressed());
     c_arr.extend_from_slice(&init_res.domain.to_bytes_be());
 
     let ph_i2osp = i2osp::<8>(ph.len());
@@ -954,12 +1011,11 @@ mod tests {
 
     use crate::{
         bbsplus::{ciphersuites::BbsCiphersuite, commitment::BlindFactor, generators::Generators, keys::{BBSplusPublicKey, BBSplusSecretKey}, 
-        pseudonym::{self, PseudonymSecret}, signature::BBSplusSignature},
+        pseudonym::PseudonymSecret, signature::BBSplusSignature},
         schemes::{
             algorithms::{BBSplus, BbsBls12381Sha256, BbsBls12381Shake256, Scheme},
             generics::{BlindSignature, Commitment, PoKSignature},
         },
-        utils::util::bbsplus_utils::{get_messages_vec, ScalarExt},
     };
 
     // Commitment
@@ -1276,7 +1332,7 @@ mod tests {
         let context_id = hex::decode(proof_json["context_id"].as_str().unwrap()).unwrap();
         let nym_secret = hex::decode(proof_json["nym_secret"].as_str().unwrap()).unwrap();
 
-        let (proof, _pseudonym) = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen_with_nym(
+        let (proof, pseudonym) = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen_with_nym(
             &pk,
             &signature.to_bytes(),
             Some(&header),
@@ -1288,51 +1344,31 @@ mod tests {
             disclosed_indexes.as_deref(),
             disclosed_commitment_indexes.as_deref(),
             secret_prover_blind.as_ref(),
-        )
-        .unwrap();
+        ).unwrap();
 
         let expected_proof = proof_json["proof"].as_str().unwrap();
         let expected_pseudonym = proof_json["pseudonym"].as_str().unwrap();
 
         assert_eq!(hex::encode(proof.to_bytes()), expected_proof);
+        assert_eq!(hex::encode(pseudonym.pseudonym.to_compressed()), expected_pseudonym);
 
-        assert_eq!(hex::encode(_pseudonym.pseudonym.to_compressed()), expected_pseudonym);
-        println!("proof: {}", hex::encode(proof.to_bytes()));
-
-         let result = proof
-            .blind_proof_verify(
-                &pk,
-                Some(&header),
-                Some(&ph),
-                messages.as_ref().map(Vec::len),
-                disclosed_messages.as_deref(),
-                disclosed_committed_messages.as_deref(),
-                disclosed_indexes.as_deref(),
-                disclosed_commitment_indexes.as_deref(),
-            )
-            .is_ok();
+        let result = proof.proof_verify_with_nym(
+            &pk,
+            Some(&header),
+            Some(&ph),
+            &pseudonym,
+            &context_id,
+            messages.as_ref().map(Vec::len),
+            disclosed_messages.as_deref(),
+            disclosed_committed_messages.as_deref(),
+            disclosed_indexes.as_deref(),
+            disclosed_commitment_indexes.as_deref(),
+        ).is_ok();
 
         let expected_result = proof_json["result"]["valid"].as_bool().unwrap();
 
         assert_eq!(result, expected_result);
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 }
 
