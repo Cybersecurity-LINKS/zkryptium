@@ -58,6 +58,7 @@ You can run the examples based on the [BBS+](https://identity.foundation/bbs-sig
 ```
 cargo run --example bbsplus <ciphersuite>
 cargo run --example bbsplus_blind <ciphersuite>
+cargo run --example bbsplus_nym <ciphersuite>
 ```
 
 ##### Available Ciphersuites:
