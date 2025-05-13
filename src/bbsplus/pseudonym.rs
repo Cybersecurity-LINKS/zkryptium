@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use core::fmt::{self, Formatter};
 use std::ops::Add;
 
 use bls12_381_plus::{multi_miller_loop, G1Projective, G2Prepared, G2Projective, Scalar};
@@ -143,6 +144,12 @@ impl<'a, 'b> Add<&'b PseudonymSecret> for &'a PseudonymSecret {
     #[inline]
     fn add(self, rhn: &'b PseudonymSecret) -> PseudonymSecret {
         PseudonymSecret(self.0 + rhn.0)
+    }
+}
+
+impl fmt::Display for PseudonymSecret {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{:x}", self.0)
     }
 }
 
@@ -323,7 +330,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     ///
     /// # Output:
     /// * `nym_secret`, a scalar value ([`PseudonymSecret`]) or [`Error`].
-    pub fn verify_finalize_with_nym(
+    pub fn verify_blind_sign_with_nym(
         &self,
         pk: &BBSplusPublicKey,
         header: Option<&[u8]>,
@@ -383,7 +390,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     /// * `signature` (REQUIRED), an octet string.
     /// * `header` (OPTIONAL), an octet string containing context and application.
     /// * `ph` (OPTIONAL), an octet string containing the presentation header.
-    /// * `nym_secret` (REQUIRED), a scalar value ([`PseudonymSecret`]).
+    /// * `nym_secret` (REQUIRED), a ([`PseudonymSecret`]) value.
     /// * `context_id` (REQUIRED), an octet string containing the Context (or verifier) id
     /// * `messages` (OPTIONAL), a vector of octet strings messages supplied by the Signer.  If not supplied, it defaults to the empty array.
     /// * `committed_messages` (OPTIONAL), a vector of octet strings messages committed by the Prover.
@@ -392,14 +399,14 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     /// * `secret_prover_blind` (OPTIONAL), a scalar value ([`BlindFactor`]).
     ///
     /// # Output:
-    /// [`PoKSignature::BBSplus`] or [`Error`]: a PoK of a Signature, a vector of octet strings representing all the disclosed messages and their indexes.
+    /// ([`PoKSignature::BBSplus`], [`BBSplusPseudonym`]) or [`Error`]: a PoK of a Signature, a vector of octet strings representing all the disclosed messages and their indexes an the pseudonym.
     ///
     pub fn proof_gen_with_nym(
         pk: &BBSplusPublicKey,
         signature: &[u8],
         header: Option<&[u8]>,
         ph: Option<&[u8]>,
-        nym_secret: &[u8],
+        nym_secret: &PseudonymSecret,
         context_id: &[u8],
         messages: Option<&[Vec<u8>]>,
         committed_messages: Option<&[Vec<u8>]>,
@@ -417,7 +424,6 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         let messages = messages.unwrap_or(&[]);
         let committed_messages = committed_messages.unwrap_or(&[]);
         let secret_prover_blind = secret_prover_blind.unwrap_or(&BlindFactor(Scalar::ZERO));
-        let pseudonym_secret = PseudonymSecret::from_bytes(nym_secret.try_into().map_err(|_| Error::InvalidPseudonym)?)?;
 
         let L = messages.len();
         let M = committed_messages.len();
@@ -450,7 +456,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
             Some(api_id)
         )?;
 
-        message_scalars.push(pseudonym_secret.into());
+        message_scalars.push(Into::<BBSplusMessage>::into(nym_secret.clone()));
         
         let indexes = disclosed_indexes
             .iter()
@@ -978,7 +984,7 @@ fn b_calculate_with_nym(
         return Err(Error::InvalidNumberOfGenerators);
     }
     
-    let _Q1 = generators.values[0];
+    //let Q1 = generators.values[0];
     let H_points = &generators.values[1..];
 
     //let mut B = Q1;
@@ -1189,7 +1195,7 @@ mod tests {
         assert_eq!(hex::encode(&signature_oct), expected_signature);
 
         let nym_secret = signature
-            .verify_finalize_with_nym(
+            .verify_blind_sign_with_nym(
                 &pk,
                 Some(&header),
                 Some(&messages),
@@ -1330,7 +1336,11 @@ mod tests {
         };
 
         let context_id = hex::decode(proof_json["context_id"].as_str().unwrap()).unwrap();
-        let nym_secret = hex::decode(proof_json["nym_secret"].as_str().unwrap()).unwrap();
+        let nym_secret = PseudonymSecret::from_hex(
+            proof_json["nym_secret"].as_str().unwrap()
+        ).unwrap();
+        
+        hex::decode(proof_json["nym_secret"].as_str().unwrap()).unwrap();
 
         let (proof, pseudonym) = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen_with_nym(
             &pk,

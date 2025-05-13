@@ -836,7 +836,7 @@ where
 /// # Output:
 /// a [`ProofInitResult`] or [`Error`].
 ///
-pub(crate) fn proof_verify_init<CS>(
+pub(super) fn proof_verify_init<CS>(
     pk: &BBSplusPublicKey,
     proof: &BBSplusPoKSignature,
     generators: &Generators,

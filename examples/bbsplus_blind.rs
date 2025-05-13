@@ -71,7 +71,7 @@ mod bbsplus_example {
         log::info!("Messages: {:?}", MSGS);
         let messages: Vec<Vec<u8>> = MSGS.iter().map(|m| hex::decode(m).unwrap()).collect();
 
-        log::info!("Verification of the commitment proof and Computation of a Blind Signature over the messages and the commitment...");
+        log::info!("Blind signature generation...");
         let blind_signature = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(
             issuer_sk,
             issuer_pk,
