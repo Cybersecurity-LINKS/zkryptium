@@ -83,4 +83,7 @@ pub enum Error {
     ///Invalid number of Generators
     #[error("Invalid number of Generators")]
     InvalidNumberOfGenerators,
+    ///Error during serialization of the pseudonym
+    #[error("Error during serialization of the pseudonym")]
+    InvalidPseudonym,
 }

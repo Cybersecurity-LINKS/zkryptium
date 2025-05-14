@@ -1,0 +1,25 @@
+{
+  "caseName": "valid no committed messages commitment with proof",
+  "mockRngParameters": {
+    "SEED": "3.141592653589793238462643383279",
+    "commit": {
+      "DST": "BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_COMMIT_MOCK_RANDOM_SCALARS_DST_",
+      "count": 3
+    }
+  },
+  "committedMessages": [],
+  "proverNym": "6830ea571e9fca0194d9ebd5c571369d8b81655afe0bbb9c6f5efe934f699418",
+  "proverBlind": "3ba0a2583bc7229fa9f2ae3a6697091032947c3a48f302b7fd2b08ca9d193041",
+  "commitmentWithProof": "b989fc492e2047f602504eb3e236c0acb04224c77ad0d4cbd31c887b9eb05a1f27d7acfb266fe0ae062914bfa060984c5c2ac3247080eb71fefc7e9622ffae372425a699a298ba991a0bc5c6a3d9211347d0ce98d5c0550667269df1fb81f8fa30c07d4917c7c0786411ee5c05b00b9d501d3f8e244b860b7b11140cddc9787a3ab54ec7fd0a8950dae339f396f2641b",
+  "result": {
+    "valid": true
+  },
+  "trace": {
+    "random_scalars": {
+      "s_tilde": "3a3b481c984f4396a13b1f65368aa393d08455fbfd351ab80f593aa5de8b4b1d",
+      "m_tildes": [
+        "5e82a40ae25e65fb04d7722f36ecd62fa4f07c8815e74f0a14a7e0a6547a36ce"
+      ]
+    }
+  }
+}

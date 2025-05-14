@@ -1,0 +1,41 @@
+{
+  "caseName": "valid no prover committed messages, multiple signer messages signature",
+  "mockRngParameters": {
+    "SEED": "3.141592653589793238462643383279",
+    "commit": {
+      "DST": "BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_COMMIT_MOCK_RANDOM_SCALARS_DST_",
+      "count": 3
+    }
+  },
+  "signerKeyPair": {
+    "secretKey": "60e55110f76883a13d030b2f6bd11883422d5abde717569fc0731f51237169fc",
+    "publicKey": "a820f230f6ae38503b86c70dc50b61c58a77e45c39ab25c0652bbaa8fa136f2851bd4781c9dcde39fc9d1d52c9e60268061e7d7632171d91aa8d460acee0e96f1e7c4cfb12d3ff9ab5d5dc91c277db75c845d649ef3c4f63aebc364cd55ded0c"
+  },
+  "signer_nym_entropy": "3d40961fce6c09eec24a371322732932503b458d7a4cf7891bdaa765b30027c5",
+  "proverNym": "6830ea571e9fca0194d9ebd5c571369d8b81655afe0bbb9c6f5efe934f699418",
+  "proverBlind": "643a0c0bc86a50e0d8c00bfe6c8debd85373597e1aef6cc912838bf7dc376e48",
+  "nym_secret": "3183d923c36e56a823ea4ae0de4287ca87ff06e5785a57268b39a5fa0269bbdc",
+  "commitmentWithProof": "990c1837a8af86843213e5b12fbfc962efcaf8fd0e5812a6237b91b00a47b5a34714a60b4c365f72b47a4d9b656dde4753a18a8286aca2bf58e8bb9a3d77a3e0052aefc427e5e47b666255e53cfcaa7d34d36adc13da01798b8eb041652a57c3b595ace54ed5eee43370c1697eb5ce996020d88ca5d811c011cde10c6c07dc2f4acbc89bd5652414d5b8823a250ed40b",
+  "header": "11223344556677889900aabbccddeeff",
+  "messages": [
+    "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02",
+    "c344136d9ab02da4dd5908bbba913ae6f58c2cc844b802a6f811f5fb075f9b80",
+    "7372e9daa5ed31e6cd5c825eac1b855e84476a1d94932aa348e07b73",
+    "77fe97eb97a1ebe2e81e4e3597a3ee740a66e9ef2412472c",
+    "496694774c5604ab1b2544eababcf0f53278ff50",
+    "515ae153e22aae04ad16f759e07237b4",
+    "d183ddc6e2665aa4e2f088af",
+    "ac55fb33a75909ed",
+    "96012096",
+    ""
+  ],
+  "committedMessages": [],
+  "signature": "92a8e449a715421cd49fe58433e5ed2300a67d36d589eac87536bcaab616cc846785e17449a9baa83826ee177f79445d27bdd783b7730048f7dfd355fb7494d150f15fb203f4d0aad2a65aa436ffb208",
+  "result": {
+    "valid": true
+  },
+  "trace": {
+    "B": "91e63f20b87851ce9da85f7994a003f23e2e56b2f308cdda62da3160dcc6b5f41b60b40220f4cbeffbcc900ef457a6ef",
+    "domain": "4174ed9aa096e4535ea500d80b77858fb5de8d8ff39f2c409a496a0797eff8ba"
+  }
+}

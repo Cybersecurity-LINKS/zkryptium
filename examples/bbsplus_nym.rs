@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(feature = "bbsplus_blind")]
+#[cfg(feature = "bbsplus_nym")]
 mod bbsplus_example {
     use elliptic_curve::hash2curve::ExpandMsg;
     use rand::Rng;
     use zkryptium::{
-        bbsplus::ciphersuites::BbsCiphersuite,
+        bbsplus::{ciphersuites::BbsCiphersuite, pseudonym::PseudonymSecret},
         errors::Error,
         keys::pair::KeyPair,
         schemes::{
@@ -53,13 +53,17 @@ mod bbsplus_example {
         let issuer_pk = issuer_keypair.public_key();
         log::info!("PK: {}", hex::encode(issuer_pk.to_bytes()));
 
-        log::info!("Computing pedersen commitment on messages with the proof and the secret_prover_blind...");
+        log::info!("Prover generates the prover_nym");
+        let prover_nym = PseudonymSecret::random();
+        log::info!("Prover_nym: {}", prover_nym);
+
+         log::info!("Computing pedersen commitment on messages with the pseudonym...");
         let committed_messages: Vec<Vec<u8>> = COMMITTED_MSGS
             .iter()
             .map(|m| hex::decode(m).unwrap())
             .collect();
         let (commitment_with_proof, secret_prover_blind) =
-            Commitment::<BBSplus<S::Ciphersuite>>::commit(Some(&committed_messages))?;
+            Commitment::<BBSplus<S::Ciphersuite>>::commit_with_nym(Some(&committed_messages), Some(&prover_nym))?;
 
         log::info!("Send the commitment with the proof to the Issuer");
         log::info!("Messages added by the Issuer to be signed");
@@ -71,45 +75,58 @@ mod bbsplus_example {
         log::info!("Messages: {:?}", MSGS);
         let messages: Vec<Vec<u8>> = MSGS.iter().map(|m| hex::decode(m).unwrap()).collect();
 
-        log::info!("Blind signature generation...");
-        let blind_signature = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(
+        log::info!("Signer generates the signer_nym_entropy");
+        let signer_nym_entropy = PseudonymSecret::random();
+        log::info!("Signer_nym_entropy: {}", signer_nym_entropy);
+
+        log::info!("Blind signature generation with Pseudonym...");
+        let blind_signature = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign_with_nym(
             issuer_sk,
             issuer_pk,
             Some(&commitment_with_proof.to_bytes()),
             Some(&header),
+            &signer_nym_entropy,
             Some(&messages),
         )?;
 
-        log::info!("Blind Signature Verification...");
-        assert!(blind_signature
-            .verify_blind_sign(
-                issuer_pk,
-                Some(&header),
-                Some(&messages),
-                Some(&committed_messages),
-                Some(&secret_prover_blind),
-            )
-            .is_ok());
-        log::info!("Blind Signature is VALID!");
+        log::info!("Blind Signature with Pseudonym Verification...");
+
+        let nym_secret = blind_signature
+        .verify_blind_sign_with_nym(
+            issuer_pk,
+            Some(&header),
+            Some(&messages),
+            Some(&committed_messages),
+            Some(&prover_nym),
+            Some(&signer_nym_entropy),
+            Some(&secret_prover_blind),
+        ).unwrap();
+        
+        log::info!("Blind Signature with Pseudonym is VALID!");
+
+        let context_id = "verifier_context_id";
 
         //Holder receive nonce from Verifier
         log::info!("Generate Nonce...");
         let nonce_verifier = generate_random_secret(32);
         log::info!(
-            "Verifier sends Nonce to the Holder: {}",
-            hex::encode(&nonce_verifier)
+            "Verifier sends to the Holder, Nonce {} and context id {}",
+            hex::encode(&nonce_verifier),
+            context_id
         );
 
         //Holder generates SPoK
-        log::info!("Computation of a Zero-Knowledge proof-of-knowledge of a Blind Signature");
+        log::info!("Computation of a Zero-Knowledge proof-of-knowledge of a Blind Signature with Pseudonym");
 
         let disclosed_indexes = [0usize, 2usize];
         let disclosed_commitment_indexes = [1usize];
-        let poks = PoKSignature::<BBSplus<S::Ciphersuite>>::blind_proof_gen(
+        let (poks, pseudonym) = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen_with_nym(
             issuer_pk,
             &blind_signature.to_bytes(),
             Some(&header),
             Some(&nonce_verifier),
+            &nym_secret,
+            context_id.as_bytes(),
             Some(&messages),
             Some(&committed_messages),
             Some(&disclosed_indexes),
@@ -117,8 +134,9 @@ mod bbsplus_example {
             Some(&secret_prover_blind)
         )?;
 
-        //Verifier verifies SPok
-        log::info!("Signature Proof of Knowledge verification...");
+        //Verifier receives from the Prover: proof, len of all messages, the disclosed messages and their index and the pseudonym
+        //verifies SPok with Pseudonym
+        log::info!("Signature Proof of Knowledge with Pseudonym verification...");
         let disclosed_messages = disclosed_indexes
             .iter()
             .map(|&i| messages[i].clone())
@@ -127,11 +145,12 @@ mod bbsplus_example {
             .iter()
             .map(|&i| committed_messages[i].clone())
             .collect::<Vec<_>>();
-        let poks_verification_result = poks
-            .blind_proof_verify(
+        let poks_verification_result = poks.proof_verify_with_nym(
                 issuer_pk,
                 Some(&header),
                 Some(&nonce_verifier),
+                &pseudonym,
+                context_id.as_bytes(),
                 Some(messages.len()),
                 Some(&disclosed_messages),
                 Some(&disclosed_committed_messages),
@@ -141,15 +160,15 @@ mod bbsplus_example {
             .is_ok();
         assert!(
             poks_verification_result,
-            "Signature Proof of Knowledge Verification Failed!"
+            "Signature Proof of Knowledge with Pseudonym Verification Failed!"
         );
-        log::info!("Signature Proof of Knowledge is VALID!");
+        log::info!("Signature Proof of Knowledge with Pseudonym is VALID!");
 
         Ok(())
     }
 }
 
-#[cfg(feature = "bbsplus_blind")]
+#[cfg(feature = "bbsplus_nym")]
 fn main() {
     use crate::bbsplus_example::bbsplus_main;
     use std::env;
@@ -191,5 +210,5 @@ fn main() {
     }
 }
 
-#[cfg(not(feature = "bbsplus_blind"))]
+#[cfg(not(feature = "bbsplus_nym"))]
 fn main() {}

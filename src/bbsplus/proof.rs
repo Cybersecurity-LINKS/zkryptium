@@ -47,14 +47,14 @@ use crate::utils::util::bbsplus_utils::seeded_random_scalars;
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 /// Represents a BBS+ Proof of Knowledge Signature.
 pub struct BBSplusPoKSignature {
-    Abar: G1Projective,
-    Bbar: G1Projective,
-    D: G1Projective,
-    e_cap: Scalar,
-    r1_cap: Scalar,
-    r3_cap: Scalar,
-    m_cap: Vec<Scalar>,
-    challenge: Scalar,
+    pub(crate) Abar: G1Projective,
+    pub(crate) Bbar: G1Projective,
+    pub(crate) D: G1Projective,
+    pub(crate) e_cap: Scalar,
+    pub(crate) r1_cap: Scalar,
+    pub(crate) r3_cap: Scalar,
+    pub(crate) m_cap: Vec<Scalar>,
+    pub(crate) challenge: Scalar,
 }
 
 impl BBSplusPoKSignature {
@@ -75,24 +75,6 @@ impl BBSplusPoKSignature {
         bytes
     }
 
-    /// Creates a `BBSplusPoKSignature` from a byte slice.
-    ///
-    /// # Arguments
-    ///
-    /// * `bytes` - A byte slice representing the serialized `BBSplusPoKSignature`.
-    ///
-    /// # Returns
-    ///
-    /// * `Result<Self, Error>` - A result containing the deserialized `BBSplusPoKSignature` or an error.
-    /// Creates a `PoKSignature` from a byte slice.
-    ///
-    /// # Arguments
-    ///
-    /// * `bytes` - A byte slice representing the serialized `PoKSignature`.
-    ///
-    /// # Returns
-    ///
-    /// * `Result<Self, Error>` - A result containing the deserialized `PoKSignature` or an error.
     /// Creates a `BBSplusPoKSignature` from a byte slice.
     ///
     /// # Arguments
@@ -557,13 +539,13 @@ where
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct ProofInitResult {
-    Abar: G1Projective,
-    Bbar: G1Projective,
-    D: G1Projective,
-    T1: G1Projective,
-    T2: G1Projective,
-    domain: Scalar,
+pub(super) struct ProofInitResult {
+    pub Abar: G1Projective,
+    pub Bbar: G1Projective,
+    pub D: G1Projective,
+    pub T1: G1Projective,
+    pub T2: G1Projective,
+    pub domain: Scalar,
 }
 
 /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-proof-initialization
@@ -586,7 +568,7 @@ struct ProofInitResult {
 /// # Output:
 /// a [`ProofInitResult`] or [`Error`].
 ///
-fn proof_init<CS>(
+pub(super) fn proof_init<CS>(
     pk: &BBSplusPublicKey,
     signature: &BBSplusSignature,
     generators: &Generators,
@@ -726,7 +708,7 @@ where
 /// # Output:
 /// a proof ([`BBSplusPoKSignature`]) or [`Error`].
 ///
-fn proof_finalize(
+pub(super) fn proof_finalize(
     init_res: &ProofInitResult,
     challenge: Scalar,
     e: Scalar,
@@ -854,7 +836,7 @@ where
 /// # Output:
 /// a [`ProofInitResult`] or [`Error`].
 ///
-fn proof_verify_init<CS>(
+pub(super) fn proof_verify_init<CS>(
     pk: &BBSplusPublicKey,
     proof: &BBSplusPoKSignature,
     generators: &Generators,
