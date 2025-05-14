@@ -482,7 +482,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     }
 
 
-     /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01#name-proof-verification-with-pse
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01#name-proof-verification-with-pse
     ///
     /// # Description
     /// This operation validates a BBS proof with a pseudonym, given the Signer's public key (PK), the proof, the pseudonym,
@@ -1023,8 +1023,6 @@ mod tests {
             generics::{BlindSignature, Commitment, PoKSignature},
         },
     };
-
-    // Commitment
 
     macro_rules! commit_tests {
         ( $( ($t:ident, $p:literal): { $( ($n:ident, $f:literal), )+ },)+ ) => { $($(

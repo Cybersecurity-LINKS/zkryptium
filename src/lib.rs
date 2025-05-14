@@ -20,7 +20,8 @@
 //! ZKryptium library provides an implementation of:
 //! * **BBS+**([draft-irtf-cfrg-bbs-signatures-08](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08)) signature scheme
 //! * **Blind BBS Signatures** ([draft-irtf-cfrg-bbs-blind-signatures-01](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01)) signature scheme with some fixes taken from [grotto-bbs-signatures](https://github.com/Wind4Greg/grotto-bbs-signatures)
-//! * **CL2003** (<https://link.springer.com/chapter/10.1007/3-540-36413-7_20>) signature scheme 
+//! * **BBS per Verifier Linkability** ([draft-irtf-cfrg-bbs-blind-signatures-01](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01))
+//! * **CL2003** (https://link.springer.com/chapter/10.1007/3-540-36413-7_20) signature scheme 
 //! This library enables the creation of zero-knowledge proofs, exposing cryptographic primitives facilitating the development of a Verifiable Credentials (VCs) system capable of handling both Anonymous Credentials and Selective Disclosure Credentials.
 //! **WARNING:** for CL2003 use a version from v0.3.2 onwards that uses a new secure cryptographic implementation of the Pseudo Random Number Generator [ThreadRng](https://rust-random.github.io/rand/rand/rngs/struct.ThreadRng.html)
 //! ## Getting Started
@@ -32,19 +33,26 @@
 //! ##### BBS+:
 //!  ```toml
 //! [dependencies]
-//! zkryptium = { version = "0.3.2", default-features = false, features = ["bbsplus"] }
+//! zkryptium = { version = "0.5.0", default-features = false, features = ["bbsplus"] }
 //! ```
 //! 
 //! ##### BBS+ Blind signature:
 //! ```toml
 //! [dependencies]
-//! zkryptium = { version = "0.3.2", default-features = false, features = ["bbsplus", "bbsplus_blind"] }
+//! zkryptium = { version = "0.5.0", default-features = false, features = ["bbsplus", "bbsplus_blind"] }
+//! ```
+//! 
+//! ##### BBS+ per Verifier Linkability:
+//!
+//! ```toml
+//! [dependencies]
+//! zkryptium = { version = "0.5.0", default-features = true}
 //! ```
 //! 
 //! ##### CL2003:
 //! ```toml
 //! [dependencies]
-//! zkryptium = { version = "0.3.2", default-features = false, features = ["cl03"] }
+//! zkryptium = { version = "0.5.0", default-features = false, features = ["cl03"] }
 //! ```
 //! 
 //! ### Examples
@@ -55,6 +63,7 @@
 //! ```sh
 //! cargo run --example bbsplus <ciphersuite>
 //! cargo run --example bbsplus_blind <ciphersuite>
+//! cargo run --example bbsplus_nym <ciphersuite>
 //! ```
 //! 
 //! ##### Available Ciphersuites:
@@ -69,13 +78,15 @@
 //! 
 //! ##### Available Ciphersuites:
 //! - CL1024-SHA-256
-//! 
+//! - CL2048-SHA-256
+//! - CL3072-SHA-256
 //! ## Test
 //! 
 //! To test the library you can launch the test vectors with:
 //! 
-//! 
+//! ```sh
 //! cargo test
+//! ```
 //! 
 #![warn(missing_docs)]
 
