@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #[cfg(feature = "cl03")]
+/// Documentation for the cl03 random module
 pub mod random;
 
 /// Documentation for the message module
