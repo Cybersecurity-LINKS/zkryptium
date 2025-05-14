@@ -7,7 +7,7 @@ authors = ["LINKS Foundation"]
 description = "Rust crypto library for zero-knowledge proofs"
 repository = "https://github.com/Cybersecurity-LINKS/zkryptium"
 rust-version = "1.65"
-keywords = [ "crypto", "signatures", "zero-knowledge", "bbs", "blind-signature", "bbs-per-verifier-linkability" ]
+keywords = [ "crypto", "signatures", "zero-knowledge", "bbs", "blind-signature"]
 categories = [ "cryptography", "authentication" ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
