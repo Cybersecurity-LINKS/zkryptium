@@ -398,7 +398,7 @@ mod tests {
     }
 
     msg_tests! {
-        (BbsBls12381Sha256, "./fixture_data/bls12-381-sha-256/"): {
+        (BbsBls12381Sha256, "./fixture_data/fixture_data/bls12-381-sha-256/"): {
             (msg_signature_sha256_1, "signature/signature001.json"),
             (msg_signature_sha256_2, "signature/signature002.json"),
             (msg_signature_sha256_3, "signature/signature003.json"),
@@ -410,7 +410,7 @@ mod tests {
             (msg_signature_sha256_9, "signature/signature009.json"),
             (msg_signature_sha256_10, "signature/signature010.json"),
         },
-        (BbsBls12381Shake256, "./fixture_data/bls12-381-shake-256/"): {
+        (BbsBls12381Shake256, "./fixture_data/fixture_data/bls12-381-shake-256/"): {
             (msg_signature_shake256_1, "signature/signature001.json"),
             (msg_signature_shake256_2, "signature/signature002.json"),
             (msg_signature_shake256_3, "signature/signature003.json"),

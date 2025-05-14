@@ -421,14 +421,14 @@ mod tests {
     }
 
     sign_tests! {
-        (BbsBls12381Sha256, "./fixture_data_blind/bls12-381-sha-256/"): {
+        (BbsBls12381Sha256, "./fixture_data/fixture_data_blind/bls12-381-sha-256/"): {
             (blind_sign_sha256_1, "signature/signature001.json"),
             (blind_sign_sha256_2, "signature/signature002.json"),
             (blind_sign_sha256_3, "signature/signature003.json"),
             (blind_sign_sha256_4, "signature/signature004.json"),
             (blind_sign_sha256_5, "signature/signature005.json"),
         },
-        (BbsBls12381Shake256, "./fixture_data_blind/bls12-381-shake-256/"): {
+        (BbsBls12381Shake256, "./fixture_data/fixture_data_blind/bls12-381-shake-256/"): {
             (blind_sign_shake256_1, "signature/signature001.json"),
             (blind_sign_shake256_2, "signature/signature002.json"),
             (blind_sign_shake256_3, "signature/signature003.json"),

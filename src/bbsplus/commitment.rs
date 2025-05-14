@@ -411,11 +411,11 @@ mod tests {
     }
 
     commit_tests! {
-        (BbsBls12381Sha256, "./fixture_data_blind/bls12-381-sha-256/"): {
+        (BbsBls12381Sha256, "./fixture_data/fixture_data_blind/bls12-381-sha-256/"): {
             (commit_sha256_1, "commit/commit001.json"),
             (commit_sha256_2, "commit/commit002.json"),
         },
-        (BbsBls12381Shake256, "./fixture_data_blind/bls12-381-shake-256/"): {
+        (BbsBls12381Shake256, "./fixture_data/fixture_data_blind/bls12-381-shake-256/"): {
             (commit_shake256_1, "commit/commit001.json"),
             (commit_shake256_2, "commit/commit002.json"),
         },

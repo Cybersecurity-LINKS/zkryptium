@@ -154,7 +154,7 @@ mod tests {
     //GENERATORS - SHA256
     #[test]
     fn message_generators_sha256() {
-        message_generators::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/generators.json");
+        message_generators::<BbsBls12381Sha256>("./fixture_data/fixture_data/bls12-381-sha-256/generators.json");
     }
 
     //GENERATORS - SHAKE256
@@ -162,7 +162,7 @@ mod tests {
     #[test]
     fn message_generators_shake256() {
         message_generators::<BbsBls12381Shake256>(
-            "./fixture_data/bls12-381-shake-256/generators.json",
+            "./fixture_data/fixture_data/bls12-381-shake-256/generators.json",
         );
     }
 

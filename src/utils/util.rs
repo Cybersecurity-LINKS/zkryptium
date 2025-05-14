@@ -447,21 +447,21 @@ pub mod bbsplus_utils {
         //h2s - SHA256
         #[test]
         fn h2s_sha256_1() {
-            h2s::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "h2s.json");
+            h2s::<BbsBls12381Sha256>("./fixture_data/fixture_data/bls12-381-sha-256/", "h2s.json");
         }
         #[test]
         fn h2s_sha256_2() {
-            h2s::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "h2s.json");
+            h2s::<BbsBls12381Sha256>("./fixture_data/fixture_data/bls12-381-sha-256/", "h2s.json");
         }
 
         //h2s - SHAKE256
         #[test]
         fn h2s_shake256_1() {
-            h2s::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "h2s.json");
+            h2s::<BbsBls12381Shake256>("./fixture_data/fixture_data/bls12-381-shake-256/", "h2s.json");
         }
         #[test]
         fn h2s_shake256_2() {
-            h2s::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "h2s.json");
+            h2s::<BbsBls12381Shake256>("./fixture_data/fixture_data/bls12-381-shake-256/", "h2s.json");
         }
 
         fn h2s<S: Scheme>(pathname: &str, filename: &str)

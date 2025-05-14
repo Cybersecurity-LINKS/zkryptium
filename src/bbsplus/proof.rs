@@ -992,13 +992,13 @@ mod tests {
     //mocked_rng - SHA256 - UPDATED
     #[test]
     fn mocked_rng_sha256() {
-        mocked_rng::<BbsBls12381Sha256>("./fixture_data/bls12-381-sha-256/", "mockedRng.json");
+        mocked_rng::<BbsBls12381Sha256>("./fixture_data/fixture_data/bls12-381-sha-256/", "mockedRng.json");
     }
 
     //mocked_rng - SHAKE256 - UPDATED
     #[test]
     fn mocked_rng_shake256() {
-        mocked_rng::<BbsBls12381Shake256>("./fixture_data/bls12-381-shake-256/", "mockedRng.json");
+        mocked_rng::<BbsBls12381Shake256>("./fixture_data/fixture_data/bls12-381-shake-256/", "mockedRng.json");
     }
 
     //SIGNATURE POK
@@ -1010,7 +1010,7 @@ mod tests {
     }
 
     proof_tests! {
-        (BbsBls12381Sha256, "./fixture_data/bls12-381-sha-256/"): {
+        (BbsBls12381Sha256, "./fixture_data/fixture_data/bls12-381-sha-256/"): {
             (proof_check_sha256_1, "proof/proof001.json"),
             (proof_check_sha256_2, "proof/proof002.json"),
             (proof_check_sha256_3, "proof/proof003.json"),
@@ -1027,7 +1027,7 @@ mod tests {
             (proof_check_sha256_14, "proof/proof014.json"),
             (proof_check_sha256_15, "proof/proof015.json"),
         },
-        (BbsBls12381Shake256, "./fixture_data/bls12-381-shake-256/"): {
+        (BbsBls12381Shake256, "./fixture_data/fixture_data/bls12-381-shake-256/"): {
             (proof_check_shake256_1, "proof/proof001.json"),
             (proof_check_shake256_2, "proof/proof002.json"),
             (proof_check_shake256_3, "proof/proof003.json"),
@@ -1050,13 +1050,13 @@ mod tests {
     #[cfg(feature = "bbsplus_blind")]
     macro_rules! blind_proof_tests {
         ( $( ($t:ident, $p:literal): { $( ($n:ident, $f:literal), )+ },)+ ) => { $($(
-            #[test] fn $n() { blind_proof_check::<$t>($p, $f, "./fixture_data_blind/"); }
+            #[test] fn $n() { blind_proof_check::<$t>($p, $f, "./fixture_data/fixture_data_blind/"); }
         )+)+ }
     }
 
     #[cfg(feature = "bbsplus_blind")]
     blind_proof_tests! {
-        (BbsBls12381Sha256, "./fixture_data_blind/bls12-381-sha-256/"): {
+        (BbsBls12381Sha256, "./fixture_data/fixture_data_blind/bls12-381-sha-256/"): {
             (blind_proof_check_sha256_1, "proof/proof001.json"),
             (blind_proof_check_sha256_2, "proof/proof002.json"),
             (blind_proof_check_sha256_3, "proof/proof003.json"),
@@ -1066,7 +1066,7 @@ mod tests {
             (blind_proof_check_sha256_7, "proof/proof007.json"),
             (blind_proof_check_sha256_8, "proof/proof008.json"),
         },
-        (BbsBls12381Shake256, "./fixture_data_blind/bls12-381-shake-256/"): {
+        (BbsBls12381Shake256, "./fixture_data/fixture_data_blind/bls12-381-shake-256/"): {
             (blind_proof_check_shake256_1, "proof/proof001.json"),
             (blind_proof_check_shake256_2, "proof/proof002.json"),
             (blind_proof_check_shake256_3, "proof/proof003.json"),

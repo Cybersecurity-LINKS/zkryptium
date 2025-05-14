@@ -1033,11 +1033,11 @@ mod tests {
     }
 
     commit_tests! {
-        (BbsBls12381Sha256, "./fixture_data_nym/bls12-381-sha-256/"): {
+        (BbsBls12381Sha256, "./fixture_data/fixture_data_nym/bls12-381-sha-256/"): {
             (commit_sha256_1, "nymCommit/nymCommit001.json"),
             (commit_sha256_2, "nymCommit/nymCommit002.json"),
         },
-        (BbsBls12381Shake256, "./fixture_data_nym/bls12-381-shake-256/"): {
+        (BbsBls12381Shake256, "./fixture_data/fixture_data_nym/bls12-381-shake-256/"): {
             (commit_shake256_1, "nymCommit/nymCommit001.json"),
             (commit_shake256_2, "nymCommit/nymCommit002.json"),
         },
@@ -1111,13 +1111,13 @@ mod tests {
     }
 
     sign_tests! {
-        (BbsBls12381Sha256, "./fixture_data_nym/bls12-381-sha-256/"): {
+        (BbsBls12381Sha256, "./fixture_data/fixture_data_nym/bls12-381-sha-256/"): {
             (blind_sign_with_nym_sha256_1, "nymSignature/nymSignature001.json"),
             (blind_sign_with_nym_sha256_2, "nymSignature/nymSignature002.json"),
             (blind_sign_with_nym_sha256_3, "nymSignature/nymSignature003.json"),
             (blind_sign_with_nym_sha256_4, "nymSignature/nymSignature004.json"),
         },
-        (BbsBls12381Shake256, "./fixture_data_nym/bls12-381-shake-256/"): {
+        (BbsBls12381Shake256, "./fixture_data/fixture_data_nym/bls12-381-shake-256/"): {
             (blind_sign_with_nym_shake256_1, "nymSignature/nymSignature001.json"),
             (blind_sign_with_nym_shake256_2, "nymSignature/nymSignature002.json"),
             (blind_sign_with_nym_shake256_3, "nymSignature/nymSignature003.json"),
@@ -1217,12 +1217,12 @@ mod tests {
 
     macro_rules! nym_proof_tests {
         ( $( ($t:ident, $p:literal): { $( ($n:ident, $f:literal), )+ },)+ ) => { $($(
-            #[test] fn $n() { nym_proof_check::<$t>($p, $f, "./fixture_data_nym/"); }
+            #[test] fn $n() { nym_proof_check::<$t>($p, $f, "./fixture_data/fixture_data_nym/"); }
         )+)+ }
     }
 
     nym_proof_tests! {
-        (BbsBls12381Sha256, "./fixture_data_nym/bls12-381-sha-256/"): {
+        (BbsBls12381Sha256, "./fixture_data/fixture_data_nym/bls12-381-sha-256/"): {
             (nym_proof_check_sha256_1, "nymProof/nymProof001.json"),
             (nym_proof_check_sha256_2, "nymProof/nymProof002.json"),
             (nym_proof_check_sha256_3, "nymProof/nymProof003.json"),
@@ -1231,7 +1231,7 @@ mod tests {
             (nym_proof_check_sha256_6, "nymProof/nymProof006.json"),
             (nym_proof_check_sha256_7, "nymProof/nymProof007.json"),
         },
-        (BbsBls12381Shake256, "./fixture_data_nym/bls12-381-shake-256/"): {
+        (BbsBls12381Shake256, "./fixture_data/fixture_data_nym/bls12-381-shake-256/"): {
             (nym_proof_check_shake256_1, "nymProof/nymProof001.json"),
             (nym_proof_check_shake256_2, "nymProof/nymProof002.json"),
             (nym_proof_check_shake256_3, "nymProof/nymProof003.json"),

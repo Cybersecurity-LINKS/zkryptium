@@ -122,7 +122,7 @@ pub mod bbsplus_message {
         #[test]
         fn map_message_to_scalar_as_hash_sha256() {
             map_message_to_scalar_as_hash::<BbsBls12381Sha256>(
-                "./fixture_data/bls12-381-sha-256/MapMessageToScalarAsHash.json",
+                "./fixture_data/fixture_data/bls12-381-sha-256/MapMessageToScalarAsHash.json",
             );
         }
 
@@ -131,14 +131,14 @@ pub mod bbsplus_message {
         #[test]
         fn map_message_to_scalar_as_hash_shake256() {
             map_message_to_scalar_as_hash::<BbsBls12381Shake256>(
-                "./fixture_data/bls12-381-shake-256/MapMessageToScalarAsHash.json",
+                "./fixture_data/fixture_data/bls12-381-shake-256/MapMessageToScalarAsHash.json",
             );
         }
 
         #[test]
         fn messages_to_scalars_sha256() {
             messages_to_scalars::<BbsBls12381Sha256>(
-                "./fixture_data/bls12-381-sha-256/MapMessageToScalarAsHash.json",
+                "./fixture_data/fixture_data/bls12-381-sha-256/MapMessageToScalarAsHash.json",
             );
         }
 
@@ -147,7 +147,7 @@ pub mod bbsplus_message {
         #[test]
         fn messages_to_scalars_shake256() {
             messages_to_scalars::<BbsBls12381Shake256>(
-                "./fixture_data/bls12-381-shake-256/MapMessageToScalarAsHash.json",
+                "./fixture_data/fixture_data/bls12-381-shake-256/MapMessageToScalarAsHash.json",
             );
         }
 
