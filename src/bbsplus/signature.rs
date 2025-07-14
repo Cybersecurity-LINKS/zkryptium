@@ -91,7 +91,7 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         }
     }
 
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-signature-generation-sign>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-09#name-signature-generation-sign>
     /// # Description
     /// The `sign` API returns a BBS signature from a secret key (SK), over a header and a set of messages.
     ///
@@ -127,7 +127,7 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         Ok(Self::BBSplus(signature))
     }
 
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-signature-verification-veri>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-09#name-signature-verification-veri>
     /// # Description
     /// The `verify` API validates a BBS signature, given a public key (PK), a header and a set of messages
     /// # Inputs:
@@ -244,7 +244,7 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-coresign
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-09#name-coresign
 /// # Description
 /// This operation computes a deterministic signature from a secret key (SK), a set of generators (points of G1) and optionally a header and a vector of messages.
 ///
@@ -313,7 +313,7 @@ where
     Ok(BBSplusSignature { A, e: e })
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-coreverify
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-09#name-coreverify
 /// # Description
 /// This operation checks that a signature is valid for a given set of generators, header
 /// and vector of messages, against a supplied public key (PK). The set of messages MUST be
@@ -359,12 +359,12 @@ where
     }
 
     let BP2 = G2Projective::GENERATOR;
-    let A2 = pk.0 + BP2 * signature.e;
+    let B2 = signature.A * signature.e - B;
 
     let identity_GT = Gt::IDENTITY;
 
-    let term1 = (&signature.A.to_affine(), &G2Prepared::from(A2.to_affine()));
-    let term2 = (&B.to_affine(), &G2Prepared::from(-BP2.to_affine()));
+    let term1 = (&signature.A.to_affine(), &G2Prepared::from(pk.0.to_affine()));
+    let term2 = (&B2.to_affine(), &G2Prepared::from(BP2.to_affine()));
 
     let pairing = multi_miller_loop(&[term1, term2]).final_exponentiation();
 

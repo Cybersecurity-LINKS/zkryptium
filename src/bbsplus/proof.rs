@@ -124,7 +124,7 @@ impl BBSplusPoKSignature {
 }
 
 impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-proof-generation-proofgen
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-09#name-proof-generation-proofgen
     ///
     /// # Description
     /// The ProofGen operation creates BBS proof, which is a zero-knowledge, proof-of-knowledge of a BBS signature,
@@ -283,7 +283,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         Ok(Self::BBSplus(proof))
     }
 
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-proof-verification-proofver>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-09#name-proof-verification-proofver>
     ///
     /// # Description
     /// The ProofVerify operation validates a BBS proof, given the Signer's public key (PK), a header and presentation header values,
@@ -440,7 +440,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-coreproofgen
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-09#name-coreproofgen
 ///
 /// # Description
 /// This operation computes a zero-knowledge proof-of-knowledge of a signature, while optionally
@@ -521,8 +521,8 @@ where
 
     let challenge = proof_challenge_calculate::<CS>(
         &init_res,
-        &disclosed_indexes,
         &disclosed_messages,
+        &disclosed_indexes,
         ph,
         api_id,
     )?;
@@ -548,7 +548,7 @@ pub(super) struct ProofInitResult {
     pub domain: Scalar,
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-proof-initialization
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-09#name-proof-initialization
 ///
 /// # Description
 /// This operation initializes the proof and returns one of the inputs passed to the challenge calculation
@@ -631,7 +631,7 @@ where
     })
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-challenge-calculation
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-09#name-challenge-calculation
 ///
 /// # Description
 /// This operation calculates the challenge scalar value, used during the [`core_proof_gen`] and [`core_proof_verify`],
@@ -651,8 +651,8 @@ where
 ///
 fn proof_challenge_calculate<CS>(
     init_res: &ProofInitResult,
-    disclosed_indexes: &[usize],
     disclosed_messages: &[BBSplusMessage],
+    disclosed_indexes: &[usize],
     ph: Option<&[u8]>,
     api_id: Option<&[u8]>,
 ) -> Result<Scalar, Error>
@@ -693,7 +693,7 @@ where
     hash_to_scalar::<CS>(&c_arr, &challenge_dst)
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-proof-finalization
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-09#name-proof-finalization
 ///
 /// # Description
 /// This operation finalizes the proof calculation during the [`core_proof_gen`] operation and returns the PoK [`BBSplusPoKSignature`].
@@ -750,7 +750,7 @@ pub(super) fn proof_finalize(
     })
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-coreproofverify
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-09#name-coreproofverify
 ///
 /// # Description
 /// This operation checks that a proof is valid for a header, vector of disclosed messages (disclosed_messages)
@@ -794,8 +794,8 @@ where
 
     let challenge = proof_challenge_calculate::<CS>(
         &init_res,
-        disclosed_indexes,
         disclosed_messages,
+        disclosed_indexes,
         ph,
         api_id,
     )?;
@@ -818,7 +818,7 @@ where
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-proof-verification-initiali
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-09#name-proof-verification-initiali
 ///
 /// # Description
 /// This operation initializes the proof verification operation and returns part of the input that will be
