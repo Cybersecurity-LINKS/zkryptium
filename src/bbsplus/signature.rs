@@ -313,7 +313,7 @@ where
     Ok(BBSplusSignature { A, e: e })
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-08#name-coreverify
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-09#name-coreverify
 /// # Description
 /// This operation checks that a signature is valid for a given set of generators, header
 /// and vector of messages, against a supplied public key (PK). The set of messages MUST be
@@ -359,12 +359,12 @@ where
     }
 
     let BP2 = G2Projective::GENERATOR;
-    let A2 = pk.0 + BP2 * signature.e;
+    let B2 = signature.A * signature.e - B;
 
     let identity_GT = Gt::IDENTITY;
 
-    let term1 = (&signature.A.to_affine(), &G2Prepared::from(A2.to_affine()));
-    let term2 = (&B.to_affine(), &G2Prepared::from(-BP2.to_affine()));
+    let term1 = (&signature.A.to_affine(), &G2Prepared::from(pk.0.to_affine()));
+    let term2 = (&B2.to_affine(), &G2Prepared::from(BP2.to_affine()));
 
     let pairing = multi_miller_loop(&[term1, term2]).final_exponentiation();
 
