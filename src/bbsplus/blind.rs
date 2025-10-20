@@ -282,7 +282,7 @@ where
 /// # Output:
 /// a [`Vec<G1Projective>`] an array of a single element from the G1 subgroup or [`Error`].
 ///
-fn calculate_b(
+pub fn calculate_b(
     generators: &Generators,
     commitment: Option<G1Projective>,
     message_scalars: Vec<BBSplusMessage>,

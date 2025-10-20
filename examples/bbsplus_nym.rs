@@ -92,7 +92,7 @@ mod bbsplus_example {
         log::info!("Blind Signature with Pseudonym Verification...");
 
         let nym_secret = blind_signature
-        .verify_blind_sign_with_nym(
+        .verify_finalize_with_nym(
             issuer_pk,
             Some(&header),
             Some(&messages),
