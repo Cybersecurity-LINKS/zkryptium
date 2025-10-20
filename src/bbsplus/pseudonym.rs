@@ -34,6 +34,7 @@ use super::generators::Generators;
 use super::keys::{BBSplusPublicKey, BBSplusSecretKey};
 use super::proof::{proof_finalize, proof_init, proof_verify_init, BBSplusPoKSignature, ProofInitResult};
 use super::signature::{core_verify, BBSplusSignature};
+use super::blind::calculate_b;
 use bls12_381_plus::group::Curve;
 
 #[cfg(not(test))]
@@ -57,7 +58,7 @@ struct PseudonymProofVerifyInitResult {
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 /// Represents a BBS+ Pseudonym.
-/// See https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01#name-pseudonyms
+/// See https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-pseudonyms
 pub struct BBSplusPseudonym{
     pseudonym: G1Projective
 }
@@ -163,24 +164,24 @@ impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>>{
     ///
     /// # Inputs:
     /// * `committed_messages` (OPTIONAL), a vector of octet strings. If not supplied it defaults to the empty array.
-    /// * `prover_nym ` (OPTIONAL), a random `[PseudonymSecret]`. If not supplied, it defaults to the zero value (0).
+    /// * `prover_nyms ` (REQUIRED), a vector of `[PseudonymSecret]`.
     ///
     /// # Output:
     /// ([`Commitment::BBSplus`], [`BlindFactor`]), a tuple (**`commitment_with_proof`**, **`secret_prover_blind`**) or [`Error`].
     ///
-    pub fn commit_with_nym(committed_messages: Option<&[Vec<u8>]>, prover_nym: Option<&PseudonymSecret>) -> Result<(Self, BlindFactor), Error>
+    pub fn commit_with_nym(committed_messages: Option<&[Vec<u8>]>, prover_nyms: Vec<&PseudonymSecret>) -> Result<(Self, BlindFactor), Error>
     where
         CS::Expander: for<'a> ExpandMsg<'a>,
     {
         let (commitment_with_proof, secret) =
-            commit_with_nym::<CS>(committed_messages, prover_nym, Some(CS::API_ID_NYM))?;
+            commit_with_nym::<CS>(committed_messages, prover_nyms, Some(CS::API_ID_NYM))?;
         Ok((Self::BBSplus(commitment_with_proof), secret))
     }
         
 }
 
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01#name-commitment
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-commitment
 ///
 /// # Description
 /// The Prover will chose a set of messages committed_messages that they want to be included in the signature,
@@ -188,7 +189,7 @@ impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>>{
 /// 
 /// # Inputs:
 /// * `committed_messages` (OPTIONAL), a vector of octet strings. If not supplied it defaults to the empty array.
-/// * `prover_nym ` (OPTIONAL), a random `[PseudonymSecret]`. If not supplied, it defaults to the zero scalar (0).
+/// * `prover_nyms ` (REQUIRED), a vector of `[PseudonymSecret]`.
 /// * `api_id` (OPTIONAL), octet string. If not supplied it defaults to the empty octet string.
 ///
 /// # Output:
@@ -196,7 +197,7 @@ impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>>{
 ///
 fn commit_with_nym<CS>(
     committed_messages: Option<&[Vec<u8>]>,
-    prover_nym: Option<&PseudonymSecret>,
+    prover_nyms: Vec<&PseudonymSecret>,
     api_id: Option<&[u8]>,
 ) -> Result<(BBSplusCommitment, BlindFactor), Error>
 where
@@ -204,15 +205,19 @@ where
     CS::Expander: for<'a> ExpandMsg<'a>,
 {
     let committed_messages = committed_messages.unwrap_or(&[]);
-    let prover_nym = prover_nym.unwrap_or(&PseudonymSecret(Scalar::ZERO));
+
     let api_id = api_id.unwrap_or(b"");
 
     let mut commited_message_scalars =
         BBSplusMessage::messages_to_scalar::<CS>(committed_messages, api_id)?;
 
-    commited_message_scalars.push(BBSplusMessage::new(prover_nym.0));
+    commited_message_scalars.append(&mut prover_nyms
+        .iter()
+        .map(|t| BBSplusMessage::new(t.0))
+        .collect()
+    );
     
-    let blind_generators = Generators::create::<CS>(
+    let blind_generators: Vec<G1Projective> = Generators::create::<CS>(
         commited_message_scalars.len() + 1, 
         Some(&[b"BLIND_", api_id].concat())
     ).values;
@@ -222,7 +227,7 @@ where
 }
 
 impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01#name-blind-issuance>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-blind-issuance>
     ///
     /// # Description
     /// The Signer generate a signature from a secret key (SK), the commitment with proof,
@@ -238,6 +243,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     /// * `commitment_with_proof` (OPTIONAL), an octet string, representing a serialized commitment and commitment_proof,
     ///                                       as the first element outputted by the `commit_with_nym` operation. 
     ///                                       If not supplied, it defaults to the empty string ("").
+    /// * `length_nym_vector` (REQUIRED), the length of the prover_nyms secret vector.
     /// * `header` (OPTIONAL), an octet string containing context and application specific information.
     /// * `signer_nym_entropy` (REQUIRED), a [`PseudonymSecret`] value
     /// * `messages` (OPTIONAL), a vector of octet strings. If not supplied, it defaults to the empty array.
@@ -249,6 +255,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         sk: &BBSplusSecretKey,
         pk: &BBSplusPublicKey,
         commitment_with_proof: Option<&[u8]>,
+        length_nym_vector: usize,
         header: Option<&[u8]>,
         signer_nym_entropy: &PseudonymSecret,
         messages: Option<&[Vec<u8>]>,
@@ -256,7 +263,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         let messages = messages.unwrap_or(&[]);
         let L = messages.len();
         let commitment_with_proof = commitment_with_proof.unwrap_or(&[]);
-
+        let header = header.unwrap_or(&[]);
         let mut M: usize = commitment_with_proof.len();
 
         //commitment_with_proof = g1_point + [s_hat, m_hat0...m_hatM, challenge]
@@ -289,15 +296,17 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
 
         let nym_generator = blind_generators.last().expect("Blind nym generator not found");
 
-        let mut B: Vec<G1Projective> = b_calculate_with_nym(
-            &signer_nym_entropy,
+        let mut B: Vec<G1Projective> = calculate_b(
             &generators, 
             Some(commit),
-            nym_generator,
             message_scalars
         )?;
 
-        let B_val = B.pop().unwrap();
+        let mut B_val = B.pop().unwrap();
+
+        B_val = B_val + nym_generator * signer_nym_entropy.0;
+
+        let combined_header = [header , &i2osp::<8>(length_nym_vector)[..]].concat();
 
         let blind_sig = finalize_blind_sign::<CS>(
             sk,
@@ -305,14 +314,14 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
             B_val,
             &generators,
             &blind_generators,
-            header,
+            Some(combined_header.as_slice()),
             Some(CS::API_ID_NYM),
         )?;
 
         Ok(Self::BBSplus(blind_sig))
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01#name-verification-and-finalizati
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-verification-and-finalizati
     ///
     /// # Description
     /// The following operation both verifies the generated blind signature, as well as calculating and returning the final nym_secret,
@@ -324,31 +333,29 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     /// * `header` (OPTIONAL), an octet string containing context and application specific information.
     /// * `messages` (OPTIONAL), a vector of octet strings messages supplied by the Signer.  If not supplied, it defaults to the empty array.
     /// * `committed_messages` (OPTIONAL), a vector of octet strings messages committed by the Prover.
-    /// * `prover_nym` (OPTIONAL), a scalar value ([`PseudonymSecret`]). If not supplied it defaults to zero "0"
+    /// * `prover_nyms` (REQUIRED), a vector of scalar values ([`PseudonymSecret`]).
     /// * `signer_nym_entropy` (OPTIONAL), a scalar value ([`PseudonymSecret`]). If not supplied it defaults to zero "0"
     /// * `secret_prover_blind` (OPTIONAL), a scalar value ([`BlindFactor`]). If not supplied it defaults to zero "0"
     ///
     /// # Output:
-    /// * `nym_secret`, a scalar value ([`PseudonymSecret`]) or [`Error`].
-    pub fn verify_blind_sign_with_nym(
+    /// * `nym_secrets`, a vector of scalar values ([`PseudonymSecret`]) or [`Error`].
+    pub fn verify_finalize_with_nym(
         &self,
         pk: &BBSplusPublicKey,
         header: Option<&[u8]>,
         messages: Option<&[Vec<u8>]>,
         committed_messages: Option<&[Vec<u8>]>,
-        prover_nym: Option<&PseudonymSecret>,
+        prover_nyms: Vec<PseudonymSecret>,
         signer_nym_entropy: Option<&PseudonymSecret>,
         secret_prover_blind: Option<&BlindFactor>,
-    ) -> Result<PseudonymSecret, Error> {
+    ) -> Result<Vec<PseudonymSecret>, Error> {
         let api_id: &[u8] = CS::API_ID_NYM;
         let messages = messages.unwrap_or(&[]);
         let committed_messages = committed_messages.unwrap_or(&[]);
         let secret_prover_blind = secret_prover_blind.unwrap_or(&BlindFactor(Scalar::ZERO));
-        let prover_nym = prover_nym.unwrap_or(&PseudonymSecret(Scalar::ZERO));
         let signer_nym_entropy = signer_nym_entropy.unwrap_or(&PseudonymSecret(Scalar::ZERO));
+        let header = header.unwrap_or(&[]);
 
-        let nym_secret = prover_nym + signer_nym_entropy;
-        
         let (mut message_scalars, generators) = prepare_parameters::<CS>(
             Some(messages),
             Some(committed_messages),
@@ -358,22 +365,36 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
             Some(api_id)
         )?;
 
-        message_scalars.push(nym_secret.clone().into());
+        let mut nym_secrets = prover_nyms.clone();
+
+        // update the last nym by adding signer_nym_entropy
+        let last = nym_secrets.last_mut().ok_or(Error::InvalidPseudonym)?;
+        let updated = (&*last) + signer_nym_entropy; // uses impl for &PseudonymSecret + &PseudonymSecret
+        *last = updated;
+
+        message_scalars.extend(
+            nym_secrets
+            .iter()
+            .cloned()
+            .map(|t| BBSplusMessage::new(t.0))
+        );
+
+        let combined_header = [header , &i2osp::<8>(prover_nyms.len())[..]].concat();
 
         core_verify::<CS>(
             pk,
             self.bbsPlusBlindSignature(),
             &message_scalars,
             generators,
-            header,
+            Some(combined_header.as_slice()),
             Some(api_id),
-        ).map(|()| nym_secret)
+        ).map(|()| nym_secrets)
     }
 
 }
 
 impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01#name-proof-generation-with-pseud>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-proof-generation-with-pseud>
     ///
     /// # Description
     /// This section defines the ProofGenWithNym operations, for calculating a BBS proof with a pseudonym.
@@ -399,7 +420,8 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     /// * `secret_prover_blind` (OPTIONAL), a scalar value ([`BlindFactor`]).
     ///
     /// # Output:
-    /// ([`PoKSignature::BBSplus`], [`BBSplusPseudonym`]) or [`Error`]: a PoK of a Signature, a vector of octet strings representing all the disclosed messages and their indexes an the pseudonym.
+    /// ([`PoKSignature::BBSplus`], [`BBSplusPseudonym`]) or [`Error`]: a PoK of a Signature, a vector of octet strings representing 
+    ///                                                                 all the disclosed messages and their indexes an the pseudonym.
     ///
     pub fn proof_gen_with_nym(
         pk: &BBSplusPublicKey,
@@ -482,7 +504,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     }
 
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01#name-proof-verification-with-pse
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-proof-verification-with-pse
     ///
     /// # Description
     /// This operation validates a BBS proof with a pseudonym, given the Signer's public key (PK), the proof, the pseudonym,
@@ -570,7 +592,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
 }
 
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01#name-core-proof-verification
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-core-proof-verification
 ///
 /// # Description
 /// This operation validates a BBS proof that also includes a pseudonym.
@@ -654,7 +676,7 @@ where
 }
 
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01#name-core-proof-generation
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-core-proof-generation
 ///
 /// # Description
 /// This operations computes a BBS proof and a zero-knowledge proof of correctness of the pseudonym in "parallel"
@@ -774,7 +796,7 @@ where
     Ok((proof, pseudonym))
 }
 
-///https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01#name-pseudonym-proof-generation-i
+///https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-pseudonym-proof-generation-i
 ///
 ///  # Inputs:
 /// * `context_id` (REQUIRED), an octet string containing the Context (or verifier) id
@@ -806,7 +828,7 @@ where
     Ok(PseudonymProofInitResult{pseudonym, OP, Ut})
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01#name-pseudonym-proof-verificatio
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-pseudonym-proof-verificatio
 ///
 ///  # Inputs:
 /// * `pseudonym` (REQUIRED), a [`BBSplusPseudonym`] value
@@ -838,7 +860,7 @@ where
     Ok(PseudonymProofVerifyInitResult{pseudonym: pseudonym.clone(), OP, Uv})
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01#name-challenge-calculation
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-challenge-calculation
 ///
 /// # Inputs:
 /// * `init_res` (REQUIRED), [`ProofInitResult`] returned after initializing the proof generation or verification operations, 
@@ -950,64 +972,6 @@ where
     hash_to_scalar::<CS>(&c_arr, &challenge_dst)
 }
 
-
-
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01#name-calculate-b
-///
-/// # Description
-/// The b_calculate_with_nym is defined to return an array of elements, to establish extendability of the scheme 
-/// by allowing the B_calculate operation to return more elements than just the point to be signed.
-///
-/// # Inputs:
-/// * `signer_nym_entropy` (REQUIRED), a [`PseudonymSecret`] value
-/// * `generators` (REQUIRED), an array of at least one point from the G1 group
-/// * `commitment` (OPTIONAL), a point from the G1 group. If not supplied it defaults to the Identity_G1 point.
-/// * `nym_generator` (REQUIRED), a point from the G1 group
-/// * `message_scalars` (OPTIONAL), an array of scalar values. If not supplied, it defaults to the empty array ("()")
-/// 
-/// # Output:
-/// a [`Vec<G1Projective>`] an array of a single element from the G1 subgroup or [`Error`].
-///
-fn b_calculate_with_nym(
-    signer_nym_entropy: &PseudonymSecret,
-    generators: &Generators,
-    commitment: Option<G1Projective>,
-    nym_generator: &G1Projective,
-    message_scalars: Vec<BBSplusMessage>,
-) -> Result<Vec<G1Projective>, Error> {
-
-    let commitment = commitment.unwrap_or(G1Projective::IDENTITY);
-
-    let L = message_scalars.len();
-    
-    if generators.values.len() != L + 1 {
-        return Err(Error::InvalidNumberOfGenerators);
-    }
-    
-    //let Q1 = generators.values[0];
-    let H_points = &generators.values[1..];
-
-    //let mut B = Q1;
-    let mut B = generators.g1_base_point; //TODO: Edit taken from Grotto bbs sig library
-
-    for i in 0..L {
-        B += H_points[i] * message_scalars[i].value;
-    }
-    
-    B += commitment;
-
-    B += nym_generator * signer_nym_entropy.0;
-
-    if B.is_identity().into() {
-        return Err(Error::G1IdentityError);
-    }
-
-    let mut b_value:Vec<G1Projective> = Vec::<G1Projective>::new();
-    b_value.push(B);
-
-    Ok(b_value)
-
-}
 
 #[cfg(test)]
 mod tests {
@@ -1193,7 +1157,7 @@ mod tests {
         assert_eq!(hex::encode(&signature_oct), expected_signature);
 
         let nym_secret = signature
-            .verify_blind_sign_with_nym(
+            .verify_finalize_with_nym(
                 &pk,
                 Some(&header),
                 Some(&messages),
@@ -1278,7 +1242,7 @@ mod tests {
                 .map(|m| serde_json::from_value(m.clone()).unwrap())
                 .collect()
         });
-        let messages: Option<Vec<Vec<u8>>> = match messages {
+        let messages = match messages {
             Some(m) => Some(m.iter().map(|m| hex::decode(m).unwrap()).collect()),
             None => None,
         };
