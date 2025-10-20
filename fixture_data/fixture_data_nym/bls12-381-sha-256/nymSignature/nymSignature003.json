@@ -1,20 +1,13 @@
 {
   "caseName": "valid no prover committed messages, multiple signer messages signature",
-  "mockRngParameters": {
-    "SEED": "3.141592653589793238462643383279",
-    "commit": {
-      "DST": "BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_COMMIT_MOCK_RANDOM_SCALARS_DST_",
-      "count": 3
-    }
-  },
   "signerKeyPair": {
     "secretKey": "60e55110f76883a13d030b2f6bd11883422d5abde717569fc0731f51237169fc",
     "publicKey": "a820f230f6ae38503b86c70dc50b61c58a77e45c39ab25c0652bbaa8fa136f2851bd4781c9dcde39fc9d1d52c9e60268061e7d7632171d91aa8d460acee0e96f1e7c4cfb12d3ff9ab5d5dc91c277db75c845d649ef3c4f63aebc364cd55ded0c"
   },
   "signer_nym_entropy": "3d40961fce6c09eec24a371322732932503b458d7a4cf7891bdaa765b30027c5",
-  "proverNym": "6830ea571e9fca0194d9ebd5c571369d8b81655afe0bbb9c6f5efe934f699418",
+  "proverNyms": ["6830ea571e9fca0194d9ebd5c571369d8b81655afe0bbb9c6f5efe934f699418"],
   "proverBlind": "3ba0a2583bc7229fa9f2ae3a6697091032947c3a48f302b7fd2b08ca9d193041",
-  "nym_secret": "3183d923c36e56a823ea4ae0de4287ca87ff06e5785a57268b39a5fa0269bbdc",
+  "nym_secrets": ["3183d923c36e56a823ea4ae0de4287ca87ff06e5785a57268b39a5fa0269bbdc"],
   "commitmentWithProof": "b989fc492e2047f602504eb3e236c0acb04224c77ad0d4cbd31c887b9eb05a1f27d7acfb266fe0ae062914bfa060984c5c2ac3247080eb71fefc7e9622ffae372425a699a298ba991a0bc5c6a3d9211347d0ce98d5c0550667269df1fb81f8fa30c07d4917c7c0786411ee5c05b00b9d501d3f8e244b860b7b11140cddc9787a3ab54ec7fd0a8950dae339f396f2641b",
   "header": "11223344556677889900aabbccddeeff",
   "messages": [
@@ -30,12 +23,12 @@
     ""
   ],
   "committedMessages": [],
-  "signature": "a8c362043de23de5331483e510aafca643d7d1ace1b50003f4cc0eb250868531d401e0d3af8a35dc596ef209f41b4f6f28f5c63f8a096e2a3072633fa624872c3f6f41fb5121b354ad7d0c0ea07e0f2f",
+  "signature": "9737d3d2ae17d170b3320329df8af1639b41ef2251e07437908786fd6421465ac46f98ff8091455d5bfd9394262a818631b7034648ef8a6c940a0b8232e7b160e4e71d8c676958b2d587da285bbf890a",
   "result": {
     "valid": true
   },
   "trace": {
-    "B": "a1abe3d14bd71b236c003fc1b69930dfa1cbe4f44db047bfddb5fd5c3b5a40b15c0ad364afce854089faa407a8cf8170",
-    "domain": "1336f81ac1181906aa77be751b7be985adb49616287ef2f1e4b8ac7771bb6195"
+    "B": "b6c39d33218bc3adaa6cd9d5539f51c66c75c30ee129d7f981e135c0ee5716d60cb5ee82f709224e0c8d9efefa778a38",
+    "domain": "55891afaaadc4df689ca0d112e8aef3ea38b4256db93226ede05546eb8f1daf2"
   }
 }
