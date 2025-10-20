@@ -998,10 +998,14 @@ mod tests {
         (BbsBls12381Sha256, "./fixture_data/fixture_data_nym/bls12-381-sha-256/"): {
             (commit_sha256_1, "nymCommit/nymCommit001.json"),
             (commit_sha256_2, "nymCommit/nymCommit002.json"),
+            (commit_sha256_3, "nymCommit/nymCommit003.json"),
+            (commit_sha256_4, "nymCommit/nymCommit004.json"),
         },
         (BbsBls12381Shake256, "./fixture_data/fixture_data_nym/bls12-381-shake-256/"): {
             (commit_shake256_1, "nymCommit/nymCommit001.json"),
             (commit_shake256_2, "nymCommit/nymCommit002.json"),
+            (commit_shake256_3, "nymCommit/nymCommit003.json"),
+            (commit_shake256_4, "nymCommit/nymCommit004.json"),
         },
     }
 
@@ -1023,11 +1027,12 @@ mod tests {
         let prover_blind = proof_json["proverBlind"].as_str().unwrap();
         let commitment_with_proof = proof_json["commitmentWithProof"].as_str().unwrap();
 
-        let prover_nym = PseudonymSecret::from_hex(
-            proof_json["proverNym"]
-            .as_str()
+        let prover_nyms: Vec<PseudonymSecret> = proof_json["proverNyms"]
+            .as_array()
             .unwrap()
-        ).unwrap();
+            .iter()
+            .map(|m| PseudonymSecret::from_hex(m.as_str().unwrap()).unwrap())
+            .collect::<Vec<PseudonymSecret>>();
 
         let committed_messages: Vec<Vec<u8>> = committed_messages
             .iter()
@@ -1039,7 +1044,7 @@ mod tests {
         let (commitment_with_proof_result, secret) =
         Commitment::<BBSplus<S::Ciphersuite>>::commit_with_nym(
             Some(&committed_messages), 
-            Some(&prover_nym)
+            prover_nyms.iter().collect()
         ).unwrap();
 
         let commitment_with_proof_result_oct = commitment_with_proof_result.to_bytes();
@@ -1078,12 +1083,16 @@ mod tests {
             (blind_sign_with_nym_sha256_2, "nymSignature/nymSignature002.json"),
             (blind_sign_with_nym_sha256_3, "nymSignature/nymSignature003.json"),
             (blind_sign_with_nym_sha256_4, "nymSignature/nymSignature004.json"),
+            (blind_sign_with_nym_sha256_5, "nymSignature/nymSignature005.json"),
+            (blind_sign_with_nym_sha256_6, "nymSignature/nymSignature006.json"),
         },
         (BbsBls12381Shake256, "./fixture_data/fixture_data_nym/bls12-381-shake-256/"): {
             (blind_sign_with_nym_shake256_1, "nymSignature/nymSignature001.json"),
             (blind_sign_with_nym_shake256_2, "nymSignature/nymSignature002.json"),
             (blind_sign_with_nym_shake256_3, "nymSignature/nymSignature003.json"),
             (blind_sign_with_nym_shake256_4, "nymSignature/nymSignature004.json"),
+            (blind_sign_with_nym_shake256_5, "nymSignature/nymSignature005.json"),
+            (blind_sign_with_nym_shake256_6, "nymSignature/nymSignature006.json"),
         },
     } 
 
@@ -1136,16 +1145,18 @@ mod tests {
             .unwrap()
         ).unwrap();
 
-        let prover_nym = PseudonymSecret::from_hex(
-            proof_json["proverNym"]
-            .as_str()
+        let prover_nyms: Vec<PseudonymSecret> = proof_json["proverNyms"]
+            .as_array()
             .unwrap()
-        ).unwrap();
+            .iter()
+            .map(|m| PseudonymSecret::from_hex(m.as_str().unwrap()).unwrap())
+            .collect::<Vec<PseudonymSecret>>();
         
         let signature = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign_with_nym(
             &sk,
             &pk,
             commitment_with_proof.as_deref(),
+            prover_nyms.len(),
             Some(&header),
             &signer_nym_entropy,
             Some(&messages),
@@ -1156,24 +1167,25 @@ mod tests {
 
         assert_eq!(hex::encode(&signature_oct), expected_signature);
 
-        let nym_secret = signature
+        let nym_secrets = signature
             .verify_finalize_with_nym(
                 &pk,
                 Some(&header),
                 Some(&messages),
                 committed_messages.as_deref(),
-                Some(&prover_nym),
+                prover_nyms,
                 Some(&signer_nym_entropy),
                 prover_blind.as_ref(),
             ).unwrap();
 
-        let expected_nym_secret = PseudonymSecret::from_hex(
-            proof_json["nym_secret"]
-            .as_str()
+        let expected_nym_secrets: Vec<PseudonymSecret> = proof_json["nym_secret"]
+            .as_array()
             .unwrap()
-        ).unwrap();
+            .iter()
+            .map(|m| PseudonymSecret::from_hex(m.as_str().unwrap()).unwrap())
+            .collect::<Vec<PseudonymSecret>>();
 
-        assert_eq!(nym_secret, expected_nym_secret);
+        assert_eq!(nym_secrets, expected_nym_secrets);
     }
 
 
