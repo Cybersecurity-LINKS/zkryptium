@@ -226,7 +226,7 @@ impl<CS: BbsCiphersuite> KeyPair<BBSplus<CS>> {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-09#name-secret-key -> SK = KeyGen(key_material, key_info, key_dst)
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-10#name-secret-key -> SK = KeyGen(key_material, key_info, key_dst)
 ///
 /// # Description
 /// This operation generates a secret key (SK) deterministically from a secret octet string (key_material)
@@ -273,7 +273,7 @@ where
     Ok(sk)
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-09#name-public-key
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-10#name-public-key
 ///
 /// # Description
 /// This operation takes a secret key (SK) and outputs a corresponding public key (PK).

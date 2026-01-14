@@ -41,7 +41,7 @@ pub enum Error {
     ///Not enough Generators
     #[error("Not enough Generators")]
     NotEnoughGenerators,
-    /// [More Info](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-09#name-coresign) in the `Note` at the end
+    /// [More Info](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-10#name-coresign) in the `Note` at the end
     #[error("Error, B value is Identity_G1")]
     G1IdentityError,
     ///Error during deserialization

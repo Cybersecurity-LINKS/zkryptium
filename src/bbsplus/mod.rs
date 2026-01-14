@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The [BBS (Boneh-Boyen-Shacham) Signature Scheme](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-09) 
+//! The [BBS (Boneh-Boyen-Shacham) Signature Scheme](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-10) 
 //! is a cryptographic protocol optimized for efficient, privacy-preserving, multi-message signatures. 
 //! The scheme is based on pairing-based cryptography, allowing a user to compactly sign multiple messages, with the possibility of
 //! verifying each individual message in a set without revealing the actual content. This makes BBS signatures well-suited for privacy-sensitive
