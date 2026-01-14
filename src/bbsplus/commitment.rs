@@ -112,7 +112,7 @@ impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
         Ok((Self::BBSplus(commitment_with_proof), secret))
     }
 
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-commitment-validation-and-d>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-02#name-commitment-validation-and-d>
     ///
     /// # Description
     /// The following is a helper operation used by the BlindSign procedure to validate an optional commitment.
@@ -215,7 +215,7 @@ impl BlindFactor {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-commitment-operations
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-02#name-commitment-operations
 ///
 /// # Description
 /// This operation is used by the Prover to create a commitment to a set of messages (committed_messages),
@@ -253,7 +253,7 @@ where
 
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-core-commitment-computation
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-02#name-core-commitment-computation
 /// 
 /// # Description
 /// 
@@ -338,7 +338,7 @@ where
     Ok((commitment_with_proof, secret_prover_blind))
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-core-commitment-verificatio
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-02#name-core-commitment-verificatio
 ///
 /// # Description
 /// This operation is used by the Signer to verify the correctness of a commitment_proof for a supplied commitment,

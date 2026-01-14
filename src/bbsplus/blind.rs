@@ -13,7 +13,7 @@
 // limitations under the License.
 
 //! # **Blind BBS Signature Extension**
-//! The [Blind BBS Signature Extension](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01) builds on the BBS scheme
+//! The [Blind BBS Signature Extension](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-02) builds on the BBS scheme
 //! to support blind signing, where a signer can authenticate a message without knowing its content. This is achieved through a blinding process
 //! applied to the message by the recipient before sending it to the signer. The signer then issues a signature over the blinded content, ensuring privacy.
 //! Key features of the Blind BBS Signature Extension:
@@ -50,7 +50,7 @@ use bls12_381_plus::{G1Projective, Scalar, group::Curve};
 use elliptic_curve::hash2curve::ExpandMsg;
 
 impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-blind-signature-generation>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-02#name-blind-signature-generation>
     ///
     /// # Description
     /// This operation returns a BBS blind signature from a secret key (SK), over a header,
@@ -127,7 +127,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         Ok(Self::BBSplus(blind_sig))
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-blind-signature-verificatio
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-02#name-blind-signature-verificatio
     ///
     /// # Description
     /// This operation validates a blind BBS signature ([`BBSplusSignature`]), given the Signer's public key (PK),
@@ -213,7 +213,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     }
 }
 
-/// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-prepare-parameters>
+/// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-02#name-prepare-parameters>
 ///
 /// 
 /// # Inputs:
@@ -268,7 +268,7 @@ where
 
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-calculate-b-value
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-02#name-calculate-b-value
 ///
 /// # Description
 /// The B_calculate is defined to return an array of elements, to establish extendability of the scheme 
@@ -319,7 +319,7 @@ fn calculate_b(
 
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-finalize-blind-sign
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-02#name-finalize-blind-sign
 ///
 /// # Description
 /// This operation computes a blind BBS signature, from a secret key (SK), a set of generators (points of G1),

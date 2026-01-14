@@ -391,7 +391,7 @@ pub mod bbsplus_utils {
         scalars
     }
 
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-blind-challenge-calculation>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-02#name-blind-challenge-calculation>
     ///
     /// # Description
     /// Utility function to generate a challenge

@@ -19,8 +19,8 @@
 //! ## Description
 //! ZKryptium library provides an implementation of:
 //! * **BBS+**([draft-irtf-cfrg-bbs-signatures-09](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-09)) signature scheme
-//! * **Blind BBS Signatures** ([draft-irtf-cfrg-bbs-blind-signatures-01](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01)) signature scheme with some fixes taken from [grotto-bbs-signatures](https://github.com/Wind4Greg/grotto-bbs-signatures)
-//! * **BBS per Verifier Linkability** ([draft-irtf-cfrg-bbs-blind-signatures-01](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01))
+//! * **Blind BBS Signatures** ([draft-irtf-cfrg-bbs-blind-signatures-02](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-02)) signature scheme with some fixes taken from [grotto-bbs-signatures](https://github.com/Wind4Greg/grotto-bbs-signatures)
+//! * **BBS per Verifier Linkability** ([draft-irtf-cfrg-bbs-per-verifier-linkability-01](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01))
 //! * **CL2003** (https://link.springer.com/chapter/10.1007/3-540-36413-7_20) signature scheme 
 //! This library enables the creation of zero-knowledge proofs, exposing cryptographic primitives facilitating the development of a Verifiable Credentials (VCs) system capable of handling both Anonymous Credentials and Selective Disclosure Credentials.
 //! **WARNING:** for CL2003 use a version from v0.3.2 onwards that uses a new secure cryptographic implementation of the Pseudo Random Number Generator [ThreadRng](https://rust-random.github.io/rand/rand/rngs/struct.ThreadRng.html)

@@ -340,7 +340,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     }
 
     #[cfg(feature = "bbsplus_blind")]
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-01#name-proof-verification
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-02#name-proof-verification
     ///
     /// # Description
     /// The ProofVerify operation validates a BBS proof, given the Signer's public key (PK), a
