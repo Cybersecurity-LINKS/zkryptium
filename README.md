@@ -6,7 +6,7 @@
 
 ## Description
 
-ZKryptium library provides an implementation of:
+Zkryptium library provides an experimental implementation for research purposes of:
 * **BBS+**([draft-irtf-cfrg-bbs-signatures-10](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-10)) signature scheme
 * **Blind BBS Signatures** ([draft-irtf-cfrg-bbs-blind-signatures-02](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-02)) signature scheme with some fixes taken from [grotto-bbs-signatures](https://github.com/Wind4Greg/grotto-bbs-signatures)
 * **BBS per Verifier Linkability** ([draft-irtf-cfrg-bbs-per-verifier-linkability-01](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-01))
@@ -89,11 +89,4 @@ To test the library you can launch the test vectors with:
 ```
 cargo test
 ```
-
-## Adopted by
-
-We’re proud to be adopted by companies around the world. Here are a few of the organizations leveraging our library:
-* [IOTA Foundation](https://github.com/iotaledger/identity.rs)
-* [SpruceID](https://github.com/spruceid/ssi)
-* [Hushmesh Inc.](https://github.com/hushmesh/mesh-infrastructure)
 
