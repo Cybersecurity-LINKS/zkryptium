@@ -1,0 +1,17 @@
+FROM rust:1.81-bookworm AS issuer-build
+WORKDIR /app
+COPY . .
+RUN  apt-get update -y && apt-get install -y libc-dev binutils g++ build-essential libssl-dev libclang-dev cmake
+# Since the cache is unmounted, I need to move the generated executable in another place
+RUN --mount=type=cache,target=/app/target/ \
+    --mount=type=cache,target=/usr/local/cargo/git/db \
+    --mount=type=cache,target=/usr/local/cargo/registry/ \
+    cargo build --release --example bbsplus_test_mem_only_keygen && \
+    cp target/release/examples/bbsplus_test_mem_only_keygen /app/zkryptium
+
+
+FROM debian:bookworm
+RUN apt-get update -y && apt-get install
+WORKDIR /data
+COPY --from=issuer-build /app/zkryptium /usr/local/bin/zkryptium 
+CMD ["zkryptium"]
