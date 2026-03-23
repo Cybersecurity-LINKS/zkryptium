@@ -13,7 +13,7 @@ Cargo.lock
 # Added by cargo
 
 /target
-
+/results
 keypair.txt
 
 

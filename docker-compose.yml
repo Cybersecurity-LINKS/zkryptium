@@ -1,0 +1,15 @@
+version: '3.9'
+services:
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: test-zk
+    hostname: test-zk
+    container_name: test-zk
+    #restart: unless-stopped
+    #ports:
+    #  - "3213:3213"
+    #env_file: .env
+    volumes:
+    - ./results:/data/results:Z
