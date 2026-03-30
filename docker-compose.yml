@@ -7,14 +7,14 @@ services:
     image: test-zk
     hostname: test-zk
     container_name: test-zk
-    restart: unless-stopped
+    #restart: unless-stopped
     volumes:
     - ./results:/data/results:Z
-  #test_mem:
-    #build:
-      #context: .
-      #dockerfile: Dockerfile_mem
-    #image: test-zk_mem
-    #hostname: test-zk_mem
-    #container_name: test-zk_mem
+  test_mem:
+    build:
+      context: .
+      dockerfile: Dockerfile_mem
+    image: test-zk_mem
+    hostname: test-zk_mem
+    container_name: test-zk_mem
     #restart: unless-stopped

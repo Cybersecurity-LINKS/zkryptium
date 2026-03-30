@@ -166,7 +166,7 @@ mod bbsplus_example {
         )
         .unwrap();
 
-        println!("signature sz {:?} byte", signature.to_bytes().len());
+        //println!("signature sz {:?} byte", signature.to_bytes().len());
 
         let elapsed = start.elapsed();
         sign_gen.push_front(elapsed);
@@ -194,7 +194,7 @@ mod bbsplus_example {
         let elapsed = start.elapsed();
         proof_gen.push_front(elapsed);
 
-        println!("proof sz {:?} byte", proof.to_bytes().len());
+        //println!("proof sz {:?} byte", proof.to_bytes().len());
 
         //Verifier verifies SPok
         let disclosed_messages = get_messages_vec(&messages, &disclosed_indexes);
@@ -242,10 +242,11 @@ fn main() {
     let mut proof_verify = VecDeque::<Duration>::with_capacity(1100);
     let mut sign_update = VecDeque::<Duration>::with_capacity(1100);
     
-    for _ in 0..1100 {
+    for i in 0..1100 {
+            println!("Iteration {}", i);
             let _ = bbsplus_main::<BbsBls12381Sha256>(&mut keygen, &mut sign_gen,&mut sign_verify,&mut proof_gen,&mut proof_verify, &mut sign_update);
     }
-     write_to_csv("Keygen".to_owned(),  keygen);
+    write_to_csv("Keygen".to_owned(),  keygen);
     write_to_csv("sign_gen".to_owned(),  sign_gen);
     write_to_csv("sign_verify".to_owned(),  sign_verify);
     write_to_csv("proof_gen".to_owned(),  proof_gen);

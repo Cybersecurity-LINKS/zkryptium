@@ -29,62 +29,8 @@ mod bbsplus_example {
         utils::util::bbsplus_utils::{generate_random_secret, get_messages_vec},
     };
 
-    use std::{collections::VecDeque, fs::create_dir_all, time::{Duration, Instant}};
-
-    #[derive(Debug, Serialize, Deserialize)]
-    pub struct BenchmarkMeasurement {
-        function_name: String,
-        duration: Duration,
-    }
-
-    impl BenchmarkMeasurement {
-    pub fn new(
-        function_name: String,
-        duration: Duration,
-    ) -> BenchmarkMeasurement {
-        BenchmarkMeasurement {
-            function_name,
-            duration
-        }
-    }
-
-    pub fn as_row(&self) -> [String; 2] {
-        [
-            self.function_name.clone(),
-            self.duration.as_nanos().to_string(),
-        ]
-    }
-}
-
-    pub fn write_to_csv(
-        name: String,
-        measures: VecDeque<Duration>,
-    ) {
-    let test_name = &name.to_string().to_lowercase();
-    create_dir_all(format!("results/")).expect("Cannot create a directory");
-    let mut csv = csv::WriterBuilder::new()
-        .from_path(format!(
-            "results/{}.csv",
-            test_name,
-        ))
-        .expect("Cannot create file");
-    measures
-        .iter()
-        .map(|time| BenchmarkMeasurement::new(name.clone(), *time))
-        .for_each(|record| {
-            //csv.write_record(&record.as_row()).unwrap();
-            csv.write_record([record.duration.as_nanos().to_string()]).unwrap();
-        });
-    }
-
     pub(crate) fn bbsplus_main<S: Scheme>
-    (   keygen: &mut VecDeque::<Duration>,
-        sign_gen: &mut VecDeque::<Duration>,
-        sign_verify: &mut VecDeque::<Duration>,
-        proof_gen: &mut VecDeque::<Duration>,
-        proof_verify: &mut VecDeque::<Duration>,
-        sign_update: &mut VecDeque::<Duration>
-    ) -> Result<(), Error>
+    ( ) -> Result<(), Error>
 
     where
         S::Ciphersuite: BbsCiphersuite,
@@ -92,7 +38,6 @@ mod bbsplus_example {
     {
         
 
-        
         const MSGS: [&str; 18] = [
         "did:web:docker%3a49000:.well-known:did_zk.json",
         "did:jwk:eyJrdHkiOiJPS1AiLCJhbGciOiJFZERTQSIsImNydiI6IkVkMjU1MTkiLCJ4IjoiZEZpbXVrZUo5LTAwS19xaTQ5eDhZeGdKcmZJWXRsMUtkaFJZcjNhdXRMdyJ9",
@@ -145,19 +90,15 @@ mod bbsplus_example {
         let mut rng = rand::thread_rng();
         let key_material: Vec<u8> = (0..S::Ciphersuite::IKM_LEN).map(|_| rng.gen()).collect();
 
-        let start = Instant::now();
+
         let issuer_keypair =
             KeyPair::<BBSplus<S::Ciphersuite>>::generate(&key_material, None, None)?;
 
-        let elapsed = start.elapsed();
-        keygen.push_front(elapsed);
-
-/*         let issuer_sk = issuer_keypair.private_key();
+        let issuer_sk = issuer_keypair.private_key();
         let issuer_pk = issuer_keypair.public_key();
         
         let messages: Vec<Vec<u8>> = MSGS.iter().map(|m| m.as_bytes().to_vec()).collect();
 
-        let start = Instant::now();
         let signature = Signature::<BBSplus<S::Ciphersuite>>::sign(
             Some(&messages),
             issuer_sk,
@@ -166,20 +107,13 @@ mod bbsplus_example {
         )
         .unwrap();
 
-        let elapsed = start.elapsed();
-        sign_gen.push_front(elapsed);
-
-        let start = Instant::now();
         signature.verify(issuer_pk, Some(&messages), Some(&header)).unwrap();
-        let elapsed = start.elapsed();
-        sign_verify.push_front(elapsed);
 
         //Holder receive nonce from Verifier
         let nonce_verifier = generate_random_secret(32);
 
         let disclosed_indexes = [1, 2,3,4,7,8,9,10,11,12,16];
 
-        let start = Instant::now();
         let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(
             issuer_pk,
             &signature.to_bytes(),
@@ -189,15 +123,12 @@ mod bbsplus_example {
             Some(&disclosed_indexes),
         )
         .unwrap();
-        let elapsed = start.elapsed();
-        proof_gen.push_front(elapsed);
 
-        println!("proo sz {:?}", proof.to_bytes().len());
+        //println!("proof sz {:?} byte", proof.to_bytes().len());
 
         //Verifier verifies SPok
         let disclosed_messages = get_messages_vec(&messages, &disclosed_indexes);
 
-        let start = Instant::now();
         let proof_result = proof
             .proof_verify(
                 &issuer_pk,
@@ -207,10 +138,7 @@ mod bbsplus_example {
                 Some(&nonce_verifier),
             )
             .is_ok();
-        let elapsed = start.elapsed();
-        proof_verify.push_front(elapsed);
 
-        let start = Instant::now();
         signature.update_signature(
             issuer_sk, 
             "2026-03-11T13:35:42Z".as_bytes(),
@@ -218,37 +146,23 @@ mod bbsplus_example {
             14,
             18
         ).unwrap();
-        let elapsed = start.elapsed();
-        sign_update.push_front(elapsed); */
         Ok(())
     }
 }
 
 #[cfg(feature = "bbsplus")]
 fn main() {
-    use crate::bbsplus_example::{bbsplus_main, write_to_csv};
+    use crate::bbsplus_example::{bbsplus_main};
     use std::{collections::VecDeque, env, time::Duration};
     use zkryptium::schemes::algorithms::{BbsBls12381Sha256, BbsBls12381Shake256};
 
     dotenv::dotenv().ok();
     env_logger::init();
 
-    let mut keygen = VecDeque::<Duration>::with_capacity(1100);
-    let mut sign_gen = VecDeque::<Duration>::with_capacity(1100);
-    let mut sign_verify = VecDeque::<Duration>::with_capacity(1100);
-    let mut proof_gen = VecDeque::<Duration>::with_capacity(1100);
-    let mut proof_verify = VecDeque::<Duration>::with_capacity(1100);
-    let mut sign_update = VecDeque::<Duration>::with_capacity(1100);
-    
-    for _ in 0..1100 {
-            let _ = bbsplus_main::<BbsBls12381Sha256>(&mut keygen, &mut sign_gen,&mut sign_verify,&mut proof_gen,&mut proof_verify, &mut sign_update);
+    for i in 0..110000 {
+            println!("Iteration {}", i);
+            let _ = bbsplus_main::<BbsBls12381Sha256>();
     }
-/*     write_to_csv("Keygen".to_owned(),  keygen);
-    write_to_csv("sign_gen".to_owned(),  sign_gen);
-    write_to_csv("sign_verify".to_owned(),  sign_verify);
-    write_to_csv("proof_gen".to_owned(),  proof_gen);
-    write_to_csv("proof_verify".to_owned(),  proof_verify);
-    write_to_csv("sign_update".to_owned(),  sign_update); */
 
 /*     let args: Vec<String> = env::args().collect();
 

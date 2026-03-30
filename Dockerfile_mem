@@ -6,8 +6,8 @@ RUN  apt-get update -y && apt-get install -y libc-dev binutils g++ build-essenti
 RUN --mount=type=cache,target=/app/target/ \
     --mount=type=cache,target=/usr/local/cargo/git/db \
     --mount=type=cache,target=/usr/local/cargo/registry/ \
-    cargo build --release --example bbsplus_test_mem_only_keygen && \
-    cp target/release/examples/bbsplus_test_mem_only_keygen /app/zkryptium
+    cargo build --release --example bbsplus_test_mem && \
+    cp target/release/examples/bbsplus_test_mem /app/zkryptium
 
 
 FROM debian:bookworm
