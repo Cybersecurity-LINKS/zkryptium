@@ -93,15 +93,20 @@ impl BBSplusPseudonym {
 pub struct PseudonymSecret(pub(crate) Scalar);
 
 impl PseudonymSecret {
+    /// Generates a random PseudonymSecret.
+    pub fn random() -> Self {
+        Self(get_random())
+    }
+
     /// Generates a random vector of PseudonymSecrets.
     /// # Arguments
     ///
     /// * `size` - Number of PseudonymSecret.
-    pub fn random(size: usize) -> Vec<Self> {
+    pub fn random_vec(size: usize) -> Vec<Self> {
         let mut secrets = Vec::with_capacity(size);
 
-        for i in 0..size {
-            secrets[i] = Self(get_random())
+        for _ in 0..size {
+            secrets.push(Self(get_random()))
         }
 
         secrets
@@ -1216,7 +1221,7 @@ mod tests {
 
         assert_eq!(hex::encode(&signature_oct), expected_signature);
 
-/*        let nym_secrets = signature
+        let nym_secrets = signature
             .verify_finalize_with_nym(
                 &pk,
                 Some(&header),
@@ -1227,14 +1232,14 @@ mod tests {
                 prover_blind.as_ref(),
             ).unwrap();
 
-        let expected_nym_secrets: Vec<PseudonymSecret> = proof_json["nym_secret"]
+        let expected_nym_secrets: Vec<PseudonymSecret> = proof_json["nym_secrets"]
             .as_array()
             .unwrap()
             .iter()
             .map(|m| PseudonymSecret::from_hex(m.as_str().unwrap()).unwrap())
             .collect::<Vec<PseudonymSecret>>();
 
-        assert_eq!(nym_secrets, expected_nym_secrets);*/
+        assert_eq!(nym_secrets, expected_nym_secrets);
     }
 
 
