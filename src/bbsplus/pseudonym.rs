@@ -44,16 +44,16 @@ use crate::utils::util::bbsplus_utils::seeded_random_scalars;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct PseudonymProofInitResult {
     pseudonym: G1Projective,
-    OP: G1Projective,
+    context_id: Vec<u8>,
     Ut: G1Projective
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+/*#[derive(Clone, Debug, Serialize, Deserialize)]
 struct PseudonymProofVerifyInitResult {
     pseudonym: BBSplusPseudonym,
-    OP: G1Projective,
+    context_id: Vec<u8>,
     Uv: G1Projective
-}
+}*/
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 /// Represents a BBS+ Pseudonym.
@@ -438,8 +438,8 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     /// This section defines the ProofGenWithNym operations, for calculating a
     /// BBS proof with a pseudonym. The BBS proof is extended to include a zero-knowledge
     /// proof of correctness of the pseudonym value, i.e., that is correctly calculated using
-    /// the (undisclosed) pseudonym secret (nym_secret), and that is "bound" to the underlying
-    /// BBS signature (i.e., that the nym_secret value is signed by the Signer).
+    /// the (undisclosed) pseudonym secret (nym_secretS), and that is "bound" to the underlying
+    /// BBS signature (i.e., that the nym_secretS value is signed by the Signer).
     /// Validating the proof, guarantees authenticity and integrity of the header,
     /// presentation header and disclosed messages, knowledge of a valid BBS signature
     /// as well as correctness and ownership of the pseudonym. To support pseudonyms,
@@ -451,7 +451,8 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     /// * `signature` (REQUIRED), an octet string.
     /// * `header` (OPTIONAL), an octet string containing context and application.
     /// * `ph` (OPTIONAL), an octet string containing the presentation header.
-    /// * `nym_secret` (REQUIRED), a ([`PseudonymSecret`]) value.
+    /// * `nym_secrets` (REQUIRED), the vector of nym secret scalars, known to Prover.
+    ///                             ([`PseudonymSecret`]) value.
     /// * `context_id` (REQUIRED), an octet string containing the Context (or verifier) id
     /// * `messages` (OPTIONAL), a vector of octet strings messages supplied by the Signer.
     ///                          If not supplied, it defaults to the empty array.
@@ -472,7 +473,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         signature: &[u8],
         header: Option<&[u8]>,
         ph: Option<&[u8]>,
-        nym_secret: &PseudonymSecret,
+        nym_secrets: &Vec<PseudonymSecret>,
         context_id: &[u8],
         messages: Option<&[Vec<u8>]>,
         committed_messages: Option<&[Vec<u8>]>,
@@ -489,10 +490,14 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         let api_id = CS::API_ID_NYM;
         let messages = messages.unwrap_or(&[]);
         let committed_messages = committed_messages.unwrap_or(&[]);
-        let secret_prover_blind = secret_prover_blind.unwrap_or(&BlindFactor(Scalar::ZERO));
+        let secret_prover_blind = secret_prover_blind.unwrap_or(
+            &BlindFactor(Scalar::ZERO)
+        );
 
         let L = messages.len();
         let M = committed_messages.len();
+
+        let nym_secrets_len = nym_secrets.len();
 
         let disclosed_indexes = disclosed_indexes.unwrap_or(&[]);
         let disclosed_commitment_indexes = disclosed_commitment_indexes.unwrap_or(&[]);
@@ -506,24 +511,33 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
                 "disclosed index out of range".to_owned(),
             ));
         } else if disclosed_commitment_indexes.len() > M {
-            return Err(Error::BlindProofGenError("number of commitment disclosed indexes is grater than the number of committed messages".to_owned()));
+            return Err(Error::BlindProofGenError(
+                "number of commitment disclosed indexes is grater \
+                   than the number of committed messages".to_owned()
+            ));
         } else if disclosed_commitment_indexes.iter().any(|&i| i >= M) {
             return Err(Error::BlindProofGenError(
                 "commitment disclosed index out of range".to_owned(),
             ));
         }
         
-        let (mut message_scalars, generators) = prepare_parameters::<CS>(
+        let (mut message_scalars, combined_generators) = prepare_parameters::<CS>(
             Some(messages),
             Some(committed_messages),
             L + 1,
-            M + 2,
+            M + nym_secrets_len + 1,
             Some(secret_prover_blind), 
             Some(api_id)
         )?;
 
-        message_scalars.push(Into::<BBSplusMessage>::into(nym_secret.clone()));
-        
+        message_scalars.append(
+            &mut nym_secrets
+                .clone()
+                .iter()
+                .map(|t| BBSplusMessage::new(t.0))
+                .collect()
+        );
+
         let indexes = disclosed_indexes
             .iter()
             .copied()
@@ -534,9 +548,10 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
             pk,
             &signature,
             context_id,
-            &generators,
+            &combined_generators,
             &message_scalars,
             &indexes,
+            nym_secrets_len,
             header,
             ph,
             Some(api_id),
@@ -551,23 +566,35 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-proof-verification-with-pse
     ///
     /// # Description
-    /// This operation validates a BBS proof with a pseudonym, given the Signer's public key (PK), the proof, the pseudonym,
-    /// the context identifier that was used to create it, a header and presentation header, the disclosed messages
-    /// and committed messages as well as the, the indexes those messages had in the original vectors of signed messages.
-    /// Validating the proof also validates the correctness and ownership by the Prover of the received pseudonym.
+    /// This operation validates a BBS proof with a pseudonym, given the Signer's public key (PK),
+    /// the proof, the pseudonym, the context identifier used to create it, a header
+    /// and presentation header, the disclosed messages and committed messages as well as the,
+    /// the indexes those messages had in the original vectors of signed messages.
+    /// Validating the proof also validates the correctness and ownership by the Prover
+    /// of the received pseudonym.
+    ///
     /// # Inputs:
     /// * `self`, a proof.
     /// * `pk` (REQUIRED), the Signer public key.
     /// * `header` (OPTIONAL), an octet string containing context and application.
     /// * `ph` (OPTIONAL), an octet string containing the presentation header.
     /// * `pseudonym` (REQUIRED), a ([`BBSplusPseudonym`]) value
-    /// * `context_id` (REQUIRED), an octet string, representing the unique proof Verifier identifieran octet string,
-    ///                             representing the unique proofVerifier identifier
-    /// * `L` (OPTIONAL), an integer, representing the total number of Signer known messages if not supplied it defaults to 0.
-    /// * `disclosed_messages` (OPTIONAL), a vector of octet string representing the messages disclosed to the Verifier.
-    /// * `disclosed_committed_messages` (OPTIONAL), a vector of octet string representing the committed messages disclosed to the Verifier.
-    /// * `disclosed_indexes` (OPTIONAL), vector of usize in ascending order. Indexes of disclosed messages.
-    /// * `disclosed_commitment_indexes` (OPTIONAL), vector of usize in ascending order. Indexes of disclosed committed messages.
+    /// * `context_id` (REQUIRED), an octet string, representing the unique proof Verifier identifier
+    /// * `length_nym_vector` (REQUIRED), the length of the prover_nyms secret vector.
+    /// * `L` (OPTIONAL), an integer, representing the total number of Signer-known messages.
+    ///                   If not supplied, it defaults to 0.
+    /// * `disclosed_messages` (OPTIONAL), a vector of octet string representing the messages
+    ///                                    disclosed to the Verifier. If not supplied, it defaults
+    ///                                    to the empty array ("()").
+    /// * `disclosed_committed_messages` (OPTIONAL), a vector of octet string representing
+    ///                                             the committed messages disclosed to the Verifier.
+    ///                                             If not supplied, it defaults to the empty array ("()").
+    /// * `disclosed_indexes` (OPTIONAL), vector of usize in ascending order.
+    ///                                   Indexes of disclosed messages. If not supplied,
+    ///                                   it defaults to the empty array ("()").
+    /// * `disclosed_commitment_indexes` (OPTIONAL), vector of usize in ascending order.
+    ///                                   Indexes of disclosed commited messages. If not supplied,
+    ///                                   it defaults to the empty array ("()").
     ///
     /// # Output:
     /// a result: [`Ok`] or [`Error`].
@@ -579,6 +606,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         ph: Option<&[u8]>,
         pseudonym: &BBSplusPseudonym,
         context_id: &[u8],
+        length_nym_vector: usize,
         L: Option<usize>,
         disclosed_messages: Option<&[Vec<u8>]>,
         disclosed_committed_messages: Option<&[Vec<u8>]>,
@@ -591,11 +619,14 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         let proof = self.to_bbsplus_proof();
         let L = L.unwrap_or(0);
         let disclosed_messages = disclosed_messages.unwrap_or(&[]);
-        let disclosed_committed_messages = disclosed_committed_messages.unwrap_or(&[]);
-        let mut disclosed_indexes = disclosed_indexes.unwrap_or(&[]).to_vec();
+        let disclosed_committed_messages = disclosed_committed_messages
+                .unwrap_or(&[]);
+        let mut disclosed_indexes = disclosed_indexes
+                .unwrap_or(&[]).to_vec();
         disclosed_indexes.sort();
         disclosed_indexes.dedup();
-        let mut disclosed_commitment_indexes = disclosed_commitment_indexes.unwrap_or(&[]).to_vec();
+        let mut disclosed_commitment_indexes = disclosed_commitment_indexes
+                .unwrap_or(&[]).to_vec();
         disclosed_commitment_indexes.sort();
         disclosed_commitment_indexes.dedup();
 
@@ -624,6 +655,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
             proof,
             pseudonym,
             context_id,
+            length_nym_vector,
             &generators,
             header,
             ph,
@@ -639,8 +671,8 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
 /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-core-proof-verification
 ///
 /// # Description
-/// This operation validates a BBS proof that also includes a pseudonym.
-/// Validating the proof, other than the correctness and integrity of the revealed messages, the header and the
+/// This operation validates a BBS proof that also includes a pseudonym. Validating the proof,
+/// other than the correctness and integrity of the revealed messages, the header, and the
 /// presentation header values, also guarantees that the supplied pseudonym was correctly calculated, i.e.,
 /// that it was produced using the Verifier's identifier and the signed (but undisclosed) Prover's identifier
 /// 
@@ -648,23 +680,26 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
 /// * `pk` (REQUIRED), the Signer public key.
 /// * `proof` (REQUIRED), a [`BBSplusPoKSignature`].
 /// * `pseudonym ` (REQUIRED), a [`BBSplusPseudonym`].
-/// * `context_id` (REQUIRED), an octet string, representing the unique proof Verifier identifieran octet string,
-///                             representing the unique proofVerifier identifier
+/// * `context_id` (REQUIRED), an octet string, representing the unique proof Verifier identifier
+/// * `length_nym_vector` (REQUIRED), the length of the nym secrets vector from the Prover.
 /// * `generators` (REQUIRED), vector of pseudo-random points in G1.
 /// * `header` (OPTIONAL), an octet string containing context and application.
 /// * `ph` (OPTIONAL), an octet string containing the presentation header.
-/// * `disclosed_messages` (OPTIONAL), a vector of scalars ([`BBSplusMessage`]) representing the messages disclosed to the Verifier.
-/// * `disclosed_indexes` (OPTIONAL), vector of unsigned integers in ascending order. Indexes of disclosed messages.
+/// * `disclosed_messages` (OPTIONAL), a vector of scalars ([`BBSplusMessage`])
+///                                    representing the messages disclosed to the Verifier.
+/// * `disclosed_indexes` (OPTIONAL), vector of unsigned integers in ascending order.
+///                                   Indexes of disclosed messages.
 /// * `api_id` (OPTIONAL), an octet string.
 ///
 /// # Output:
-/// a result: [`Ok`] or [`Error`].
+/// result: [`Ok`] or [`Error`].
 ///
 fn core_proof_verify_with_nym<CS>(
     pk: &BBSplusPublicKey,
     proof: &BBSplusPoKSignature,
     pseudonym: &BBSplusPseudonym,
     context_id: &[u8],
+    length_nym_vector: usize,
     generators: &Generators,
     header: Option<&[u8]>,
     ph: Option<&[u8]>,
@@ -675,24 +710,29 @@ fn core_proof_verify_with_nym<CS>(
 where
     CS: BbsCiphersuite,
 {
+    let header = header.unwrap_or(&[]);
+    let combined_header = [header , &i2osp::<8>(length_nym_vector)[..]].concat();
+
     let init_res = proof_verify_init::<CS>(
         pk,
         proof,
         generators,
-        header,
+        Some(&*combined_header),
         disclosed_messages,
         disclosed_indexes,
         api_id,
     )?;
 
+    let commitments = &proof.m_cap[proof.m_cap.len().saturating_sub(length_nym_vector)..];
+
     let pseudonym_init_res = pseudonym_proof_verify_init::<CS>(
         pseudonym,
         context_id,
-        proof.m_cap.last().expect("pseudonym not found"),
+        commitments,
         &proof.challenge,
     )?;
 
-    let challenge = verify_proof_with_nym_challenge_calculate::<CS>(
+    let challenge = proof_with_nym_challenge_calculate::<CS>(
         &init_res,
         &pseudonym_init_res,
         &disclosed_indexes,
@@ -723,11 +763,13 @@ where
 /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-core-proof-generation
 ///
 /// # Description
-/// This operations computes a BBS proof and a zero-knowledge proof of correctness of the pseudonym in "parallel"
-/// (meaning using common randomness), as to both create a proof that the pseudonym was correctly calculated
-/// using an undisclosed value that the Prover knows (i.e., the nym_secret value), but also that this value is
-/// "signed" by the BBS signature (the last undisclosed message). As a result, validating the proof guarantees
-/// that the pseudonym is correctly computed and that it was computed using the Prover identifier that was included in the BBS signature
+/// This operation computes a BBS proof and a zero-knowledge proof of correctness of
+/// the pseudonym in "parallel" (meaning using common randomness), as to both create a proof that
+/// the pseudonym was correctly calculated using an undisclosed value that the Prover knows
+/// (i.e., the nym_secrets value), but also that this value is "signed" by the BBS signature
+/// (the last undisclosed message). As a result, validating the proof guarantees that the pseudonym
+/// is correctly computed and that it was computed using the Prover identifier
+/// that was included in the BBS signature
 ///
 /// # Inputs:
 /// * `pk` (REQUIRED), the Signer public key.
@@ -738,6 +780,7 @@ where
 /// * `ph` (OPTIONAL), an octet string containing the presentation header.
 /// * `messages` (OPTIONAL), a vector of scalars ([`BBSplusMessage`]) representing the signed messages.
 /// * `disclosed_indexes` (OPTIONAL), vector of usize in ascending order. Indexes of disclosed messages.
+/// * `length_nym_secrets` (REQUIRED), the length of the nym_secrets vector
 /// * `api_id` (OPTIONAL), an octet string.
 ///
 /// # Output:
@@ -750,6 +793,7 @@ fn core_proof_gen_with_nym<CS>(
     generators: &Generators,
     messages: &[BBSplusMessage],
     disclosed_indexes: &[usize],
+    length_nym_secrets: usize,
     header: Option<&[u8]>,
     ph: Option<&[u8]>,
     api_id: Option<&[u8]>,
@@ -772,9 +816,7 @@ where
     let R = disclosed_indexes.len();
 
     if R > L - 1 {
-        return Err(Error::ProofGenError(format!(
-            "Invalid disclosed index"
-        )));
+        return Err(Error::ProofGenError("Invalid disclosed index".to_string()));
     }
 
     let U = L
@@ -799,21 +841,30 @@ where
     #[cfg(test)]
     let random_scalars = seeded_random_scalars::<CS>(5 + U, _seed, _dst);
 
+    let header = header.unwrap_or(&[]);
+
+    let combined_header = [header , &i2osp::<8>(length_nym_secrets)[..]].concat();
+
     let init_res = proof_init::<CS>(
         pk,
         signature,
         generators,
         &random_scalars,
-        header,
+        Some(&*combined_header),
         messages,
         &undisclosed_indexes,
         api_id,
     )?;
 
+    let nym_secrets= &messages[messages.len().saturating_sub(length_nym_secrets)..]
+        .iter()
+        .map(|msg  | msg.value) // Extract Scalar values from BBSplusMessage
+        .collect::<Vec<_>>();
+
     let pseudonym_init_res = pseudonym_proof_init::<CS>(
         context_id,
-        &PseudonymSecret(messages.last().expect("message scalar not found").value),
-        &random_scalars.last().expect("Random scalar not found"),
+        nym_secrets,
+        &random_scalars[random_scalars.len().saturating_sub(length_nym_secrets)..]
     )?;
 
     let pseudonym= BBSplusPseudonym{
@@ -844,15 +895,15 @@ where
 ///
 ///  # Inputs:
 /// * `context_id` (REQUIRED), an octet string containing the Context (or verifier) id
-/// * `nym_secret` (REQUIRED), a [`PseudonymSecret`] value
-/// * `random_scalar` (REQUIRED), a random [`Scalar`]
+/// * `nym_secrets` (REQUIRED), a slice of [`Scalar`] values
+/// * `random_scalars` (REQUIRED), a slice of random [`Scalar`]
 /// 
 /// # Output:
 /// [`PseudonymProofInitResult`], a tuple consisting of three elements from the G1 group or [`Error`].
 fn pseudonym_proof_init<CS>(
     context_id: &[u8],
-    nym_secret: &PseudonymSecret,
-    random_scalar: &Scalar
+    nym_secrets: &[Scalar],
+    random_scalars: &[Scalar]
 ) -> Result<PseudonymProofInitResult, Error> 
 where
     CS: BbsCiphersuite,
@@ -861,15 +912,29 @@ where
 
     let OP = G1Projective::hash::<CS::Expander>(context_id, CS::API_ID_NYM);
 
-    let pseudonym = OP * nym_secret.0;
+    let z = hash_to_scalar::<CS>(context_id, &[CS::API_ID_NYM, b"VECT_NYM_SECRETS"].concat())?;
 
-    let Ut = OP * random_scalar;
+    // Polynomial evaluation over nym_secrets and random_scalars, this can
+    // be done in any way desired, e.g., Horner's rule.
+    let mut poly_eval_pseudo = nym_secrets[0];
+    let mut poly_eval_proof = random_scalars[0];
+    let mut z_n = z;
+
+    for i in 1..nym_secrets.len() {
+        poly_eval_pseudo += nym_secrets[i] * z_n;
+        poly_eval_proof += random_scalars[i] * z_n;
+        z_n *= z;
+    }
+
+    let pseudonym = OP * poly_eval_pseudo;
+
+    let Ut = OP * poly_eval_proof;
 
     if pseudonym.is_identity().into() {
         return Err(Error::G1IdentityError)
     }
 
-    Ok(PseudonymProofInitResult{pseudonym, OP, Ut})
+    Ok(PseudonymProofInitResult{pseudonym, context_id: context_id.to_vec(), Ut})
 }
 
 /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-pseudonym-proof-verificatio
@@ -877,17 +942,17 @@ where
 ///  # Inputs:
 /// * `pseudonym` (REQUIRED), a [`BBSplusPseudonym`] value
 /// * `context_id` (REQUIRED), an octet string containing the Context (or verifier) id
-/// * `nym_secret_commitment` (REQUIRED), a [`Scalar`] value
-/// * `proof_challenge` (REQUIRED), a random [`Scalar`]
+/// * `nym_secret_commitments ` (REQUIRED), a slice of [`Scalar`] values
+/// * `proof_challenge ` (REQUIRED), a [`Scalar`] value
 /// 
 /// # Output:
-/// [`PseudonymProofVerifyInitResult`], a tuple consisting of three elements from the G1 group or [`Error`].
+/// [`PseudonymProofVerifyInitResult`], a tuple (pseudonym, context_id, Ut) or [`Error`].
 fn pseudonym_proof_verify_init<CS>(
     pseudonym: &BBSplusPseudonym,
     context_id: &[u8],
-    nym_secret_commitment: &Scalar,
-    proof_challenge: &Scalar
-) -> Result<PseudonymProofVerifyInitResult, Error> 
+    nym_secret_commitments: &[Scalar],
+    proof_challenge : &Scalar
+) -> Result<PseudonymProofInitResult, Error>
 where
     CS: BbsCiphersuite,
     CS::Expander: for<'a> ExpandMsg<'a>
@@ -895,25 +960,47 @@ where
 
     let OP = G1Projective::hash::<CS::Expander>(context_id, CS::API_ID_NYM);
 
-    let Uv: G1Projective = OP * nym_secret_commitment - pseudonym.pseudonym * proof_challenge;
+    let z = hash_to_scalar::<CS>(context_id, &[CS::API_ID_NYM, b"VECT_NYM_SECRETS"].concat())?;
+
+    // Polynomial evaluation over nym_secrets and random_scalars, this can
+    // be done in any way desired, e.g., Horner's rule.
+
+    let mut poly_eval_proof = nym_secret_commitments[0];
+    let mut z_n = z;
+
+    for i in 1..nym_secret_commitments.len() {
+        poly_eval_proof += nym_secret_commitments[i] * z_n;
+        z_n *= z;
+    }
+
+    let Uv = OP * poly_eval_proof - pseudonym.pseudonym * proof_challenge;
 
     if Uv.is_identity().into() {
         return Err(Error::G1IdentityError)
     }
 
-    Ok(PseudonymProofVerifyInitResult{pseudonym: pseudonym.clone(), OP, Uv})
+    Ok(
+        PseudonymProofInitResult{
+        pseudonym: pseudonym.pseudonym.clone(),
+        context_id: context_id.to_vec(),
+        Ut: Uv
+    })
 }
 
 /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-challenge-calculation
 ///
 /// # Inputs:
-/// * `init_res` (REQUIRED), [`ProofInitResult`] returned after initializing the proof generation or verification operations, 
-///                             consisting of 5 points of G1 and a scalar value, in that order.
-/// * `pseudonym_init_res` (REQUIRED), [`PseudonymProofInitResult`] vector representing the value returned
-///                                 after initializing the pseudonym proof, consisting of 3 points of G1.
+/// * `init_res` (REQUIRED), [`ProofInitResult`] returned after initializing the proof generation
+///                          or verification operations, consisting of 5 points of
+///                          G1 and a scalar value, in that order.
+/// * `pseudonym_init_res` (REQUIRED), [`PseudonymProofInitResult`] vector representing
+///                                    the value returned after initializing the pseudonym proof,
+///                                    consisting of (pseudonym, context_id, Uv).
 /// * `header` (OPTIONAL), an octet string containing context and application.
-/// * `dsclosed_messages` (OPTIONAL), a vector of scalars ([`BBSplusMessage`]) representing the disclosed messages to the Verifier.
-/// * `disclosed_indexes` (OPTIONAL), vector of usize in ascending order. Indexes of disclosed messages.
+/// * `dsclosed_messages` (OPTIONAL), a vector of scalars ([`BBSplusMessage`])
+///                                   representing the disclosed messages to the Verifier.
+/// * `disclosed_indexes` (OPTIONAL), vector of usize in ascending order.
+///                                   Indexes of disclosed messages.
 /// * `ph` (OPTIONAL), an octet string containing the presentation header.
 /// * `api_id` (OPTIONAL), an octet string.
 ///
@@ -956,7 +1043,6 @@ where
     c_arr.extend_from_slice(&init_res.T1.to_affine().to_compressed());
     c_arr.extend_from_slice(&init_res.T2.to_affine().to_compressed());
     c_arr.extend_from_slice(&pseudonym_init_res.pseudonym.to_affine().to_compressed());
-    c_arr.extend_from_slice(&pseudonym_init_res.OP.to_affine().to_compressed());
     c_arr.extend_from_slice(&pseudonym_init_res.Ut.to_affine().to_compressed());
     c_arr.extend_from_slice(&init_res.domain.to_bytes_be());
 
@@ -965,57 +1051,13 @@ where
     c_arr.extend_from_slice(&ph_i2osp);
     c_arr.extend_from_slice(ph);
 
-    hash_to_scalar::<CS>(&c_arr, &challenge_dst)
-}
+    let ph_context_id = i2osp::<8>(pseudonym_init_res.context_id.len());
 
-fn verify_proof_with_nym_challenge_calculate<CS>(
-    init_res: &ProofInitResult,
-    pseudonym_init_res: &PseudonymProofVerifyInitResult,
-    disclosed_indexes: &[usize],
-    disclosed_messages: &[BBSplusMessage],
-    ph: Option<&[u8]>,
-    api_id: Option<&[u8]>,
-) -> Result<Scalar, Error>
-where
-    CS: BbsCiphersuite,
-{
-    let R = disclosed_indexes.len();
-
-    if disclosed_messages.len() != R {
-        return Err(Error::ProofGenError(
-            "Number of disclosed indexes different from number of disclosed messages".to_owned(),
-        ));
-    }
-
-    let api_id = api_id.unwrap_or(b"");
-    let challenge_dst = [api_id, CS::H2S].concat();
-
-    let ph = ph.unwrap_or(b"");
-
-    let mut c_arr: Vec<u8> = Vec::new();
-    c_arr.extend_from_slice(&i2osp::<8>(R));
-    for (i, m) in core::iter::zip(disclosed_indexes, disclosed_messages) {
-        c_arr.extend_from_slice(&i2osp::<8>(*i));
-        c_arr.extend_from_slice(&m.value.to_bytes_be());
-    }
-    c_arr.extend_from_slice(&init_res.Abar.to_affine().to_compressed());
-    c_arr.extend_from_slice(&init_res.Bbar.to_affine().to_compressed());
-    c_arr.extend_from_slice(&init_res.D.to_affine().to_compressed());
-    c_arr.extend_from_slice(&init_res.T1.to_affine().to_compressed());
-    c_arr.extend_from_slice(&init_res.T2.to_affine().to_compressed());
-    c_arr.extend_from_slice(&pseudonym_init_res.pseudonym.pseudonym.to_affine().to_compressed());
-    c_arr.extend_from_slice(&pseudonym_init_res.OP.to_affine().to_compressed());
-    c_arr.extend_from_slice(&pseudonym_init_res.Uv.to_affine().to_compressed());
-    c_arr.extend_from_slice(&init_res.domain.to_bytes_be());
-
-    let ph_i2osp = i2osp::<8>(ph.len());
-
-    c_arr.extend_from_slice(&ph_i2osp);
-    c_arr.extend_from_slice(ph);
+    c_arr.extend_from_slice(&ph_context_id);
+    c_arr.extend_from_slice(&pseudonym_init_res.context_id);
 
     hash_to_scalar::<CS>(&c_arr, &challenge_dst)
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -1241,15 +1283,14 @@ mod tests {
 
         assert_eq!(nym_secrets, expected_nym_secrets);
     }
-
-
+    
     macro_rules! nym_proof_tests {
         ( $( ($t:ident, $p:literal): { $( ($n:ident, $f:literal), )+ },)+ ) => { $($(
             #[test] fn $n() { nym_proof_check::<$t>($p, $f, "./fixture_data/fixture_data_nym/"); }
         )+)+ }
     }
 
-/*    nym_proof_tests! {
+    nym_proof_tests! {
         (BbsBls12381Sha256, "./fixture_data/fixture_data_nym/bls12-381-sha-256/"): {
             (nym_proof_check_sha256_1, "nymProof/nymProof001.json"),
             (nym_proof_check_sha256_2, "nymProof/nymProof002.json"),
@@ -1258,6 +1299,10 @@ mod tests {
             (nym_proof_check_sha256_5, "nymProof/nymProof005.json"),
             (nym_proof_check_sha256_6, "nymProof/nymProof006.json"),
             (nym_proof_check_sha256_7, "nymProof/nymProof007.json"),
+            (nym_proof_check_sha256_101, "nymProof/nymProof101.json"),
+            (nym_proof_check_sha256_102, "nymProof/nymProof102.json"),
+            (nym_proof_check_sha256_103, "nymProof/nymProof103.json"),
+            (nym_proof_check_sha256_104, "nymProof/nymProof104.json"),
         },
         (BbsBls12381Shake256, "./fixture_data/fixture_data_nym/bls12-381-shake-256/"): {
             (nym_proof_check_shake256_1, "nymProof/nymProof001.json"),
@@ -1267,9 +1312,12 @@ mod tests {
             (nym_proof_check_shake256_5, "nymProof/nymProof005.json"),
             (nym_proof_check_shake256_6, "nymProof/nymProof006.json"),
             (nym_proof_check_shake256_7, "nymProof/nymProof007.json"),
+            (nym_proof_check_shake256_101, "nymProof/nymProof101.json"),
+            (nym_proof_check_shake256_102, "nymProof/nymProof102.json"),
+            (nym_proof_check_shake256_103, "nymProof/nymProof103.json"),
+            (nym_proof_check_shake256_104, "nymProof/nymProof104.json"),
         },
-    }*/
-
+    }
 
     fn nym_proof_check<S: Scheme>(pathname: &str, proof_filename: &str, messages_path: &str)
     where
@@ -1364,24 +1412,26 @@ mod tests {
         };
 
         let context_id = hex::decode(proof_json["context_id"].as_str().unwrap()).unwrap();
-        let nym_secret = PseudonymSecret::from_hex(
-            proof_json["nym_secret"].as_str().unwrap()
-        ).unwrap();
-        
-        hex::decode(proof_json["nym_secret"].as_str().unwrap()).unwrap();
+        let nym_secrets: Vec<PseudonymSecret> = proof_json["nym_secrets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|m| PseudonymSecret::from_hex(m.as_str().unwrap()).unwrap())
+            .collect::<Vec<PseudonymSecret>>();
 
-        let (proof, pseudonym) = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen_with_nym(
-            &pk,
-            &signature.to_bytes(),
-            Some(&header),
-            Some(&ph),
-            &nym_secret,
-            &context_id,
-            messages.as_deref(),
-            used_committed_messages.as_deref(),
-            disclosed_indexes.as_deref(),
-            disclosed_commitment_indexes.as_deref(),
-            secret_prover_blind.as_ref(),
+        let (proof, pseudonym) =
+            PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen_with_nym(
+                &pk,
+                &signature.to_bytes(),
+                Some(&header),
+                Some(&ph),
+                &nym_secrets,
+                &context_id,
+                messages.as_deref(),
+                used_committed_messages.as_deref(),
+                disclosed_indexes.as_deref(),
+                disclosed_commitment_indexes.as_deref(),
+                secret_prover_blind.as_ref(),
         ).unwrap();
 
         let expected_proof = proof_json["proof"].as_str().unwrap();
@@ -1396,6 +1446,7 @@ mod tests {
             Some(&ph),
             &pseudonym,
             &context_id,
+            nym_secrets.len(),
             messages.as_ref().map(Vec::len),
             disclosed_messages.as_deref(),
             disclosed_committed_messages.as_deref(),
