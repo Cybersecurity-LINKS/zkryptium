@@ -1064,7 +1064,7 @@ mod tests {
     use std::fs;
 
     use elliptic_curve::hash2curve::ExpandMsg;
-
+    use serde_json::Value;
     use crate::{
         bbsplus::{ciphersuites::BbsCiphersuite, commitment::BlindFactor, generators::Generators,
                   keys::{BBSplusPublicKey, BBSplusSecretKey},
@@ -1107,29 +1107,17 @@ mod tests {
             .expect("Unable to parse");
         println!("{}", proof_json["caseName"]);
 
-        let committed_messages: Vec<String> = proof_json["committedMessages"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|m| serde_json::from_value(m.clone()).unwrap())
-            .collect();
-
         let prover_blind = proof_json["proverBlind"].as_str().unwrap();
         let commitment_with_proof = proof_json["commitmentWithProof"].as_str().unwrap();
 
-        let prover_nyms: Vec<PseudonymSecret> = proof_json["proverNyms"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|m| PseudonymSecret::from_hex(m.as_str().unwrap()).unwrap())
-            .collect::<Vec<PseudonymSecret>>();
+        let prover_nyms = get_pseudonymsecrets(&proof_json, "proverNyms");
 
         let prover_nyms_len = prover_nyms.len();
 
-        let committed_messages: Vec<Vec<u8>> = committed_messages
-            .iter()
-            .map(|m| hex::decode(m).unwrap())
-            .collect();
+        let committed_messages = get_commited_messages(
+            &proof_json,
+            "committedMessages"
+        );
 
         let expected_result = proof_json["result"]["valid"].as_bool().unwrap();
 
@@ -1205,32 +1193,23 @@ mod tests {
         let sk = BBSplusSecretKey::from_bytes(&hex::decode(sk_hex).unwrap()).unwrap();
         let pk = BBSplusPublicKey::from_bytes(&hex::decode(pk_hex).unwrap()).unwrap();
 
-        let committed_messages: Option<Vec<String>> =
-            proof_json["committedMessages"].as_array().and_then(|cm| {
-                cm.iter()
-                    .map(|m| serde_json::from_value(m.clone()).unwrap())
-                    .collect()
-            });
-        let prover_blind = proof_json["proverBlind"].as_str().map(|b| {
-            BlindFactor::from_bytes(&hex::decode(b).unwrap().try_into().unwrap()).unwrap()
-        });
+        let prover_blind = get_blind_factor(&proof_json, "proverBlind");
 
         let commitment_with_proof = proof_json["commitmentWithProof"]
             .as_str()
             .map(|c| hex::decode(c).unwrap());
 
-        let committed_messages: Option<Vec<Vec<u8>>> = match committed_messages {
-            Some(cm) => Some(cm.iter().map(|m| hex::decode(m).unwrap()).collect()),
-            None => None,
-        };
+        let committed_messages = Some(
+            get_commited_messages(
+                &proof_json,
+                "committedMessages"
+            )
+        );
 
         let header = hex::decode(proof_json["header"].as_str().unwrap()).unwrap();
-        let messages: Vec<String> = proof_json["messages"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|m| serde_json::from_value(m.clone()).unwrap())
-            .collect(); 
+
+        let messages = get_messages(&proof_json, "messages");
+
         let messages: Vec<Vec<u8>> = messages.iter().map(|m| hex::decode(m).unwrap()).collect();
 
         let signer_nym_entropy = PseudonymSecret::from_hex(
@@ -1239,12 +1218,7 @@ mod tests {
             .unwrap()
         ).unwrap();
 
-        let prover_nyms: Vec<PseudonymSecret> = proof_json["proverNyms"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|m| PseudonymSecret::from_hex(m.as_str().unwrap()).unwrap())
-            .collect::<Vec<PseudonymSecret>>();
+        let prover_nyms = get_pseudonymsecrets(&proof_json, "proverNyms");
         
         let signature = BlindSignature::<BBSplus<S::Ciphersuite>>::
         blind_sign_with_nym(
@@ -1286,7 +1260,7 @@ mod tests {
     
     macro_rules! nym_proof_tests {
         ( $( ($t:ident, $p:literal): { $( ($n:ident, $f:literal), )+ },)+ ) => { $($(
-            #[test] fn $n() { nym_proof_check::<$t>($p, $f, "./fixture_data/fixture_data_nym/"); }
+            #[test] fn $n() { nym_proof_check::<$t>($p, $f); }
         )+)+ }
     }
 
@@ -1319,19 +1293,14 @@ mod tests {
         },
     }
 
-    fn nym_proof_check<S: Scheme>(pathname: &str, proof_filename: &str, messages_path: &str)
+    fn nym_proof_check<S: Scheme>(pathname: &str, proof_filename: &str)
     where
         S::Ciphersuite: BbsCiphersuite,
         <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
-        let data = std::fs::read_to_string([pathname, proof_filename].concat())
+        let data = fs::read_to_string([pathname, proof_filename].concat())
             .expect("Unable to read file");
         let proof_json: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
-
-        let messages_data = std::fs::read_to_string([messages_path, "messages.json"].concat())
-            .expect("Unable to read file");
-        let messages_json: serde_json::Value =
-            serde_json::from_str(&messages_data).expect("Unable to parse");
 
         println!("{}", proof_json["caseName"]);
 
@@ -1339,31 +1308,24 @@ mod tests {
 
         let pk = BBSplusPublicKey::from_bytes(&hex::decode(pk_hex).unwrap()).unwrap();
 
-        let committed_messages: Option<Vec<String>> = messages_json["committedMessages"]
-            .as_array()
-            .and_then(|cm| {
-                cm.iter()
-                    .map(|m| serde_json::from_value(m.clone()).unwrap())
-                    .collect()
-            });
-        let committed_messages: Option<Vec<Vec<u8>>> = match committed_messages {
-            Some(cm) => Some(cm.iter().map(|m| hex::decode(m).unwrap()).collect()),
-            None => None,
-        };
+        let committed_messages = Some(
+            get_commited_messages(
+                &proof_json,
+                "committedMessages"
+            )
+        );
 
-        let messages: Option<Vec<String>> = messages_json["messages"].as_array().and_then(|cm| {
-            cm.iter()
-                .map(|m| serde_json::from_value(m.clone()).unwrap())
-                .collect()
-        });
+        let messages = Some (
+            get_messages(&proof_json, "messages")
+        );
+
         let messages = match messages {
             Some(m) => Some(m.iter().map(|m| hex::decode(m).unwrap()).collect()),
             None => None,
         };
 
-        let secret_prover_blind = proof_json["proverBlind"].as_str().map(|b| {
-            BlindFactor::from_bytes(&hex::decode(b).unwrap().try_into().unwrap()).unwrap()
-        });
+        let secret_prover_blind = get_blind_factor(&proof_json, "proverBlind");
+
         let header = hex::decode(proof_json["header"].as_str().unwrap()).unwrap();
         let ph = hex::decode(proof_json["presentationHeader"].as_str().unwrap()).unwrap();
         let signature = BBSplusSignature::from_bytes(
@@ -1374,36 +1336,11 @@ mod tests {
         )
         .unwrap();
 
-        let (disclosed_messages, disclosed_indexes) = proof_json["revealedMessages"]
-            .as_object()
-            .map(|values| {
-                let messages = values
-                    .values()
-                    .map(|h| hex::decode(h.as_str().unwrap()).unwrap())
-                    .collect::<Vec<_>>();
-                let indexes = values
-                    .keys()
-                    .map(|s| s.parse().unwrap())
-                    .collect::<Vec<_>>();
-                (messages, indexes)
-            })
-            .map_or((None, None), |(m, i)| (Some(m), Some(i))); // unzip() in 1.66+
+        let (disclosed_messages, disclosed_indexes) =
+                get_revealed_messages(&proof_json, "revealedMessages");
 
-        let (disclosed_committed_messages, disclosed_commitment_indexes) = proof_json
-            ["revealedCommittedMessages"]
-            .as_object()
-            .map(|values| {
-                let messages = values
-                    .values()
-                    .map(|h| hex::decode(h.as_str().unwrap()).unwrap())
-                    .collect::<Vec<_>>();
-                let indexes = values
-                    .keys()
-                    .map(|s| s.parse().unwrap())
-                    .collect::<Vec<_>>();
-                (messages, indexes)
-            })
-            .map_or((None, None), |(m, i)| (Some(m), Some(i))); // unzip() in 1.66+
+        let (disclosed_committed_messages, disclosed_commitment_indexes) =
+                get_revealed_messages(&proof_json, "revealedCommittedMessages");
 
         let used_committed_messages = if disclosed_commitment_indexes.is_some() {
             committed_messages
@@ -1412,12 +1349,8 @@ mod tests {
         };
 
         let context_id = hex::decode(proof_json["context_id"].as_str().unwrap()).unwrap();
-        let nym_secrets: Vec<PseudonymSecret> = proof_json["nym_secrets"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|m| PseudonymSecret::from_hex(m.as_str().unwrap()).unwrap())
-            .collect::<Vec<PseudonymSecret>>();
+
+        let nym_secrets = get_pseudonymsecrets(&proof_json, "nym_secrets");
 
         let (proof, pseudonym) =
             PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen_with_nym(
@@ -1459,6 +1392,72 @@ mod tests {
         assert_eq!(result, expected_result);
     }
 
+    fn get_pseudonymsecrets(proof_json: &Value, name: &str) -> Vec<PseudonymSecret>{
+        let nym_secrets: Vec<PseudonymSecret> = proof_json[name]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|m| PseudonymSecret::from_hex(m.as_str().unwrap()).unwrap())
+                .collect::<Vec<PseudonymSecret>>();
+
+        nym_secrets
+    }
+
+    fn get_commited_messages(proof_json: &Value, name: &str) -> Vec<Vec<u8>>{
+        let committed_messages: Vec<String> = proof_json[name]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|m| serde_json::from_value(m.clone()).unwrap())
+            .collect();
+
+
+        let committed_messages: Vec<Vec<u8>> = committed_messages
+            .iter()
+            .map(|m| hex::decode(m).unwrap())
+            .collect();
+
+        committed_messages
+    }
+
+
+    fn get_messages(proof_json: &Value, name: &str) -> Vec<String>
+    {
+        let messages: Vec <String> = proof_json[name]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map( | m | serde_json::from_value(m.clone()).unwrap())
+            .collect();
+
+        messages
+    }
+
+    fn get_revealed_messages(proof_json: &Value, name: &str) -> (Option<Vec<Vec<u8>>>, Option<Vec<usize>>) {
+        let (a, b) = proof_json
+                [name]
+                .as_object()
+                .map(|values| {
+                    let messages = values
+                            .values()
+                            .map(|h| hex::decode(h.as_str().unwrap()).unwrap())
+                            .collect::<Vec<_>>();
+                    let indexes = values
+                            .keys()
+                            .map(|s| s.parse().unwrap())
+                            .collect::<Vec<_>>();
+                    (messages, indexes)
+                })
+                .map_or((None, None), |(m, i)| (Some(m), Some(i)));
+
+        (a, b)//
+    }
+
+    fn get_blind_factor(proof_json:&Value, name: &str) -> Option<BlindFactor> {
+        proof_json[name].as_str().map(|b| {
+            BlindFactor::from_bytes(&hex::decode(b).unwrap().try_into().unwrap()).unwrap()
+        })
+    }
 }
 
 
