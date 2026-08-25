@@ -57,7 +57,7 @@ struct PseudonymProofVerifyInitResult {
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 /// Represents a BBS+ Pseudonym.
-/// See https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-pseudonyms
+/// See https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-03#name-pseudonyms
 pub struct BBSplusPseudonym{
     pseudonym: G1Projective
 }
@@ -200,7 +200,7 @@ impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>>{
 }
 
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-commitment
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-03#name-commitment
 ///
 /// # Description
 /// The Prover will chose a set of messages committed_messages that they want
@@ -249,7 +249,7 @@ where
 }
 
 impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-blind-issuance>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-03#name-blind-issuance>
     ///
     /// # Description
     /// The Signer generate a signature from a secret key (SK), the commitment with proof,
@@ -350,7 +350,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         Ok(Self::BBSplus(blind_sig))
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-verification-and-finalizati
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-03#name-verification-and-finalizati
     ///
     /// # Description
     /// The following operation both verifies the generated blind signature,
@@ -432,7 +432,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
 }
 
 impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-proof-generation-with-pseud>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-03#name-proof-generation-with-pseud>
     ///
     /// # Description
     /// This section defines the ProofGenWithNym operations, for calculating a
@@ -563,7 +563,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     }
 
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-proof-verification-with-pse
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-03#name-proof-verification-with-pse
     ///
     /// # Description
     /// This operation validates a BBS proof with a pseudonym, given the Signer's public key (PK),
@@ -668,7 +668,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
 }
 
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-core-proof-verification
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-03#name-core-proof-verification
 ///
 /// # Description
 /// This operation validates a BBS proof that also includes a pseudonym. Validating the proof,
@@ -760,7 +760,7 @@ where
 }
 
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-core-proof-generation
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-03#name-core-proof-generation
 ///
 /// # Description
 /// This operation computes a BBS proof and a zero-knowledge proof of correctness of
@@ -891,7 +891,7 @@ where
     Ok((proof, pseudonym))
 }
 
-///https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-pseudonym-proof-generation-i
+///https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-03#name-pseudonym-proof-generation-i
 ///
 ///  # Inputs:
 /// * `context_id` (REQUIRED), an octet string containing the Context (or verifier) id
@@ -937,7 +937,7 @@ where
     Ok(PseudonymProofInitResult{pseudonym, context_id: context_id.to_vec(), Ut})
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-pseudonym-proof-verificatio
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-03#name-pseudonym-proof-verificatio
 ///
 ///  # Inputs:
 /// * `pseudonym` (REQUIRED), a [`BBSplusPseudonym`] value
@@ -987,7 +987,7 @@ where
     })
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-02#name-challenge-calculation
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-03#name-challenge-calculation
 ///
 /// # Inputs:
 /// * `init_res` (REQUIRED), [`ProofInitResult`] returned after initializing the proof generation
