@@ -53,17 +53,21 @@ mod bbsplus_example {
         let issuer_pk = issuer_keypair.public_key();
         log::info!("PK: {}", hex::encode(issuer_pk.to_bytes()));
 
-        log::info!("Prover generates the prover_nym");
-        let prover_nym = PseudonymSecret::random();
-        log::info!("Prover_nym: {}", prover_nym);
+        log::info!("Prover generates the prover_nyms vector");
+        let prover_nyms_len = 3;
+        let prover_nyms = PseudonymSecret::random_vec(prover_nyms_len);
+        log::info!("Prover_nyms: {:?}", prover_nyms);
 
-         log::info!("Computing pedersen commitment on messages with the pseudonym...");
+        log::info!("Computing pedersen commitment on messages with the pseudonym...");
         let committed_messages: Vec<Vec<u8>> = COMMITTED_MSGS
             .iter()
             .map(|m| hex::decode(m).unwrap())
             .collect();
         let (commitment_with_proof, secret_prover_blind) =
-            Commitment::<BBSplus<S::Ciphersuite>>::commit_with_nym(Some(&committed_messages), Some(&prover_nym))?;
+            Commitment::<BBSplus<S::Ciphersuite>>::commit_with_nym(
+                Some(&committed_messages),
+                prover_nyms.clone()
+            )?;
 
         log::info!("Send the commitment with the proof to the Issuer");
         log::info!("Messages added by the Issuer to be signed");
@@ -80,10 +84,12 @@ mod bbsplus_example {
         log::info!("Signer_nym_entropy: {}", signer_nym_entropy);
 
         log::info!("Blind signature generation with Pseudonym...");
-        let blind_signature = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign_with_nym(
+        let blind_sig = BlindSignature::<BBSplus<S::Ciphersuite>>::
+        blind_sign_with_nym(
             issuer_sk,
             issuer_pk,
             Some(&commitment_with_proof.to_bytes()),
+            prover_nyms_len,
             Some(&header),
             &signer_nym_entropy,
             Some(&messages),
@@ -91,18 +97,18 @@ mod bbsplus_example {
 
         log::info!("Blind Signature with Pseudonym Verification...");
 
-        let nym_secret = blind_signature
-        .verify_blind_sign_with_nym(
+        let signature_nym_secrets = blind_sig
+        .verify_finalize_with_nym(
             issuer_pk,
             Some(&header),
             Some(&messages),
             Some(&committed_messages),
-            Some(&prover_nym),
+            prover_nyms,
             Some(&signer_nym_entropy),
             Some(&secret_prover_blind),
-        ).unwrap();
+        )?;
         
-        log::info!("Blind Signature with Pseudonym is VALID!");
+        log::info!("Blind Signature with Pseudonym is VALID!, nym_secrets: {:?}", signature_nym_secrets);
 
         let context_id = "verifier_context_id";
 
@@ -120,22 +126,23 @@ mod bbsplus_example {
 
         let disclosed_indexes = [0usize, 2usize];
         let disclosed_commitment_indexes = [1usize];
-        let (poks, pseudonym) = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen_with_nym(
-            issuer_pk,
-            &blind_signature.to_bytes(),
-            Some(&header),
-            Some(&nonce_verifier),
-            &nym_secret,
-            context_id.as_bytes(),
-            Some(&messages),
-            Some(&committed_messages),
-            Some(&disclosed_indexes),
-            Some(&disclosed_commitment_indexes),
-            Some(&secret_prover_blind)
+        let (poks, pseudonym) =
+            PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen_with_nym(
+                issuer_pk,
+                &blind_sig.to_bytes(),
+                Some(&header),
+                Some(&nonce_verifier),
+                &signature_nym_secrets,
+                context_id.as_bytes(),
+                Some(&messages),
+                Some(&committed_messages),
+                Some(&disclosed_indexes),
+                Some(&disclosed_commitment_indexes),
+                Some(&secret_prover_blind)
         )?;
 
-        //Verifier receives from the Prover: proof, len of all messages, the disclosed messages and their index and the pseudonym
-        //verifies SPok with Pseudonym
+        //Verifier receives from the Prover: proof, len of all messages,
+        // the disclosed messages and their index and the pseudonym verifies SPok with Pseudonym
         log::info!("Signature Proof of Knowledge with Pseudonym verification...");
         let disclosed_messages = disclosed_indexes
             .iter()
@@ -151,6 +158,7 @@ mod bbsplus_example {
                 Some(&nonce_verifier),
                 &pseudonym,
                 context_id.as_bytes(),
+                signature_nym_secrets.len(),
                 Some(messages.len()),
                 Some(&disclosed_messages),
                 Some(&disclosed_committed_messages),
@@ -158,6 +166,7 @@ mod bbsplus_example {
                 Some(&disclosed_commitment_indexes),
             )
             .is_ok();
+
         assert!(
             poks_verification_result,
             "Signature Proof of Knowledge with Pseudonym Verification Failed!"
