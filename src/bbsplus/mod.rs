@@ -1,4 +1,4 @@
-// Copyright 2025 Fondazione LINKS
+// Copyright 2026 Fondazione LINKS
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The [BBS (Boneh-Boyen-Shacham) Signature Scheme](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-12) 
+//! The [BBS (Boneh-Boyen-Shacham) Signature Scheme](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13)
 //! is a cryptographic protocol optimized for efficient, privacy-preserving, multi-message signatures. 
 //! The scheme is based on pairing-based cryptography, allowing a user to compactly sign multiple messages, with the possibility of
 //! verifying each individual message in a set without revealing the actual content. This makes BBS signatures well-suited for privacy-sensitive
@@ -30,7 +30,7 @@
 //! # Usage
 //! To use the BBS Signature Scheme, enable the `bbsplus` feature in the `Cargo.toml` file
 //! ```toml
-//! zkryptium = { version = "0.4", default-features = false, features = ["bbsplus"] }
+//! zkryptium = { version = "0.8", default-features = false, features = ["bbsplus"] }
 //! ```    
 
 

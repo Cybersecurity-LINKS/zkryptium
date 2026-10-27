@@ -1,4 +1,4 @@
-// Copyright 2025 Fondazione LINKS
+// Copyright 2026 Fondazione LINKS
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,6 +41,7 @@ use super::{
 
 #[cfg(not(test))]
 use crate::utils::util::bbsplus_utils::calculate_random_scalars;
+use crate::utils::util::bbsplus_utils::{get_generators_from_indexes, multi_exponentiation_g1};
 #[cfg(test)]
 use crate::utils::util::bbsplus_utils::seeded_random_scalars;
 
@@ -124,7 +125,7 @@ impl BBSplusPoKSignature {
 }
 
 impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-12#name-proof-generation-proofgen
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-proof-generation-proofgen
     ///
     /// # Description
     /// The ProofGen operation creates BBS proof, which is a zero-knowledge, proof-of-knowledge of a BBS signature,
@@ -283,17 +284,20 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         Ok(Self::BBSplus(proof))
     }
 
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-12#name-proof-verification-proofver>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-proof-verification-proofver>
     ///
     /// # Description
-    /// The ProofVerify operation validates a BBS proof, given the Signer's public key (PK), a header and presentation header values,
-    /// the disclosed messages and the indexes those messages had in the original vector of signed messages.
+    /// The ProofVerify operation validates a BBS proof, given the Signer's public key (PK), 
+    /// a header and presentation header values, the disclosed messages and the indexes those 
+    /// messages had in the original vector of signed messages.
     ///  
     /// # Inputs:
     /// * `self`, a proof.
     /// * `pk` (REQUIRED), the Signer public key.
-    /// * `disclosed_messages` (OPTIONAL), a vector of octet string representing the messages disclosed to the Verifier.
-    /// * `disclosed_indexes` (OPTIONAL), vector of usize in ascending order. Indexes of disclosed messages.
+    /// * `disclosed_messages` (OPTIONAL), a vector of octet string representing the messages 
+    ///                                    disclosed to the Verifier.
+    /// * `disclosed_indexes` (OPTIONAL), vector of usize in ascending order. 
+    ///                                   Indexes of disclosed messages.
     /// * `header` (OPTIONAL), an octet string containing context and application.
     /// * `ph` (OPTIONAL), an octet string containing the presentation header.
     ///
@@ -355,11 +359,15 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     /// * `pk` (REQUIRED), the Signer public key.
     /// * `header` (OPTIONAL), an octet string containing context and application.
     /// * `ph` (OPTIONAL), an octet string containing the presentation header.
-    /// * `L` (OPTIONAL), an integer, representing the total number of Signer known messages if not supplied it defaults to 0.
-    /// * `disclosed_messages` (OPTIONAL), a vector of octet string representing the messages disclosed to the Verifier.
-    /// * `disclosed_committed_messages` (OPTIONAL), a vector of octet string representing the committed messages disclosed to the Verifier.
+    /// * `L` (OPTIONAL), an integer, representing the total number of Signer known messages 
+    ///                               if not supplied it defaults to 0.
+    /// * `disclosed_messages` (OPTIONAL), a vector of octet string representing the messages 
+    ///                                    disclosed to the Verifier.
+    /// * `disclosed_committed_messages` (OPTIONAL), a vector of octet string representing 
+    ///                                             the committed messages disclosed to the Verifier.
     /// * `disclosed_indexes` (OPTIONAL), vector of usize in ascending order. Indexes of disclosed messages.
-    /// * `disclosed_commitment_indexes` (OPTIONAL), vector of usize in ascending order. Indexes of disclosed committed messages.
+    /// * `disclosed_commitment_indexes` (OPTIONAL), vector of usize in ascending order. 
+    ///                                              Indexes of disclosed committed messages.
     ///
     /// # Output:
     /// a result: [`Ok`] or [`Error`].
@@ -381,11 +389,13 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         let proof = self.to_bbsplus_proof();
         let L = L.unwrap_or(0);
         let disclosed_messages = disclosed_messages.unwrap_or(&[]);
-        let disclosed_committed_messages = disclosed_committed_messages.unwrap_or(&[]);
+        let disclosed_committed_messages = disclosed_committed_messages
+                .unwrap_or(&[]);
         let mut disclosed_indexes = disclosed_indexes.unwrap_or(&[]).to_vec();
         disclosed_indexes.sort();
         disclosed_indexes.dedup();
-        let mut disclosed_commitment_indexes = disclosed_commitment_indexes.unwrap_or(&[]).to_vec();
+        let mut disclosed_commitment_indexes = disclosed_commitment_indexes
+                .unwrap_or(&[]).to_vec();
         disclosed_commitment_indexes.sort();
         disclosed_commitment_indexes.dedup();
 
@@ -440,7 +450,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-12#name-coreproofgen
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-coreproofgen
 ///
 /// # Description
 /// This operation computes a zero-knowledge proof-of-knowledge of a signature, while optionally
@@ -480,6 +490,114 @@ where
         return Err(Error::NotEnoughGenerators);
     }
 
+    let init_res = proof_init::<CS>(
+        pk,
+        signature,
+        generators,
+        header,
+        messages,
+        &disclosed_indexes,
+        api_id,
+        _seed,
+        _dst,
+    )?;
+
+    let challenge = proof_challenge_calculate::<CS>(
+        &init_res,
+        ph,
+        api_id,
+    )?;
+
+    let proof = proof_finalize(
+        &init_res,
+        challenge
+    )?;
+
+    Ok(proof)
+}
+
+///https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-proof-initialization-result
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(super) struct ProofInitRes {
+    pub Abar: G1Projective,
+    pub Bbar: G1Projective,
+    pub D: G1Projective,
+    pub T1: G1Projective,
+    pub T2: G1Projective,
+    pub domain: Scalar,
+    pub L: usize,
+    pub disclosed_indexes: Vec<usize>,
+    pub disclosed_messages: Vec<BBSplusMessage>,
+    pub undisclosed_messages: Option<Vec<BBSplusMessage>>,
+    pub e: Option<Scalar>,
+    pub random_scalars: Option<Vec<Scalar>>,
+}
+
+pub(super) fn validate_init_res(init_res: &ProofInitRes) -> Result<(), Error> {
+
+    if init_res.disclosed_messages.len() !=  init_res.disclosed_indexes.len(){
+        return Err(Error::ProofGenError("Number of disclosed indexes different \
+        from number of disclosed messages".to_owned()));
+    }
+
+    if let Some(invalid_index) = init_res.disclosed_indexes.iter().find(|&&i| i > init_res.L) {
+        return Err(Error::ProofGenError(format!(
+            "Invalid disclosed index: {}",
+            invalid_index
+        )));
+    }
+
+    match (&init_res.undisclosed_messages, &init_res.random_scalars) {
+        (Some(undisclosed_messages), Some(random_scalars)) => {
+            if random_scalars.len()  !=  undisclosed_messages.len() + 5 {
+                return Err(Error::ProofGenError("Number of random scalars different \
+                        from number of undisclosed messages".to_owned()));
+            }
+        },
+        (None, None) => (),
+        _ => return Err(Error::ProofGenError("Both undisclosed messages and \
+                       random scalars must be present".to_owned())),
+    }
+
+    Ok(())
+}
+
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-proof-initialization
+///
+/// # Description
+/// This operation initializes the proof and returns one of the inputs passed to the challenge calculation
+/// operation ([`proof_challenge_calculate`]), during the [`core_proof_gen`] operation. The inputted messages
+/// MUST be supplied to this operation in the same order they had when inputted to the `core_sign` operation
+///
+/// # Inputs:
+/// * `pk` (REQUIRED), the Signer public key.
+/// * `signature` (REQUIRED), a [`BBSplusSignature`].
+/// * `generators` (REQUIRED), vector of pseudo-random points in G1.
+/// * `header` (OPTIONAL), an octet string containing context and application.
+/// * `messages` (OPTIONAL), a vector of scalars ([`BBSplusMessage`]).
+/// * `disclosed_indexes` (OPTIONAL), vector of usize in ascending order. Indexes of undisclosed messages.
+/// * `api_id` (OPTIONAL), an octet string.
+///
+/// # Output:
+/// a [`ProofInitRes`] or [`Error`].
+///
+pub(super) fn proof_init<CS>(
+    pk: &BBSplusPublicKey,
+    signature: &BBSplusSignature,
+    generators: &Generators,
+    header: Option<&[u8]>,
+    messages: &[BBSplusMessage],
+    disclosed_indexes: &[usize],
+    api_id: Option<&[u8]>,
+    _seed: &[u8],
+    _dst: &[u8],
+) -> Result<ProofInitRes, Error>
+where
+    CS: BbsCiphersuite,
+    CS::Expander: for<'a> ExpandMsg<'a>,
+{
+    let L = messages.len();
+
     let mut disclosed_indexes = disclosed_indexes.to_vec();
     disclosed_indexes.sort();
     disclosed_indexes.dedup();
@@ -487,8 +605,8 @@ where
     let R = disclosed_indexes.len();
 
     let U = L
-        .checked_sub(R)
-        .ok_or_else(|| Error::ProofGenError("R > L".to_owned()))?;
+            .checked_sub(R)
+            .ok_or_else(|| Error::ProofGenError("R > L".to_owned()))?;
 
     if let Some(invalid_index) = disclosed_indexes.iter().find(|&&i| i > L - 1) {
         return Err(Error::ProofGenError(format!(
@@ -501,107 +619,13 @@ where
 
     let disclosed_messages = get_messages(messages, &disclosed_indexes);
     let undisclosed_messages = get_messages(messages, &undisclosed_indexes);
+    let undisclosed_generators = get_generators_from_indexes(generators, &undisclosed_indexes);
 
     #[cfg(not(test))]
     let random_scalars = calculate_random_scalars(5 + U);
 
     #[cfg(test)]
     let random_scalars = seeded_random_scalars::<CS>(5 + U, _seed, _dst);
-
-    let init_res = proof_init::<CS>(
-        pk,
-        signature,
-        generators,
-        &random_scalars,
-        header,
-        messages,
-        &undisclosed_indexes,
-        api_id,
-    )?;
-
-    let challenge = proof_challenge_calculate::<CS>(
-        &init_res,
-        &disclosed_messages,
-        &disclosed_indexes,
-        ph,
-        api_id,
-    )?;
-
-    let proof = proof_finalize(
-        &init_res,
-        challenge,
-        signature.e,
-        &random_scalars,
-        &undisclosed_messages,
-    )?;
-
-    Ok(proof)
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub(super) struct ProofInitResult {
-    pub Abar: G1Projective,
-    pub Bbar: G1Projective,
-    pub D: G1Projective,
-    pub T1: G1Projective,
-    pub T2: G1Projective,
-    pub domain: Scalar,
-}
-
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-12#name-proof-initialization
-///
-/// # Description
-/// This operation initializes the proof and returns one of the inputs passed to the challenge calculation
-/// operation ([`proof_challenge_calculate`]), during the [`core_proof_gen`] operation. The inputted messages
-/// MUST be supplied to this operation in the same order they had when inputted to the `core_sign` operation
-///
-/// # Inputs:
-/// * `pk` (REQUIRED), the Signer public key.
-/// * `signature` (REQUIRED), a [`BBSplusSignature`].
-/// * `generators` (REQUIRED), vector of pseudo-random points in G1.
-/// * `random_scalars` (REQUIRED), vector of scalar values.
-/// * `header` (OPTIONAL), an octet string containing context and application.
-/// * `messages` (OPTIONAL), a vector of scalars ([`BBSplusMessage`]).
-/// * `undisclosed_indexes` (OPTIONAL), vector of usize in ascending order. Indexes of undisclosed messages.
-/// * `api_id` (OPTIONAL), an octet string.
-///
-/// # Output:
-/// a [`ProofInitResult`] or [`Error`].
-///
-pub(super) fn proof_init<CS>(
-    pk: &BBSplusPublicKey,
-    signature: &BBSplusSignature,
-    generators: &Generators,
-    random_scalars: &[Scalar],
-    header: Option<&[u8]>,
-    messages: &[BBSplusMessage],
-    undisclosed_indexes: &[usize],
-    api_id: Option<&[u8]>,
-) -> Result<ProofInitResult, Error>
-where
-    CS: BbsCiphersuite,
-    CS::Expander: for<'a> ExpandMsg<'a>,
-{
-    let L = messages.len();
-    let U = undisclosed_indexes.len();
-
-    if random_scalars.len() != 5 + U {
-        return Err(Error::ProofGenError("Random scalars not valid".to_owned()));
-    }
-
-    if generators.values.len() != L + 1 {
-        return Err(Error::NotEnoughGenerators);
-    }
-
-    let Q1 = generators.values[0];
-    let H_points = &generators.values[1..];
-
-    let domain = calculate_domain::<CS>(pk, Q1, H_points, header, api_id)?;
-
-    let mut B = generators.g1_base_point + Q1 * domain;
-    for i in 0..L {
-        B = B + H_points[i] * messages[i].value;
-    }
 
     let r1 = random_scalars[0];
     let r2 = random_scalars[1];
@@ -610,39 +634,68 @@ where
     let r3_tilde = random_scalars[4];
     let m_tilde = &random_scalars[5..(5 + U)];
 
+    let domain = calculate_domain::<CS>(pk, generators, header, api_id)?;
+
+    let mut gens = Vec::with_capacity(generators.values.len() + 1);
+    gens.push(generators.g1_base_point);
+    gens.extend(generators.values.clone());
+
+    let mut msg = Vec::with_capacity(messages.len() + 2);
+    msg.push(Scalar::ONE);
+    msg.push(domain);
+    msg.extend(messages.iter().map(|m| m.value));
+
+    let B = multi_exponentiation_g1(&gens, &msg);
+
     let D = B * r2;
     let Abar = signature.A * (r1 * r2);
-    let Bbar = D * r1 - Abar * signature.e;
 
-    let T1 = Abar * e_tilde + D * r1_tilde;
-    let mut T2 = D * r3_tilde;
+    let Bbar = multi_exponentiation_g1(&[D, Abar].to_vec(), &[r1,-signature.e].to_vec());
+    let T1 = multi_exponentiation_g1(&[Abar, D].to_vec(), &[e_tilde, r1_tilde].to_vec());
+
+    let mut t2gens = Vec::with_capacity(undisclosed_generators.len() + 1);
+    t2gens.push(D);
+    t2gens.extend(undisclosed_generators);
+
+    let mut t2scalars = Vec::with_capacity(m_tilde.len() + 1);
+    t2scalars.push(r3_tilde);
+    t2scalars.extend(m_tilde);
+
+    let T2 = multi_exponentiation_g1(&t2gens, &t2scalars);
+
+/*    let mut T2 = D * r3_tilde;
 
     for idx in 0..U {
         T2 = T2 + H_points[undisclosed_indexes[idx]] * m_tilde[idx];
-    }
+    }*/
 
-    Ok(ProofInitResult {
+    Ok(ProofInitRes {
         Abar,
         Bbar,
         D,
         T1,
         T2,
         domain,
+        L,
+        disclosed_indexes,
+        disclosed_messages,
+        undisclosed_messages: Some(undisclosed_messages),
+        e: Some(signature.e),
+        random_scalars: Some(random_scalars),
     })
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-12#name-challenge-calculation
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-challenge-calculation
 ///
 /// # Description
-/// This operation calculates the challenge scalar value, used during the [`core_proof_gen`] and [`core_proof_verify`],
-/// as part of the Fiat-Shamir heuristic, for making the proof protocol non-interactive (in a interactive setting,
-/// the challenge would be a random value supplied by the Verifier).
+/// This operation calculates the challenge scalar value, used during the [`core_proof_gen`]
+/// and [`core_proof_verify`], as part of the Fiat-Shamir heuristic, for making the proof protocol
+/// non-interactive (in a interactive setting, the challenge would be a random value
+/// supplied by the Verifier).
 ///
 /// # Inputs:
-/// * `init_res` (REQUIRED), [`ProofInitResult`] returned after initializing the proof generation or verification operations, consisting of 5 points of G1 and a scalar value, in that order.
-/// * `header` (OPTIONAL), an octet string containing context and application.
-/// * `dsclosed_messages` (OPTIONAL), a vector of scalars ([`BBSplusMessage`]) representing the disclosed messages to the Verifier.
-/// * `disclosed_indexes` (OPTIONAL), vector of usize in ascending order. Indexes of disclosed messages.
+/// * `init_res` (REQUIRED), [`ProofInitRes`] returned after initializing the proof generation
+///                          or verification operations.
 /// * `ph` (OPTIONAL), an octet string containing the presentation header.
 /// * `api_id` (OPTIONAL), an octet string.
 ///
@@ -650,22 +703,16 @@ where
 /// a challenge ([`Scalar`]) or [`Error`].
 ///
 fn proof_challenge_calculate<CS>(
-    init_res: &ProofInitResult,
-    disclosed_messages: &[BBSplusMessage],
-    disclosed_indexes: &[usize],
+    init_res: &ProofInitRes,
     ph: Option<&[u8]>,
     api_id: Option<&[u8]>,
 ) -> Result<Scalar, Error>
 where
     CS: BbsCiphersuite,
 {
-    let R = disclosed_indexes.len();
+    validate_init_res(init_res)?;
 
-    if disclosed_messages.len() != R {
-        return Err(Error::ProofGenError(
-            "Number of disclosed indexes different from number of disclosed messages".to_owned(),
-        ));
-    }
+    let R = init_res.disclosed_indexes.len();
 
     let api_id = api_id.unwrap_or(b"");
     let challenge_dst = [api_id, CS::H2S].concat();
@@ -674,7 +721,10 @@ where
 
     let mut c_arr: Vec<u8> = Vec::new();
     c_arr.extend_from_slice(&i2osp::<8>(R));
-    for (i, m) in core::iter::zip(disclosed_indexes, disclosed_messages) {
+    for (i, m) in core::iter::zip(
+        &init_res.disclosed_indexes,
+        &init_res.disclosed_messages
+    ) {
         c_arr.extend_from_slice(&i2osp::<8>(*i));
         c_arr.extend_from_slice(&m.value.to_bytes_be());
     }
@@ -693,28 +743,37 @@ where
     hash_to_scalar::<CS>(&c_arr, &challenge_dst)
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-12#name-proof-finalization
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-proof-finalization
 ///
 /// # Description
-/// This operation finalizes the proof calculation during the [`core_proof_gen`] operation and returns the PoK [`BBSplusPoKSignature`].
+/// This operation finalizes the proof calculation during the [`core_proof_gen`] operation and
+/// returns the PoK [`BBSplusPoKSignature`].
 ///
 /// # Inputs:
-/// * `init_res` (REQUIRED), [`ProofInitResult`] returned after initializing the proof generation or verification operations, consisting of 5 points of G1 and a scalar value, in that order.
+/// * `init_res` (REQUIRED), [`ProofInitRes`] returned after initializing object representing
+///                          the value returned after initializing the proof generation
+///                          or verification operations
 /// * `challenge` (REQUIRED), a scalar value.
-/// * `e` (REQUIRED), a scalar value.
-/// * `random_scalars` (REQUIRED), a vector of random scalars.
-/// * `dsclosed_messages` (OPTIONAL), a vector of scalars ([`BBSplusMessage`]) representing the disclosed messages to the Verifier.
 ///
 /// # Output:
 /// a proof ([`BBSplusPoKSignature`]) or [`Error`].
 ///
 pub(super) fn proof_finalize(
-    init_res: &ProofInitResult,
-    challenge: Scalar,
-    e: Scalar,
-    random_scalars: &[Scalar],
-    undisclosed_messages: &[BBSplusMessage],
+    init_res: &ProofInitRes,
+    challenge: Scalar
 ) -> Result<BBSplusPoKSignature, Error> {
+
+    validate_init_res(init_res)?;
+
+    let random_scalars = init_res.random_scalars.as_ref()
+            .ok_or_else(|| Error::ProofGenError("Missing random scalars in proof_finalize".to_owned()))?;
+
+    let undisclosed_messages=init_res.undisclosed_messages.as_ref()
+            .ok_or_else(|| Error::ProofGenError("Missing random scalars in proof_finalize".to_owned()))?;
+
+    let e = init_res.e
+            .ok_or_else(|| Error::ProofGenError("Missing e in proof_finalize".to_owned()))?;
+
     let U = undisclosed_messages.len();
 
     let r1 = random_scalars[0];
@@ -750,11 +809,13 @@ pub(super) fn proof_finalize(
     })
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-12#name-coreproofverify
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-coreproofverify
 ///
 /// # Description
-/// This operation checks that a proof is valid for a header, vector of disclosed messages (disclosed_messages)
-/// along side their index corresponding to their original position when signed (disclosed_indexes) and presentation header (ph) against a public key (PK).
+/// This operation checks that a proof is valid for a header,
+/// vector of disclosed messages (disclosed_messages) along side their index corresponding
+/// to their original position when signed (disclosed_indexes) and presentation
+/// header (ph) against a public key (PK).
 ///
 /// # Inputs:
 /// * `pk` (REQUIRED), the Signer public key.
@@ -762,8 +823,10 @@ pub(super) fn proof_finalize(
 /// * `generators` (REQUIRED), vector of pseudo-random points in G1.
 /// * `header` (OPTIONAL), an octet string containing context and application.
 /// * `ph` (OPTIONAL), an octet string containing the presentation header.
-/// * `disclosed_messages` (OPTIONAL), a vector of scalars ([`BBSplusMessage`]) representing the messages disclosed to the Verifier.
-/// * `disclosed_indexes` (OPTIONAL), vector of unsigned integers in ascending order. Indexes of disclosed messages.
+/// * `disclosed_messages` (OPTIONAL), a vector of scalars ([`BBSplusMessage`])
+///                                    representing the messages disclosed to the Verifier.
+/// * `disclosed_indexes` (OPTIONAL), vector of unsigned integers in ascending order.
+///                                   Indexes of disclosed messages.
 /// * `api_id` (OPTIONAL), an octet string.
 ///
 /// # Output:
@@ -794,8 +857,6 @@ where
 
     let challenge = proof_challenge_calculate::<CS>(
         &init_res,
-        disclosed_messages,
-        disclosed_indexes,
         ph,
         api_id,
     )?;
@@ -818,23 +879,27 @@ where
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-12#name-proof-verification-initiali
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-proof-verification-initiali
 ///
 /// # Description
-/// This operation initializes the proof verification operation and returns part of the input that will be
-/// passed to the challenge calculation operation ([`proof_challenge_calculate`]), during the [`core_proof_verify`] operation.
+/// This operation initializes the proof verification operation and returns part of the input that
+/// will be passed to the challenge calculation operation ([`proof_challenge_calculate`]),
+/// during the [`core_proof_verify`] operation.
 ///
 /// # Inputs:
 /// * `pk` (REQUIRED), the Signer public key.
 /// * `proof` (REQUIRED), a [`BBSplusPoKSignature`].
 /// * `generators` (REQUIRED), vector of pseudo-random points in G1.
 /// * `header` (OPTIONAL), an octet string containing context and application.
-/// * `disclosed_messages` (REQUIRED), a vector of scalars ([`BBSplusMessage`]) representing the messages disclosed to the Verifier. It could be empty.
-/// * `disclosed_indexes` (REQUIRED), vector of unsigned integers in ascending order. Indexes of disclosed messages. It could be empty.
+/// * `disclosed_messages` (REQUIRED), a vector of scalars ([`BBSplusMessage`])
+///                                    representing the messages disclosed to the Verifier.
+///                                    It could be empty.
+/// * `disclosed_indexes` (REQUIRED), vector of unsigned integers in ascending order.
+///                                   Indexes of disclosed messages. It could be empty.
 /// * `api_id` (OPTIONAL), an octet string.
 ///
 /// # Output:
-/// a [`ProofInitResult`] or [`Error`].
+/// a [`ProofInitRes`] or [`Error`].
 ///
 pub(super) fn proof_verify_init<CS>(
     pk: &BBSplusPublicKey,
@@ -844,7 +909,7 @@ pub(super) fn proof_verify_init<CS>(
     disclosed_messages: &[BBSplusMessage],
     disclosed_indexes: &[usize],
     api_id: Option<&[u8]>,
-) -> Result<ProofInitResult, Error>
+) -> Result<ProofInitRes, Error>
 where
     CS: BbsCiphersuite,
 {
@@ -861,43 +926,63 @@ where
         }
     }
 
-    if disclosed_messages.len() != R {
-        return Err(Error::PoKSVerificationError(
-            "len messages != len indexes".to_owned(),
-        ));
-    }
-
     if generators.values.len() != L + 1 {
         return Err(Error::NotEnoughGenerators);
     }
 
-    let Q1 = generators.values[0];
-    let H_points = &generators.values[1..];
-
     let undisclosed_indexes = get_remaining_indexes(L, disclosed_indexes);
 
-    let domain = calculate_domain::<CS>(pk, Q1, H_points, header, api_id)?;
+    let domain = calculate_domain::<CS>(pk, generators, header, api_id)?;
 
-    let T1 = proof.Bbar * proof.challenge + proof.Abar * proof.e_cap + proof.D * proof.r1_cap;
-    let mut Bv = generators.g1_base_point + Q1 * domain;
+    let T1 = multi_exponentiation_g1(
+        &[proof.Bbar, proof.Abar, proof.D].to_vec(),
+        &[proof.challenge,proof.e_cap, proof.r1_cap].to_vec()
+    );
 
-    for i in 0..R {
-        Bv += H_points[disclosed_indexes[i]] * disclosed_messages[i].value;
-    }
+    let disclosed_generators = get_generators_from_indexes(generators, &disclosed_indexes);
 
-    let mut T2 = Bv * proof.challenge + proof.D * proof.r3_cap;
+    let mut Bvgens = Vec::with_capacity(disclosed_generators.len() + 1);
+    Bvgens.push(generators.g1_base_point);
+    Bvgens.push(generators.values[0]);
+    Bvgens.extend(disclosed_generators);
 
-    for j in 0..U {
-        T2 += H_points[undisclosed_indexes[j]] * proof.m_cap[j];
-    }
+    let mut Bvscalars = Vec::with_capacity(disclosed_messages.len() + 2);
+    Bvscalars.push(Scalar::ONE);
+    Bvscalars.push(domain);
+    Bvscalars.extend(disclosed_messages.iter().map(|m| m.value));
 
-    Ok(ProofInitResult {
+    let Bv = multi_exponentiation_g1(&Bvgens, &Bvscalars);
+
+    let undisclosed_generators = get_generators_from_indexes(
+        generators,
+        &undisclosed_indexes
+    );
+
+    let mut T2gens = Vec::with_capacity(undisclosed_generators.len() + 1);
+    T2gens.push(Bv);
+    T2gens.push(proof.D);
+    T2gens.extend(undisclosed_generators);
+
+    let mut T2scalars = Vec::with_capacity(disclosed_messages.len() + 2);
+    T2scalars.push(proof.challenge);
+    T2scalars.push(proof.r3_cap);
+    T2scalars.extend(&proof.m_cap);
+
+    let T2 = multi_exponentiation_g1(&T2gens, &T2scalars);
+
+    Ok(ProofInitRes {
         Abar: proof.Abar,
         Bbar: proof.Bbar,
         D: proof.D,
         T1,
         T2,
         domain,
+        L,
+        disclosed_indexes: disclosed_indexes.to_vec(),
+        disclosed_messages: disclosed_messages.to_vec(),
+        undisclosed_messages: None,
+        e: None,
+        random_scalars: None,
     })
 }
 
@@ -959,7 +1044,9 @@ impl BBSplusZKPoK {
             m_cap.push(Scalar::from_bytes_be(&b)?);
         }
 
-        let challenge = m_cap.pop().ok_or(Error::InvalidProofOfKnowledgeSignature)?; //at least the challenge should be present (even if all attributes are disclosed)
+        //at least the challenge should be present (even if all attributes are disclosed)
+        let challenge = m_cap.pop()
+                .ok_or(Error::InvalidProofOfKnowledgeSignature)?;
 
         Ok(Self {
             s_cap,
@@ -992,13 +1079,19 @@ mod tests {
     //mocked_rng - SHA256 - UPDATED
     #[test]
     fn mocked_rng_sha256() {
-        mocked_rng::<BbsBls12381Sha256>("./fixture_data/fixture_data/bls12-381-sha-256/", "mockedRng.json");
+        mocked_rng::<BbsBls12381Sha256>(
+            "./fixture_data/fixture_data/bls12-381-sha-256/",
+            "mockedRng.json"
+        );
     }
 
     //mocked_rng - SHAKE256 - UPDATED
     #[test]
     fn mocked_rng_shake256() {
-        mocked_rng::<BbsBls12381Shake256>("./fixture_data/fixture_data/bls12-381-shake-256/", "mockedRng.json");
+        mocked_rng::<BbsBls12381Shake256>(
+            "./fixture_data/fixture_data/bls12-381-shake-256/",
+            "mockedRng.json"
+        );
     }
 
     //SIGNATURE POK
@@ -1155,7 +1248,8 @@ mod tests {
         //Get Message Signature
         let signature_expected = proof_json["signature"].as_str().unwrap();
 
-        let signature = Signature::<BBSplus<S::Ciphersuite>>::from_bytes(
+        let signature = Signature::<BBSplus<S::Ciphersuite>>::
+        from_bytes(
             hex::decode(signature_expected)
                 .unwrap()
                 .as_slice()
@@ -1172,7 +1266,8 @@ mod tests {
             .map(|m| hex::decode(m).unwrap())
             .collect();
 
-        let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen(
+        let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::
+        proof_gen(
             &PK,
             &signature.to_bytes(),
             Some(&header),
@@ -1194,7 +1289,8 @@ mod tests {
         // Verify the Proof
         let disclosed_messages = get_messages_vec(&msgs, &revealed_message_indexes);
 
-        let PROOF = PoKSignature::<BBSplus<S::Ciphersuite>>::from_bytes(
+        let PROOF = PoKSignature::<BBSplus<S::Ciphersuite>>::
+        from_bytes(
             &hex::decode(proof_expected).unwrap(),
         )
         .unwrap();

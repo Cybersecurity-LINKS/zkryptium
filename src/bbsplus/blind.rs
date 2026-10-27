@@ -1,4 +1,4 @@
-// Copyright 2025 Fondazione LINKS
+// Copyright 2026 Fondazione LINKS
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -352,33 +352,21 @@ where
     CS: BbsCiphersuite,
     CS::Expander: for<'a> ExpandMsg<'a>,
 {
-    //TODO: Edit taken from Grotto bbs sig library
-    /*let L  = generators.values.len() - 1;
-
-     if L < 0 {
-        return Err(Error::SignatureGenerationError("L value is <= 0".to_owned()));
-    } 
-
-    let M  = blind_generators.values.len() - 1;
-
-    if M < 0 {
-        return Err(Error::SignatureGenerationError("M value is <= 0".to_owned()));
-    } */
-
     let Q1  = generators.values[0];
-    let Q2  = blind_generators.values[0];
 
     let api_id = api_id.unwrap_or(b"");
     let signature_dst = [api_id, CS::H2S].concat();
 
     let tmp_generators = [
-        &generators.values[1..],
-        core::slice::from_ref(&Q2),  //TODO: Edit taken from Grotto bbs sig library
-        &blind_generators.values[1..]
-    ]
-    .concat();
+        &generators.values[0..],
+        &blind_generators.values[0..]
+    ].concat();
 
-    let domain = calculate_domain::<CS>(pk, Q1, &tmp_generators, header, Some(api_id))?;
+    let mut new_generators = generators.clone();
+
+    new_generators.values = tmp_generators;
+
+    let domain = calculate_domain::<CS>(pk, &new_generators, header, Some(api_id))?;
     
     let B = B + Q1 * domain;//TODO: Edit taken from Grotto bbs sig library
     

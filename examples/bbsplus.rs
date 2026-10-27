@@ -1,4 +1,4 @@
-// Copyright 2025 Fondazione LINKS
+// Copyright 2026 Fondazione LINKS
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -89,8 +89,7 @@ mod bbsplus_example {
             Some(&nonce_verifier),
             Some(&messages),
             Some(&disclosed_indexes),
-        )
-        .unwrap();
+        )?;
 
         //Verifier verifies SPok
         let disclosed_messages = get_messages_vec(&messages, &disclosed_indexes);

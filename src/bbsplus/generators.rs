@@ -1,4 +1,4 @@
-// Copyright 2025 Fondazione LINKS
+// Copyright 2026 Fondazione LINKS
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -94,7 +94,7 @@ impl Generators {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-12#name-generators-calculation
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-generators-calculation
 ///
 /// # Description
 /// The create_generators procedure defines how to create a set of randomly sampled points from the G1 subgroup, 

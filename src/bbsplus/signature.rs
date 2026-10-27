@@ -1,4 +1,4 @@
-// Copyright 2025 Fondazione LINKS
+// Copyright 2026 Fondazione LINKS
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,9 +27,10 @@ use crate::{
 use bls12_381_plus::{multi_miller_loop, G1Projective, G2Prepared, G2Projective, Gt, Scalar};
 use elliptic_curve::{group::Curve, hash2curve::ExpandMsg};
 use serde::{Deserialize, Serialize};
+use crate::utils::util::bbsplus_utils::multi_exponentiation_g1;
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-/// A BBS+ signature consisting of a group element `A` and a scalar `e`.
+/// A BBS signature consisting of a group element `A` and a scalar `e`.
 pub struct BBSplusSignature {
     /// Group element `A` in the BBS+ signature.
     pub A: G1Projective,
@@ -91,7 +92,7 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         }
     }
 
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-12#name-signature-generation-sign>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-signature-generation-sign>
     /// # Description
     /// The `sign` API returns a BBS signature from a secret key (SK), over a header and a set of messages.
     ///
@@ -127,7 +128,7 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         Ok(Self::BBSplus(signature))
     }
 
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-12#name-signature-verification-veri>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-signature-verification-veri>
     /// # Description
     /// The `verify` API validates a BBS signature, given a public key (PK), a header and a set of messages
     /// # Inputs:
@@ -244,9 +245,10 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-12#name-coresign
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-coresign
 /// # Description
-/// This operation computes a deterministic signature from a secret key (SK), a set of generators (points of G1) and optionally a header and a vector of messages.
+/// This operation computes a deterministic signature from a secret key (SK),
+/// a set of generators (points of G1) and optionally a header and a vector of messages.
 ///
 /// # Inputs:
 /// * `sk` (REQUIRED), a secret key
@@ -276,14 +278,11 @@ where
         return Err(Error::NotEnoughGenerators);
     }
 
-    let Q1 = generators.values[0];
-    let H_points = &generators.values[1..];
-
     let api_id = api_id.unwrap_or(b"");
 
     let signature_dst = [api_id, CS::H2S].concat();
 
-    let domain = calculate_domain::<CS>(pk, Q1, H_points, header, Some(api_id))?;
+    let domain = calculate_domain::<CS>(pk, &generators, header, Some(api_id))?;
 
     // Serialize
     let input: Vec<Scalar> = core::iter::once(sk.0)
@@ -293,13 +292,16 @@ where
 
     let e = hash_to_scalar::<CS>(&serialize(&input), &signature_dst)?;
 
-    // B = P1 + Q_1 * domain + H_1 * msg_1 + ... + H_L * msg_L
+    let mut gens = Vec::with_capacity(generators.values.len() + 1);
+    gens.push(generators.g1_base_point);
+    gens.extend(generators.values);
 
-    let mut B = generators.g1_base_point + Q1 * domain;
+    let mut msg = Vec::with_capacity(messages.len() + 2);
+    msg.push(Scalar::ONE);
+    msg.push(domain);
+    msg.extend(messages.iter().map(|m| m.value));
 
-    for i in 0..L {
-        B = B + H_points[i] * messages[i].value;
-    }
+    let B = multi_exponentiation_g1(&gens, &msg);
 
     // A = B * (1 / (SK + e))
     let A = B * (sk.0 + e).invert().unwrap();
@@ -310,10 +312,10 @@ where
         ));
     }
 
-    Ok(BBSplusSignature { A, e: e })
+    Ok(BBSplusSignature { A, e })
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-12#name-coreverify
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-coreverify
 /// # Description
 /// This operation checks that a signature is valid for a given set of generators, header
 /// and vector of messages, against a supplied public key (PK). The set of messages MUST be
@@ -347,16 +349,18 @@ where
         return Err(Error::NotEnoughGenerators);
     }
 
-    let Q1 = generators.values[0];
-    let H_points: &[G1Projective] = &generators.values[1..];
+    let domain = calculate_domain::<CS>(pk, &generators, header, api_id)?;
 
-    let domain = calculate_domain::<CS>(pk, Q1, H_points, header, api_id)?;
+    let mut gens = Vec::with_capacity(generators.values.len() + 1);
+    gens.push(generators.g1_base_point);
+    gens.extend(generators.values);
 
-    let mut B = generators.g1_base_point + Q1 * domain;
+    let mut msg = Vec::with_capacity(messages.len() + 2);
+    msg.push(Scalar::ONE);
+    msg.push(domain);
+    msg.extend(messages.iter().map(|m| m.value));
 
-    for i in 0..L {
-        B = B + H_points[i] * messages[i].value;
-    }
+    let B = multi_exponentiation_g1(&gens, &msg);
 
     let BP2 = G2Projective::GENERATOR;
     let B2 = signature.A * signature.e - B;
