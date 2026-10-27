@@ -1,4 +1,4 @@
-// Copyright 2025 Fondazione LINKS
+// Copyright 2026 Fondazione LINKS
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,8 @@ pub mod bbsplus_utils {
     use ff::Field;
     use rand::{thread_rng, RngCore};
     use std::any::{Any, TypeId};
+    use std::ops::{AddAssign, Mul};
+    use crate::bbsplus::generators::Generators;
 
     pub(crate) fn parse_g2_projective_compressed(slice: &[u8]) -> Result<G2Projective, Error> {
         let point = G2Affine::from_compressed(
@@ -96,7 +98,7 @@ pub mod bbsplus_utils {
         out
     }
 
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-12#name-hash-to-scalar>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-hash-to-scalar>
     ///
     /// # Description
     /// This operation describes how to hash an arbitrary octet string to a scalar values in the multiplicative group of integers mod r
@@ -135,7 +137,7 @@ pub mod bbsplus_utils {
         ))
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-12#name-domain-calculation
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-domain-calculation
     ///
     /// # Description
     /// This operation calculates the domain value, a scalar representing the distillation of all essential
@@ -145,7 +147,7 @@ pub mod bbsplus_utils {
     /// # Inputs:
     ///
     /// * `pk` (REQUIRED), an octet string, representing the public key of theSigner.
-    /// * `Q1` (REQUIRED), point of G1 (the first point returned from create_generators).
+    /// * `generators` (REQUIRED), non empty array of points of Generators
     /// * `H_Points` (REQUIRED), array of points of G1.
     /// * `header` (OPTIONAL), an octet string. If not supplied, it must default to the empty octet string ("").
     /// * `api_id` (OPTIONAL), octet string. If not supplied it defaults to the empty octet string ("").
@@ -155,8 +157,7 @@ pub mod bbsplus_utils {
     ///
     pub(crate) fn calculate_domain<CS: BbsCiphersuite>(
         pk: &BBSplusPublicKey,
-        Q1: G1Projective,
-        H_points: &[G1Projective],
+        generators: &Generators,
         header: Option<&[u8]>,
         api_id: Option<&[u8]>,
     ) -> Result<Scalar, Error>
@@ -165,9 +166,7 @@ pub mod bbsplus_utils {
     {
         let header = header.unwrap_or(b"");
 
-        // 1. L = length(H_Points)
-        // 2. (H_1, ..., H_L) = H_Points
-        let L = H_points.len();
+        let L = generators.values.len() - 1;
 
         let api_id = api_id.unwrap_or(b"");
 
@@ -175,9 +174,9 @@ pub mod bbsplus_utils {
 
         let mut dom_octs: Vec<u8> = Vec::new();
         dom_octs.extend_from_slice(&i2osp::<8>(L));
-        dom_octs.extend_from_slice(&Q1.to_affine().to_compressed());
+        //dom_octs.extend_from_slice(&Q1.to_affine().to_compressed());
 
-        H_points
+        generators.values
             .iter()
             .map(|&p| p.to_affine().to_compressed())
             .for_each(|a| dom_octs.extend_from_slice(&a));
@@ -285,6 +284,28 @@ pub mod bbsplus_utils {
         result
     }
 
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-multi-exponentiation
+    ///
+    /// The following operation, given a vector of points in G1 points = (P_1, P_2, ..., P_n)
+    /// and a vector of scalars scalars = (s_1, s_2, ..., s_n) calculates the multi exponentiation
+    /// of the inputs, i.e., a point in G1 p = P_1 * s_1 + P_2 * s_2 + ... + P_n * s_n.
+    ///
+    /// # Arguments
+    /// * `points` - a non empty vector of points in G1
+    /// * `scalars` - a non empty vector of ([`Scalar`])
+    ///
+    /// # Returns
+    ///
+    /// * `P` - a point in G1
+    pub fn multi_exponentiation_g1(points: &Vec<G1Projective>, scalars: &Vec<Scalar>) -> G1Projective {
+        let mut P = G1Projective::IDENTITY;
+
+        for i in 0..points.len() {
+            P.add_assign(&points[i].mul(scalars[i]));
+        }
+        P
+    }
+
     /// Retrieves messages from the provided list based on the specified indexes.
     ///
     /// # Arguments
@@ -299,6 +320,25 @@ pub mod bbsplus_utils {
         let mut out: Vec<BBSplusMessage> = Vec::new();
         for &i in indexes {
             out.push(messages[i]);
+        }
+
+        out
+    }
+
+    /// Retrieves get_generators_from_indexes from the generator list based on the specified indexes.
+    ///
+    /// # Arguments
+    ///
+    /// * `generators` - `Generators` from which to retrieve undisclosed generators.
+    /// * `indexes` - A slice of `usize` representing the indexes of the undisclosed generators.
+    ///
+    /// # Returns
+    ///
+    /// A vector of `G1Projective` containing the generators at the specified indexes.
+    pub fn get_generators_from_indexes(generators: &Generators, indexes: &[usize]) -> Vec<G1Projective> {
+        let mut out: Vec<G1Projective> = Vec::new();
+        for &i in indexes {
+            out.push(generators.values[i + 1]);
         }
 
         out
@@ -328,7 +368,7 @@ pub mod bbsplus_utils {
         Scalar::random(rng)
     }
 
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-12#name-random-scalars>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-random-scalars>
     ///
     /// # Description
     /// This operation returns the requested number of pseudo-random scalars, using the `get_random` function
@@ -351,7 +391,7 @@ pub mod bbsplus_utils {
         random_scalars
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-12#name-mocked-random-scalars
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-mocked-random-scalars
     ///
     /// # Description
     /// The seeded_random_scalars will deterministically calculate count random-looking scalars from a single SEED, given a domain separation tag (DST).

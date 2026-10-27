@@ -1,4 +1,4 @@
-// Copyright 2025 Fondazione LINKS
+// Copyright 2026 Fondazione LINKS
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ pub mod bbsplus_message {
             Self { value: msg }
         }
 
-        /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-12#name-messages-to-scalars>
+        /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-messages-to-scalars>
         ///
         /// # Description
         /// The messages_to_scalars operation is used to map a list of messages to their respective scalar values

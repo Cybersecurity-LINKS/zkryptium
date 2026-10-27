@@ -1,4 +1,4 @@
-// Copyright 2025 Fondazione LINKS
+// Copyright 2026 Fondazione LINKS
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,22 +24,15 @@ use crate::schemes::algorithms::BBSplus;
 use crate::bbsplus::commitment::BBSplusCommitment;
 use crate::schemes::generics::{BlindSignature, Commitment, PoKSignature};
 use crate::utils::message::bbsplus_message::BBSplusMessage;
-use crate::utils::util::bbsplus_utils::{get_messages, get_random, hash_to_scalar, parse_g1_projective, i2osp, ScalarExt};
-use crate::utils::util::get_remaining_indexes;
-
+use crate::utils::util::bbsplus_utils::{get_random, hash_to_scalar, parse_g1_projective, i2osp, ScalarExt};
 use super::blind::{calculate_b, finalize_blind_sign, prepare_parameters};
 use super::ciphersuites::BbsCiphersuite;
 use super::commitment::{core_commit, BlindFactor};
 use super::generators::Generators;
 use super::keys::{BBSplusPublicKey, BBSplusSecretKey};
-use super::proof::{proof_finalize, proof_init, proof_verify_init, BBSplusPoKSignature, ProofInitResult};
+use super::proof::{proof_finalize, proof_init, proof_verify_init, BBSplusPoKSignature, ProofInitRes};
 use super::signature::{core_verify, BBSplusSignature};
 use bls12_381_plus::group::Curve;
-
-#[cfg(not(test))]
-use crate::utils::util::bbsplus_utils::calculate_random_scalars;
-#[cfg(test)]
-use crate::utils::util::bbsplus_utils::seeded_random_scalars;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct PseudonymProofInitResult {
@@ -47,13 +40,6 @@ struct PseudonymProofInitResult {
     context_id: Vec<u8>,
     Ut: G1Projective
 }
-
-/*#[derive(Clone, Debug, Serialize, Deserialize)]
-struct PseudonymProofVerifyInitResult {
-    pseudonym: BBSplusPseudonym,
-    context_id: Vec<u8>,
-    Uv: G1Projective
-}*/
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 /// Represents a BBS+ Pseudonym.
@@ -819,27 +805,12 @@ where
         return Err(Error::ProofGenError("Invalid disclosed index".to_string()));
     }
 
-    let U = L
-        .checked_sub(R)
-        .ok_or_else(|| Error::ProofGenError("R > L".to_owned()))?;
-
     if let Some(invalid_index) = disclosed_indexes.iter().find(|&&i| i > L - 1) {
         return Err(Error::ProofGenError(format!(
             "Invalid disclosed index: {}",
             invalid_index
         )));
     }
-
-    let undisclosed_indexes: Vec<usize> = get_remaining_indexes(L, &disclosed_indexes);
-
-    let disclosed_messages = get_messages(messages, &disclosed_indexes);
-    let undisclosed_messages = get_messages(messages, &undisclosed_indexes);
-
-    #[cfg(not(test))]
-    let random_scalars = calculate_random_scalars(5 + U);
-
-    #[cfg(test)]
-    let random_scalars = seeded_random_scalars::<CS>(5 + U, _seed, _dst);
 
     let header = header.unwrap_or(&[]);
 
@@ -849,17 +820,21 @@ where
         pk,
         signature,
         generators,
-        &random_scalars,
         Some(&*combined_header),
         messages,
-        &undisclosed_indexes,
+        &disclosed_indexes,
         api_id,
+        _seed,
+        _dst
     )?;
 
     let nym_secrets= &messages[messages.len().saturating_sub(length_nym_secrets)..]
         .iter()
         .map(|msg  | msg.value) // Extract Scalar values from BBSplusMessage
         .collect::<Vec<_>>();
+
+    let random_scalars = init_res.random_scalars.as_ref()
+            .expect("random scalars should be present");
 
     let pseudonym_init_res = pseudonym_proof_init::<CS>(
         context_id,
@@ -875,17 +850,14 @@ where
         &init_res,
         &pseudonym_init_res,
         &disclosed_indexes,
-        &disclosed_messages,
+        &init_res.disclosed_messages,
         ph,
         api_id,
     )?;
 
     let proof = proof_finalize(
         &init_res,
-        challenge,
-        signature.e,
-        &random_scalars,
-        &undisclosed_messages,
+        challenge
     )?;
 
     Ok((proof, pseudonym))
@@ -990,7 +962,7 @@ where
 /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-03#name-challenge-calculation
 ///
 /// # Inputs:
-/// * `init_res` (REQUIRED), [`ProofInitResult`] returned after initializing the proof generation
+/// * `init_res` (REQUIRED), [`ProofInitRes`] returned after initializing the proof generation
 ///                          or verification operations, consisting of 5 points of
 ///                          G1 and a scalar value, in that order.
 /// * `pseudonym_init_res` (REQUIRED), [`PseudonymProofInitResult`] vector representing
@@ -1008,7 +980,7 @@ where
 /// a challenge ([`Scalar`]) or [`Error`].
 ///
 fn proof_with_nym_challenge_calculate<CS>(
-    init_res: &ProofInitResult,
+    init_res: &ProofInitRes,
     pseudonym_init_res: &PseudonymProofInitResult,
     disclosed_indexes: &[usize],
     disclosed_messages: &[BBSplusMessage],
@@ -1103,7 +1075,7 @@ mod tests {
     {
         let data = fs::read_to_string([pathname, filename].concat())
             .expect("Unable to read file");
-        let proof_json: serde_json::Value = serde_json::from_str(&data)
+        let proof_json: Value = serde_json::from_str(&data)
             .expect("Unable to parse");
         println!("{}", proof_json["caseName"]);
 
@@ -1183,7 +1155,7 @@ mod tests {
     {
         let data = fs::read_to_string([pathname, filename].concat())
             .expect("Unable to read file");
-        let proof_json: serde_json::Value = serde_json::from_str(&data)
+        let proof_json: Value = serde_json::from_str(&data)
             .expect("Unable to parse");
         println!("{}", proof_json["caseName"]);
 
@@ -1300,7 +1272,7 @@ mod tests {
     {
         let data = fs::read_to_string([pathname, proof_filename].concat())
             .expect("Unable to read file");
-        let proof_json: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
+        let proof_json: Value = serde_json::from_str(&data).expect("Unable to parse");
 
         println!("{}", proof_json["caseName"]);
 
