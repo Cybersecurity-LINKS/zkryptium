@@ -125,16 +125,18 @@ impl BBSplusPoKSignature {
 }
 
 impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-proof-generation-proofgen
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-proof-generation-proofgen
     ///
     /// # Description
-    /// The ProofGen operation creates BBS proof, which is a zero-knowledge, proof-of-knowledge of a BBS signature,
-    /// while optionally disclosing any subset of the signed messages. Validating the proof guarantees authenticity
-    /// and integrity of the header and disclosed messages, as well as knowledge of a valid BBS signature.
-    /// Other than the Signer's public key (PK), the BBS signature and the signed header and messages,
+    /// The ProofGen operation creates BBS proof, which is a zero-knowledge, proof-of-knowledge of 
+    /// a BBS signature, while optionally disclosing any subset of the signed messages. 
+    /// Validating the proof guarantees authenticity and integrity of the header and disclosed 
+    /// messages, as well as knowledge of a valid BBS signature. Other than the 
+    /// Signer's public key (PK), the BBS signature and the signed header and messages, 
     /// the operation also accepts a presentation_header value. That value, chosen by the Prover, 
-    /// will also be integrity protected (signed) by the resulting proof. Finally, to indicate which of the messages
-    /// should be disclosed, the operation accepts a list of integers in ascending order, representing the indexes of those message
+    /// will also be integrity protected (signed) by the resulting proof. Finally, to indicate 
+    /// which of the messages should be disclosed, the operation accepts a list of integers 
+    /// in ascending order, representing the indexes of those message
     ///
     /// # Inputs:
     /// * `pk` (REQUIRED), the Signer public key.
@@ -143,7 +145,8 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     /// * `ph` (OPTIONAL), an octet string containing the presentation header.
     /// * `messages` (OPTIONAL), a vector of octet strings representing the signed messages. 
     ///                            If not supplied, it defaults to the empty array ("()").
-    /// * `disclosed_indexes` (OPTIONAL), vector of unsigned integers in ascending order. Indexes of disclosed messages.
+    /// * `disclosed_indexes` (OPTIONAL), vector of unsigned integers in ascending order. 
+    ///                                   Indexes of disclosed messages.
     ///                            If not supplied, it defaults to the empty array ("()").
     ///
     /// # Output:
@@ -284,7 +287,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         Ok(Self::BBSplus(proof))
     }
 
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-proof-verification-proofver>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-proof-verification-proofver>
     ///
     /// # Description
     /// The ProofVerify operation validates a BBS proof, given the Signer's public key (PK), 
@@ -450,11 +453,12 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-coreproofgen
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-coreproofgen
 ///
 /// # Description
 /// This operation computes a zero-knowledge proof-of-knowledge of a signature, while optionally
-/// selectively disclosing from the original set of signed messages. The Prover may also supply a presentation header (ph).
+/// selectively disclosing from the original set of signed messages. 
+/// The Prover may also supply a presentation header (ph).
 ///
 /// # Inputs:
 /// * `pk` (REQUIRED), the Signer public key.
@@ -516,7 +520,7 @@ where
     Ok(proof)
 }
 
-///https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-proof-initialization-result
+///https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-proof-initialization-result
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(super) struct ProofInitRes {
     pub Abar: G1Projective,
@@ -540,7 +544,9 @@ pub(super) fn validate_init_res(init_res: &ProofInitRes) -> Result<(), Error> {
         from number of disclosed messages".to_owned()));
     }
 
-    if let Some(invalid_index) = init_res.disclosed_indexes.iter().find(|&&i| i > init_res.L) {
+    if let Some(invalid_index) = init_res.disclosed_indexes.iter().find(
+        |&&i| i > init_res.L - 1
+    ) {
         return Err(Error::ProofGenError(format!(
             "Invalid disclosed index: {}",
             invalid_index
@@ -562,12 +568,13 @@ pub(super) fn validate_init_res(init_res: &ProofInitRes) -> Result<(), Error> {
     Ok(())
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-proof-initialization
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-proof-initialization
 ///
 /// # Description
-/// This operation initializes the proof and returns one of the inputs passed to the challenge calculation
-/// operation ([`proof_challenge_calculate`]), during the [`core_proof_gen`] operation. The inputted messages
-/// MUST be supplied to this operation in the same order they had when inputted to the `core_sign` operation
+/// This operation initializes the proof and returns one of the inputs passed to the challenge 
+/// calculation operation ([`proof_challenge_calculate`]), during the [`core_proof_gen`] operation. 
+/// The inputted messages MUST be supplied to this operation in the same order they had when
+/// inputted to the `core_sign` operation
 ///
 /// # Inputs:
 /// * `pk` (REQUIRED), the Signer public key.
@@ -575,7 +582,8 @@ pub(super) fn validate_init_res(init_res: &ProofInitRes) -> Result<(), Error> {
 /// * `generators` (REQUIRED), vector of pseudo-random points in G1.
 /// * `header` (OPTIONAL), an octet string containing context and application.
 /// * `messages` (OPTIONAL), a vector of scalars ([`BBSplusMessage`]).
-/// * `disclosed_indexes` (OPTIONAL), vector of usize in ascending order. Indexes of undisclosed messages.
+/// * `disclosed_indexes` (OPTIONAL), vector of usize in ascending order. 
+///                                   Indexes of undisclosed messages.
 /// * `api_id` (OPTIONAL), an octet string.
 ///
 /// # Output:
@@ -663,12 +671,6 @@ where
 
     let T2 = multi_exponentiation_g1(&t2gens, &t2scalars);
 
-/*    let mut T2 = D * r3_tilde;
-
-    for idx in 0..U {
-        T2 = T2 + H_points[undisclosed_indexes[idx]] * m_tilde[idx];
-    }*/
-
     Ok(ProofInitRes {
         Abar,
         Bbar,
@@ -685,7 +687,7 @@ where
     })
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-challenge-calculation
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-challenge-calculation
 ///
 /// # Description
 /// This operation calculates the challenge scalar value, used during the [`core_proof_gen`]
@@ -743,7 +745,7 @@ where
     hash_to_scalar::<CS>(&c_arr, &challenge_dst)
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-proof-finalization
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-proof-finalization
 ///
 /// # Description
 /// This operation finalizes the proof calculation during the [`core_proof_gen`] operation and
@@ -809,7 +811,7 @@ pub(super) fn proof_finalize(
     })
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-coreproofverify
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-coreproofverify
 ///
 /// # Description
 /// This operation checks that a proof is valid for a header,
@@ -879,7 +881,7 @@ where
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-proof-verification-initiali
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-proof-verification-initiali
 ///
 /// # Description
 /// This operation initializes the proof verification operation and returns part of the input that

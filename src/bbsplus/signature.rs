@@ -92,7 +92,7 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         }
     }
 
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-signature-generation-sign>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-signature-generation-sign>
     /// # Description
     /// The `sign` API returns a BBS signature from a secret key (SK), over a header and a set of messages.
     ///
@@ -128,7 +128,7 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         Ok(Self::BBSplus(signature))
     }
 
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-signature-verification-veri>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-signature-verification-veri>
     /// # Description
     /// The `verify` API validates a BBS signature, given a public key (PK), a header and a set of messages
     /// # Inputs:
@@ -245,7 +245,7 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-coresign
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-coresign
 /// # Description
 /// This operation computes a deterministic signature from a secret key (SK),
 /// a set of generators (points of G1) and optionally a header and a vector of messages.
@@ -255,8 +255,9 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
 /// * `pk` (REQUIRED), a public key
 /// * `generators` (REQUIRED), vector of pseudo-random points in G1.
 /// * `header` (OPTIONAL), an octet string containing context and application specific information.
-/// * `messages` (REQUIRED), a vector of scalars (`BBSplusMessage`) representing the messages, it could be an empty vector.
-/// * `api_id` (OPTIONAL), an octet string. If not supplied it defaults to theempty octet string ("").
+/// * `messages` (REQUIRED), a vector of scalars (`BBSplusMessage`) representing the messages,
+///                          it could be an empty vector.
+/// * `api_id` (OPTIONAL), an octet string. If not supplied it defaults to the empty octet string ("").
 ///
 /// # Output:
 /// * new [`BBSplusSignature`] or [`Error`]
@@ -315,7 +316,7 @@ where
     Ok(BBSplusSignature { A, e })
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-coreverify
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-coreverify
 /// # Description
 /// This operation checks that a signature is valid for a given set of generators, header
 /// and vector of messages, against a supplied public key (PK). The set of messages MUST be
@@ -324,7 +325,8 @@ where
 /// # Inputs:
 /// * `pk` (REQUIRED), a public key
 /// * `signature` (REQUIRED), a `BBSplusSignature`
-/// * `messages` (REQUIRED), a vector of scalars (`BBSplusMessage`) representing the messages, it could be an empty vector.
+/// * `messages` (REQUIRED), a vector of scalars (`BBSplusMessage`) representing the messages, 
+///                          it could be an empty vector.
 /// * `generators` (REQUIRED), vector of pseudo-random points in G1.
 /// * `header` (OPTIONAL), an octet string containing context and application specific information.
 /// * `api_id` (OPTIONAL), an octet string. If not supplied it defaults to theempty octet string ("").

@@ -98,10 +98,11 @@ pub mod bbsplus_utils {
         out
     }
 
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-hash-to-scalar>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-hash-to-scalar>
     ///
     /// # Description
-    /// This operation describes how to hash an arbitrary octet string to a scalar values in the multiplicative group of integers mod r
+    /// This operation describes how to hash an arbitrary octet string to a scalar values in
+    /// the multiplicative group of integers mod r
     ///
     /// # Inputs:
     /// * `msg_octets` (REQUIRED), an octet string. The message to be hashed.
@@ -137,7 +138,7 @@ pub mod bbsplus_utils {
         ))
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-domain-calculation
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-domain-calculation
     ///
     /// # Description
     /// This operation calculates the domain value, a scalar representing the distillation of all essential
@@ -174,7 +175,6 @@ pub mod bbsplus_utils {
 
         let mut dom_octs: Vec<u8> = Vec::new();
         dom_octs.extend_from_slice(&i2osp::<8>(L));
-        //dom_octs.extend_from_slice(&Q1.to_affine().to_compressed());
 
         generators.values
             .iter()
@@ -284,7 +284,7 @@ pub mod bbsplus_utils {
         result
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-multi-exponentiation
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-multi-exponentiation
     ///
     /// The following operation, given a vector of points in G1 points = (P_1, P_2, ..., P_n)
     /// and a vector of scalars scalars = (s_1, s_2, ..., s_n) calculates the multi exponentiation
@@ -368,7 +368,7 @@ pub mod bbsplus_utils {
         Scalar::random(rng)
     }
 
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-random-scalars>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-random-scalars>
     ///
     /// # Description
     /// This operation returns the requested number of pseudo-random scalars, using the `get_random` function
@@ -391,10 +391,11 @@ pub mod bbsplus_utils {
         random_scalars
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-mocked-random-scalars
+    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-mocked-random-scalars
     ///
     /// # Description
-    /// The seeded_random_scalars will deterministically calculate count random-looking scalars from a single SEED, given a domain separation tag (DST).
+    /// The seeded_random_scalars will deterministically calculate count random-looking scalars
+    /// from a single SEED, given a domain separation tag (DST).
     ///
     /// # Inputs:
     ///

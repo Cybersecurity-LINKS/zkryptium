@@ -183,7 +183,9 @@ impl<CS: BbsCiphersuite> KeyPair<BBSplus<CS>> {
     /// # Inputs:
     /// * `key_material` (REQUIRED), a secret octet string.
     /// * `key_info` (OPTIONAL), an octet string. Defaults to an empty string if not supplied.
-    /// * `key_dst` (OPTIONAL), an octet string representing the domain separation tag. Defaults to the octet string [`BbsCiphersuite::API_ID`] || "KEYGEN_DST_"
+    /// * `key_dst` (OPTIONAL), an octet string representing the domain separation tag.
+    ///                         Defaults to the octet string
+    ///                          [`BbsCiphersuite::API_ID`] || "KEYGEN_DST_"
     /// # Output:
     /// * a keypair [`KeyPair`]
     ///  
@@ -226,7 +228,7 @@ impl<CS: BbsCiphersuite> KeyPair<BBSplus<CS>> {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-secret-key -> SK = KeyGen(key_material, key_info, key_dst)
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-secret-key
 ///
 /// # Description
 /// This operation generates a secret key (SK) deterministically from a secret octet string (key_material)
@@ -234,10 +236,10 @@ impl<CS: BbsCiphersuite> KeyPair<BBSplus<CS>> {
 /// # Inputs:
 /// * `key_material` (REQUIRED), a secret octet string. MUST be at least 32 Bytes.
 /// * `key_info` (OPTIONAL), an octet string. Defaults to an empty string if
-/// not supplied.
+///                          not supplied.
 /// * `key_dst` (OPTIONAL), an octet string representing the domain separation
-/// tag. Defaults to the octet string
-/// ciphersuite_id || "KEYGEN_DST_" if not supplied.
+///                         tag. Defaults to the octet string ciphersuite_id || "KEYGEN_DST_"
+///                         if not supplied.
 /// # Output:
 /// * SK, a [`Scalar`]
 ///  
@@ -273,7 +275,7 @@ where
     Ok(sk)
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-13#name-public-key
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-public-key
 ///
 /// # Description
 /// This operation takes a secret key (SK) and outputs a corresponding public key (PK).
