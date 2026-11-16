@@ -54,3 +54,29 @@ pub mod signature;
 #[cfg(feature = "bbsplus_nym")]
 /// Module for Pseudonyms
 pub mod pseudonym;
+/// Test helper: decodes the hex value under `key` from every fixture in `dir`
+/// whose `result.valid` is `true`.
+#[cfg(test)]
+pub(crate) fn valid_fixture_bytes(dir: &str, key: &str) -> Vec<Vec<u8>> {
+    let mut paths: Vec<_> = std::fs::read_dir(dir)
+        .expect("Unable to read fixture directory")
+        .map(|e| e.expect("Unable to read fixture entry").path())
+        .collect();
+    paths.sort();
+
+    let values: Vec<Vec<u8>> = paths
+        .iter()
+        .filter_map(|path| {
+            let data = std::fs::read_to_string(path).expect("Unable to read file");
+            let json: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
+            if json["result"]["valid"].as_bool() == Some(true) {
+                Some(hex::decode(json[key].as_str().expect("Missing fixture key")).unwrap())
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    assert!(!values.is_empty(), "no valid fixtures found in {dir}");
+    values
+}

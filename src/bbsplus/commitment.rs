@@ -81,6 +81,10 @@ impl BBSplusCommitment {
     ///
     /// * A result containing the `Commitment` or an error.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        if bytes.len() < G1Projective::COMPRESSED_BYTES {
+            return Err(Error::InvalidCommitment);
+        }
+
         let commitment = parse_g1_projective(&bytes[0..G1Projective::COMPRESSED_BYTES])
             .map_err(|_| Error::InvalidCommitment)?;
         let proof = BBSplusZKPoK::from_bytes(&bytes[G1Projective::COMPRESSED_BYTES..])
@@ -401,6 +405,56 @@ mod tests {
             generics::Commitment,
         },
     };
+
+    // FROM_BYTES LENGTH VALIDATION
+
+    use crate::{bbsplus::{commitment::BBSplusCommitment, valid_fixture_bytes}, errors::Error};
+
+    const COMMIT_FIXTURE_DIRS: [&str; 2] = [
+        "./fixture_data/fixture_data_blind/bls12-381-sha-256/commit/",
+        "./fixture_data/fixture_data_blind/bls12-381-shake-256/commit/",
+    ];
+
+    #[test]
+    fn commitment_from_bytes_round_trip() {
+        for dir in COMMIT_FIXTURE_DIRS {
+            for c in valid_fixture_bytes(dir, "commitmentWithProof") {
+                assert_eq!(BBSplusCommitment::from_bytes(&c).unwrap().to_bytes(), c);
+            }
+        }
+    }
+
+    #[test]
+    fn commitment_from_bytes_rejects_short_input() {
+        for len in [0usize, 1, 47] {
+            assert!(matches!(
+                BBSplusCommitment::from_bytes(&vec![0u8; len]),
+                Err(Error::InvalidCommitment)
+            ));
+        }
+    }
+
+    #[test]
+    fn commitment_from_bytes_rejects_malformed_proof() {
+        for dir in COMMIT_FIXTURE_DIRS {
+            for c in valid_fixture_bytes(dir, "commitmentWithProof") {
+                // Valid point followed by a missing, too short, or non-aligned proof.
+                let mut cases = vec![c[..48].to_vec(), c[..48 + 32].to_vec(), c[..c.len() - 1].to_vec()];
+                for extra in [1usize, 31] {
+                    let mut bytes = c.clone();
+                    bytes.extend(std::iter::repeat(0u8).take(extra));
+                    cases.push(bytes);
+                }
+                for bytes in cases {
+                    assert!(
+                        matches!(BBSplusCommitment::from_bytes(&bytes), Err(Error::InvalidCommitmentProof)),
+                        "commitment of {} bytes should be rejected",
+                        bytes.len()
+                    );
+                }
+            }
+        }
+    }
 
     // Commitment
 
