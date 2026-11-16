@@ -68,11 +68,10 @@ impl BBSplusPseudonym {
     /// * `Result<Self, Error>` - A result containing the deserialized `BBSplusPseudonym` or an error.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         if bytes.len() != G1Projective::COMPRESSED_BYTES {
-            return Err(Error::InvalidProofOfKnowledgeSignature);
+            return Err(Error::InvalidPseudonym);
         }
 
-        let pseudonym = parse_g1_projective(&bytes[0..48])
-            .map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
+        let pseudonym = parse_g1_projective(bytes).map_err(|_| Error::InvalidPseudonym)?;
 
         Ok(Self{pseudonym})
     }
@@ -1062,7 +1061,7 @@ mod tests {
 
     fn assert_pseudonym_rejected(bytes: &[u8]) {
         assert!(
-            matches!(BBSplusPseudonym::from_bytes(bytes), Err(Error::InvalidProofOfKnowledgeSignature)),
+            matches!(BBSplusPseudonym::from_bytes(bytes), Err(Error::InvalidPseudonym)),
             "pseudonym of {} bytes should be rejected",
             bytes.len()
         );
@@ -1079,7 +1078,8 @@ mod tests {
 
     #[test]
     fn pseudonym_from_bytes_rejects_invalid_lengths() {
-        for len in [0usize, 1, 47, 49, 96] {
+        // 48 zero bytes have the right length but are not a valid compressed G1 point.
+        for len in [0usize, 1, 47, 48, 49, 96] {
             assert_pseudonym_rejected(&vec![0u8; len]);
         }
         for dir in NYM_FIXTURE_DIRS {

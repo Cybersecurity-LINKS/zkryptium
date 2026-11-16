@@ -1047,25 +1047,20 @@ impl BBSplusZKPoK {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         // s^ and challenge are always present, followed by one m^ per committed message
         if bytes.len() < 2 * Scalar::BYTES || bytes.len() % Scalar::BYTES != 0 {
-            return Err(Error::InvalidProofOfKnowledgeSignature);
+            return Err(Error::InvalidCommitmentProof);
         }
 
-        let s_cap = Scalar::from_bytes_be(
-            &<[u8; 32]>::try_from(&bytes[0..32])
-                .map_err(|_| Error::InvalidProofOfKnowledgeSignature)?,
-        )?;
+        let s_cap = Scalar::from_bytes_be(&bytes[0..Scalar::BYTES])
+            .map_err(|_| Error::InvalidCommitmentProof)?;
 
         let mut m_cap: Vec<Scalar> = Vec::new();
 
-        for chunk in bytes[32..].chunks_exact(32) {
-            let b =
-                <[u8; 32]>::try_from(chunk).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
-            m_cap.push(Scalar::from_bytes_be(&b)?);
+        for chunk in bytes[Scalar::BYTES..].chunks_exact(Scalar::BYTES) {
+            m_cap.push(Scalar::from_bytes_be(chunk).map_err(|_| Error::InvalidCommitmentProof)?);
         }
 
         //at least the challenge should be present (even if all attributes are disclosed)
-        let challenge = m_cap.pop()
-                .ok_or(Error::InvalidProofOfKnowledgeSignature)?;
+        let challenge = m_cap.pop().ok_or(Error::InvalidCommitmentProof)?;
 
         Ok(Self {
             s_cap,
@@ -1191,7 +1186,7 @@ mod tests {
         assert!(
             matches!(
                 BBSplusZKPoK::from_bytes(bytes),
-                Err(Error::InvalidProofOfKnowledgeSignature)
+                Err(Error::InvalidCommitmentProof)
             ),
             "ZKPoK of {} bytes should be rejected",
             bytes.len()
@@ -1226,6 +1221,18 @@ mod tests {
         for extra in [1usize, 31] {
             let mut bytes = valid.clone();
             bytes.extend(std::iter::repeat(0u8).take(extra));
+            assert_zkpok_rejected(&bytes);
+        }
+    }
+
+    #[test]
+    fn zkpok_from_bytes_rejects_non_canonical_scalars() {
+        let valid = BBSplusZKPoK::new(Scalar::from(7u64), vec![Scalar::from(9u64)], Scalar::from(42u64))
+            .to_bytes();
+        // 0xff..ff is larger than the group order, so it is not a valid scalar encoding.
+        for start in (0..valid.len()).step_by(Scalar::BYTES) {
+            let mut bytes = valid.clone();
+            bytes[start..start + Scalar::BYTES].fill(0xff);
             assert_zkpok_rejected(&bytes);
         }
     }
