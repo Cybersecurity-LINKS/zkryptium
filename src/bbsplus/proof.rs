@@ -86,6 +86,18 @@ impl BBSplusPoKSignature {
     ///
     /// * `Result<Self, Error>` - A result containing the deserialized `BBSplusPoKSignature` or an error.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        const G1_LEN: usize = G1Projective::COMPRESSED_BYTES;
+        const SCALAR_LEN: usize = Scalar::BYTES;
+        // Abar, Bbar, D
+        const POINTS_LEN: usize = 3 * G1_LEN;
+        // e^, r1^, r3^, challenge (U = 0)
+        const MIN_LEN: usize = POINTS_LEN + 4 * SCALAR_LEN;
+
+        // octets_to_proof requires exactly 3 * octet_point_length + (4 + U) * octet_scalar_length bytes
+        if bytes.len() < MIN_LEN || (bytes.len() - POINTS_LEN) % SCALAR_LEN != 0 {
+            return Err(Error::InvalidProofOfKnowledgeSignature);
+        }
+
         let Abar = parse_g1_projective(&bytes[0..48])
             .map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
         let Bbar = parse_g1_projective(&bytes[48..96])
@@ -1033,22 +1045,22 @@ impl BBSplusZKPoK {
     /// # Output
     /// * A Result containing the `BBSplusZKPoK` or an Error.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
-        let s_cap = Scalar::from_bytes_be(
-            &<[u8; 32]>::try_from(&bytes[0..32])
-                .map_err(|_| Error::InvalidProofOfKnowledgeSignature)?,
-        )?;
+        // s^ and challenge are always present, followed by one m^ per committed message
+        if bytes.len() < 2 * Scalar::BYTES || bytes.len() % Scalar::BYTES != 0 {
+            return Err(Error::InvalidCommitmentProof);
+        }
+
+        let s_cap = Scalar::from_bytes_be(&bytes[0..Scalar::BYTES])
+            .map_err(|_| Error::InvalidCommitmentProof)?;
 
         let mut m_cap: Vec<Scalar> = Vec::new();
 
-        for chunk in bytes[32..].chunks_exact(32) {
-            let b =
-                <[u8; 32]>::try_from(chunk).map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
-            m_cap.push(Scalar::from_bytes_be(&b)?);
+        for chunk in bytes[Scalar::BYTES..].chunks_exact(Scalar::BYTES) {
+            m_cap.push(Scalar::from_bytes_be(chunk).map_err(|_| Error::InvalidCommitmentProof)?);
         }
 
         //at least the challenge should be present (even if all attributes are disclosed)
-        let challenge = m_cap.pop()
-                .ok_or(Error::InvalidProofOfKnowledgeSignature)?;
+        let challenge = m_cap.pop().ok_or(Error::InvalidCommitmentProof)?;
 
         Ok(Self {
             s_cap,
@@ -1094,6 +1106,135 @@ mod tests {
             "./fixture_data/fixture_data/bls12-381-shake-256/",
             "mockedRng.json"
         );
+    }
+
+    // FROM_BYTES LENGTH VALIDATION
+    use crate::{bbsplus::{proof::{BBSplusPoKSignature, BBSplusZKPoK}, valid_fixture_bytes},
+                errors::Error};
+    use bls12_381_plus::Scalar;
+
+    const POK_FIXTURE_DIRS: [&str; 2] = [
+        "./fixture_data/fixture_data/bls12-381-sha-256/proof/",
+        "./fixture_data/fixture_data/bls12-381-shake-256/proof/",
+    ];
+
+    fn assert_pok_rejected(bytes: &[u8]) {
+        assert!(
+            matches!(
+                BBSplusPoKSignature::from_bytes(bytes),
+                Err(Error::InvalidProofOfKnowledgeSignature)
+            ),
+            "proof of {} bytes should be rejected",
+            bytes.len()
+        );
+    }
+
+    #[test]
+    fn pok_from_bytes_round_trip() {
+        for dir in POK_FIXTURE_DIRS {
+            for proof in valid_fixture_bytes(dir, "proof") {
+                let parsed = BBSplusPoKSignature::from_bytes(&proof).unwrap();
+                assert_eq!(parsed.to_bytes(), proof);
+            }
+        }
+    }
+
+    #[test]
+    fn pok_from_bytes_rejects_trailing_bytes() {
+        for dir in POK_FIXTURE_DIRS {
+            for proof in valid_fixture_bytes(dir, "proof") {
+                for extra in [1usize, 16, 31] {
+                    let mut bytes = proof.clone();
+                    bytes.extend(std::iter::repeat(0u8).take(extra));
+                    assert_pok_rejected(&bytes);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn pok_from_bytes_rejects_truncated_input() {
+        for dir in POK_FIXTURE_DIRS {
+            for proof in valid_fixture_bytes(dir, "proof") {
+                for cut in [1usize, 31] {
+                    assert_pok_rejected(&proof[..proof.len() - cut]);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn pok_from_bytes_rejects_invalid_lengths() {
+        for len in [0usize, 10, 48, 144, 239, 240, 271, 272 + 16, 304 + 1] {
+            assert_pok_rejected(&vec![0u8; len]);
+        }
+    }
+
+    #[test]
+    fn pok_from_bytes_extra_scalar_is_parsed_as_message() {
+        // Appending a whole scalar is a well-formed encoding with one more
+        // undisclosed message; it is rejected at verification time, not parsing.
+        let proof = &valid_fixture_bytes(POK_FIXTURE_DIRS[0], "proof")[0];
+        let parsed = BBSplusPoKSignature::from_bytes(proof).unwrap();
+        let mut bytes = proof.clone();
+        bytes.extend([0u8; 32]);
+        let extended = BBSplusPoKSignature::from_bytes(&bytes).unwrap();
+        assert_eq!(extended.m_cap.len(), parsed.m_cap.len() + 1);
+    }
+
+    fn assert_zkpok_rejected(bytes: &[u8]) {
+        assert!(
+            matches!(
+                BBSplusZKPoK::from_bytes(bytes),
+                Err(Error::InvalidCommitmentProof)
+            ),
+            "ZKPoK of {} bytes should be rejected",
+            bytes.len()
+        );
+    }
+
+    #[test]
+    fn zkpok_from_bytes_round_trip() {
+        for m in 0..3u64 {
+            let zkpok = BBSplusZKPoK::new(
+                Scalar::from(7u64),
+                (0..m).map(|i| Scalar::from(100 + i)).collect(),
+                Scalar::from(42u64),
+            );
+            let bytes = zkpok.to_bytes();
+            assert_eq!(bytes.len(), 64 + 32 * m as usize);
+            assert_eq!(BBSplusZKPoK::from_bytes(&bytes).unwrap(), zkpok);
+        }
+    }
+
+    #[test]
+    fn zkpok_from_bytes_rejects_invalid_lengths() {
+        for len in [0usize, 1, 31, 32, 63, 65, 95, 96 + 31] {
+            assert_zkpok_rejected(&vec![0u8; len]);
+        }
+
+        let valid = BBSplusZKPoK::new(
+            Scalar::from(7u64),
+            vec![Scalar::from(9u64)],
+            Scalar::from(42u64)
+        ).to_bytes();
+        for extra in [1usize, 31] {
+            let mut bytes = valid.clone();
+            bytes.extend(std::iter::repeat(0u8).take(extra));
+            assert_zkpok_rejected(&bytes);
+        }
+    }
+
+    #[test]
+    fn zkpok_from_bytes_rejects_non_canonical_scalars() {
+        let valid = BBSplusZKPoK::new(Scalar::from(7u64), vec![Scalar::from(9u64)], Scalar::from(42u64))
+            .to_bytes();
+        // 0xff..ff is larger than the group order, so it is not a valid scalar encoding.
+        for start in (0..valid.len()).step_by(Scalar::BYTES) {
+            let mut bytes = valid.clone();
+            bytes[start..start + Scalar::BYTES].fill(0xff);
+            assert_zkpok_rejected(&bytes);
+        }
     }
 
     //SIGNATURE POK

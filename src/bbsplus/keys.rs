@@ -100,6 +100,10 @@ impl BBSplusPublicKey {
     ///
     /// * `Result<Self, Error>` - A result containing the `BBSplusPublicKey` or an error.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        if bytes.len() != G2Affine::COMPRESSED_BYTES {
+            return Err(Error::KeyDeserializationError);
+        }
+
         let g2 = parse_g2_projective_compressed(&bytes[0..G2Affine::COMPRESSED_BYTES])
             .map_err(|_| Error::KeyDeserializationError)?;
         Ok(Self(g2))
@@ -299,6 +303,49 @@ mod tests {
     use crate::schemes::algorithms::{BbsBls12381Sha256, BbsBls12381Shake256};
     use crate::{keys::pair::KeyPair, schemes::algorithms::BBSplus};
     use std::fs;
+
+    // FROM_BYTES LENGTH VALIDATION
+
+    use crate::{bbsplus::{keys::BBSplusPublicKey, valid_fixture_bytes}, errors::Error};
+
+    const PK_FIXTURE_DIRS: [&str; 2] = [
+        "./fixture_data/fixture_data/bls12-381-sha-256/proof/",
+        "./fixture_data/fixture_data/bls12-381-shake-256/proof/",
+    ];
+
+    fn assert_pk_rejected(bytes: &[u8]) {
+        assert!(
+            matches!(BBSplusPublicKey::from_bytes(bytes), Err(Error::KeyDeserializationError)),
+            "public key of {} bytes should be rejected",
+            bytes.len()
+        );
+    }
+
+    #[test]
+    fn public_key_from_bytes_round_trip() {
+        for dir in PK_FIXTURE_DIRS {
+            for pk in valid_fixture_bytes(dir, "signerPublicKey") {
+                assert_eq!(BBSplusPublicKey::from_bytes(&pk).unwrap().to_bytes().to_vec(), pk);
+            }
+        }
+    }
+
+    #[test]
+    fn public_key_from_bytes_rejects_invalid_lengths() {
+        for len in [0usize, 1, 48, 95, 97, 192] {
+            assert_pk_rejected(&vec![0u8; len]);
+        }
+        for dir in PK_FIXTURE_DIRS {
+            for pk in valid_fixture_bytes(dir, "signerPublicKey") {
+                assert_pk_rejected(&pk[..95]);
+                for extra in [1usize, 32] {
+                    let mut bytes = pk.clone();
+                    bytes.extend(std::iter::repeat(0u8).take(extra));
+                    assert_pk_rejected(&bytes);
+                }
+            }
+        }
+    }
 
     //KEYPAIR - SHA256
 

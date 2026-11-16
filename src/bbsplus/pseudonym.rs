@@ -67,8 +67,11 @@ impl BBSplusPseudonym {
     ///
     /// * `Result<Self, Error>` - A result containing the deserialized `BBSplusPseudonym` or an error.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
-        let pseudonym = parse_g1_projective(&bytes[0..48])
-            .map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
+        if bytes.len() != G1Projective::COMPRESSED_BYTES {
+            return Err(Error::InvalidPseudonym);
+        }
+
+        let pseudonym = parse_g1_projective(bytes).map_err(|_| Error::InvalidPseudonym)?;
 
         Ok(Self{pseudonym})
     }
@@ -1046,6 +1049,50 @@ mod tests {
             generics::{BlindSignature, Commitment, PoKSignature},
         },
     };
+
+    // FROM_BYTES LENGTH VALIDATION
+
+    use crate::{bbsplus::{pseudonym::BBSplusPseudonym, valid_fixture_bytes}, errors::Error};
+
+    const NYM_FIXTURE_DIRS: [&str; 2] = [
+        "./fixture_data/fixture_data_nym/bls12-381-sha-256/nymProof/",
+        "./fixture_data/fixture_data_nym/bls12-381-shake-256/nymProof/",
+    ];
+
+    fn assert_pseudonym_rejected(bytes: &[u8]) {
+        assert!(
+            matches!(BBSplusPseudonym::from_bytes(bytes), Err(Error::InvalidPseudonym)),
+            "pseudonym of {} bytes should be rejected",
+            bytes.len()
+        );
+    }
+
+    #[test]
+    fn pseudonym_from_bytes_round_trip() {
+        for dir in NYM_FIXTURE_DIRS {
+            for nym in valid_fixture_bytes(dir, "pseudonym") {
+                assert_eq!(BBSplusPseudonym::from_bytes(&nym).unwrap().to_bytes(), nym);
+            }
+        }
+    }
+
+    #[test]
+    fn pseudonym_from_bytes_rejects_invalid_lengths() {
+        // 48 zero bytes have the right length but are not a valid compressed G1 point.
+        for len in [0usize, 1, 47, 48, 49, 96] {
+            assert_pseudonym_rejected(&vec![0u8; len]);
+        }
+        for dir in NYM_FIXTURE_DIRS {
+            for nym in valid_fixture_bytes(dir, "pseudonym") {
+                assert_pseudonym_rejected(&nym[..47]);
+                for extra in [1usize, 32] {
+                    let mut bytes = nym.clone();
+                    bytes.extend(std::iter::repeat(0u8).take(extra));
+                    assert_pseudonym_rejected(&bytes);
+                }
+            }
+        }
+    }
 
     macro_rules! commit_tests {
         ( $( ($t:ident, $p:literal): { $( ($n:ident, $f:literal), )+ },)+ ) => { $($(
