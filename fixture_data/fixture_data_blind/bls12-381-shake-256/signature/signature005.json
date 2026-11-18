@@ -1,5 +1,5 @@
 {
-  "caseName": "valid no commitment signature",
+  "caseName": "Valid No Blind Commitment, Multiple Signer Messages Signature",
   "mockRngParameters": {
     "SEED": "3.141592653589793238462643383279"
   },
@@ -10,25 +10,55 @@
   "commitmentWithProof": null,
   "header": "11223344556677889900aabbccddeeff",
   "messages": [
-    "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02",
-    "c344136d9ab02da4dd5908bbba913ae6f58c2cc844b802a6f811f5fb075f9b80",
-    "7372e9daa5ed31e6cd5c825eac1b855e84476a1d94932aa348e07b73",
-    "77fe97eb97a1ebe2e81e4e3597a3ee740a66e9ef2412472c",
-    "496694774c5604ab1b2544eababcf0f53278ff50",
-    "515ae153e22aae04ad16f759e07237b4",
-    "d183ddc6e2665aa4e2f088af",
-    "ac55fb33a75909ed",
-    "96012096",
-    ""
+    [
+      "HASH",
+      "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02"
+    ],
+    [
+      "HASH",
+      "c344136d9ab02da4dd5908bbba913ae6f58c2cc844b802a6f811f5fb075f9b80"
+    ],
+    [
+      "RAW",
+      "7372e9daa5ed31e6cd5c825eac1b855e84476a1d94932aa348e07b73"
+    ],
+    [
+      "RAW",
+      "77fe97eb97a1ebe2e81e4e3597a3ee740a66e9ef2412472c"
+    ],
+    [
+      "HASH",
+      "496694774c5604ab1b2544eababcf0f53278ff50"
+    ],
+    [
+      "HASH",
+      "515ae153e22aae04ad16f759e07237b4"
+    ],
+    [
+      "RAW",
+      "d183ddc6e2665aa4e2f088af"
+    ],
+    [
+      "RAW",
+      "ac55fb33a75909ed"
+    ],
+    [
+      "HASH",
+      "96012096"
+    ],
+    [
+      "HASH",
+      ""
+    ]
   ],
-  "committedMessages": null,
+  "blindMessages": null,
   "proverBlind": null,
-  "signature": "b80f73e22cf6c050159018539af4fd2c8ed75a7dfa247feadbdecd983e16ddb33ac5c61bfd7f17b4063a7957456ddc0b71d46e6a05b1a464df601aabf480edf17ff1d6052089c294577fcfb7b851baad",
+  "signature": "a31594b430e1e8a60f8d5f7da334e4141a67b0955bf6cf4daeed3b439034badd7313a4f82d787e675f4ce24ff9d90b8e5c9e53184c9bb291511626644ddbf2c749ebf8a3e8a433a43bc42330ec74326b",
   "result": {
     "valid": true
   },
   "trace": {
-    "B": "8ce18ec220f427e23eced9bc5d6a90bf242941676569b406a179e7fe8a3d1c3ba7fd0271ce37817876e55fe1fdf598e5",
+    "B": "8118eba64440216c1f1e0f1d7d511b26d2f65c6a0ee9d7a779b945f9a8b00a18ec63a6884179dc7f506a4b549b250769",
     "domain": "62638964b2b8eb67c2635a8b87731e2f876e7e84fc4f051903022a731c5fe3b8"
   }
 }
