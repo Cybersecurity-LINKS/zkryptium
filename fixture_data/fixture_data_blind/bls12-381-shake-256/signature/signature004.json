@@ -1,5 +1,5 @@
 {
-  "caseName": "valid multiple signer and prover committed messages signature",
+  "caseName": "Valid Multiple Blind Messages, Multiple Signer Messages Signature",
   "mockRngParameters": {
     "SEED": "3.141592653589793238462643383279",
     "commit": {
@@ -11,34 +11,79 @@
     "secretKey": "2eee0f60a8a3a8bec0ee942bfd46cbdae9a0738ee68f5a64e7238311cf09a079",
     "publicKey": "92d37d1d6cd38fea3a873953333eab23a4c0377e3e049974eb62bd45949cdeb18fb0490edcd4429adff56e65cbce42cf188b31bddbd619e419b99c2c41b38179eb001963bc3decaae0d9f702c7a8c004f207f46c734a5eae2e8e82833f3e7ea5"
   },
-  "commitmentWithProof": "85d8034b358566ebfd26f921211b257d30def9962ddf80dc7cbdbf96da2bf598a8bbdc03bdc311ff290673ab29edf4a642be726c577a1aaeb11d00d10c5a07c824bbf8e47af13042f570b6bfc05e42783d70fb3ee76ab7c2565fda74ed6536e14105adf9ae943736a6c96c1102d1dc4424eda4ee1961f0d450736d1cc9f6b3ad2f9f1bcd3b63ef5445798b65ad04806240edee143b5c7c57f61ab7fc9fd8f0b05d984e12cee674541b6a79202931e0ef11bcfc908660861b48cfd4ce0970c9726d9359b4bd0c853da78891e9c9db41f2029195279d92f6831b37b5c6d5ac28840e97c12f7962e65adac6705ae712daa61c0c0bda85a3da6850a8dce296797beff88b1c8e8459dba0730ecace09177f79",
+  "commitmentWithProof": "9226bdcf56d5ee4b7c762c7fdbf92b7e06c9e8b38e5466846c6fcf101540fb5f6847a3ac1d89a51e42a6cc4c6166995a3973fac4e958df34b6d8fba2d9a5127c12d51644761cbd2c6f81bf8fda019eb312ae9ec8bbd8ce840d3bef6dff7189c95b6c8418f9b0de630e1119bed6160c577058b26926d7b440d71c470a20f9c9fd858dcb794318bfa37d3bf10ec1656b27565e16bcb3182edad94dec48a9bc35f8d5a6d8f9c83da5978c0d5318f709ce12409d91d0abe7c87c8a85a56e1b7af3d8a700274d0591f2f4c693cdf58eac25da5e50c09176e80cc0822aa5ad9febb0e092bf95fa24993b847070778662d8736b4a8f3f803d5db98f56a9da46b597b2b3140c9284f07031bdc3f53fe8d466d044",
   "header": "11223344556677889900aabbccddeeff",
   "messages": [
-    "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02",
-    "c344136d9ab02da4dd5908bbba913ae6f58c2cc844b802a6f811f5fb075f9b80",
-    "7372e9daa5ed31e6cd5c825eac1b855e84476a1d94932aa348e07b73",
-    "77fe97eb97a1ebe2e81e4e3597a3ee740a66e9ef2412472c",
-    "496694774c5604ab1b2544eababcf0f53278ff50",
-    "515ae153e22aae04ad16f759e07237b4",
-    "d183ddc6e2665aa4e2f088af",
-    "ac55fb33a75909ed",
-    "96012096",
-    ""
+    [
+      "HASH",
+      "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02"
+    ],
+    [
+      "HASH",
+      "c344136d9ab02da4dd5908bbba913ae6f58c2cc844b802a6f811f5fb075f9b80"
+    ],
+    [
+      "RAW",
+      "7372e9daa5ed31e6cd5c825eac1b855e84476a1d94932aa348e07b73"
+    ],
+    [
+      "RAW",
+      "77fe97eb97a1ebe2e81e4e3597a3ee740a66e9ef2412472c"
+    ],
+    [
+      "HASH",
+      "496694774c5604ab1b2544eababcf0f53278ff50"
+    ],
+    [
+      "HASH",
+      "515ae153e22aae04ad16f759e07237b4"
+    ],
+    [
+      "RAW",
+      "d183ddc6e2665aa4e2f088af"
+    ],
+    [
+      "RAW",
+      "ac55fb33a75909ed"
+    ],
+    [
+      "HASH",
+      "96012096"
+    ],
+    [
+      "HASH",
+      ""
+    ]
   ],
-  "committedMessages": [
-    "5982967821da3c5983496214df36aa5e58de6fa25314af4cf4c00400779f08c3",
-    "a75d8b634891af92282cc81a675972d1929d3149863c1fc0",
-    "835889a40744813a892eff9deb1edaeb",
-    "e1ca9729410dc6ba",
-    ""
+  "blindMessages": [
+    [
+      "HASH",
+      "5982967821da3c5983496214df36aa5e58de6fa25314af4cf4c00400779f08c3"
+    ],
+    [
+      "RAW",
+      "a75d8b634891af92282cc81a675972d1929d3149863c1fc0"
+    ],
+    [
+      "HASH",
+      "835889a40744813a892eff9deb1edaeb"
+    ],
+    [
+      "RAW",
+      "e1ca9729410dc6ba"
+    ],
+    [
+      "HASH",
+      ""
+    ]
   ],
   "proverBlind": "41fb2f74c30256398c927a262602b5ac3ebc6f84d9169476f8fcb1525c93b649",
-  "signature": "80b1195ea9e11a639e11e2dc653ccca0461055edb4f48a6e80b676636e42dd61fae3e52c04e192d5053d60e73f3dec5048d423579dcb96cde6969f8048ce53f15ab02449b8d375f869a8df15db78eb02",
+  "signature": "8f094ab374ac787c29d7c796196e836f1938e3cb2dfbedaf5aa659d0a73c371b8d09557a71e44b6eae4d7948d6346e464dd3ca94db3c933d62eb618b3653d946e84f501c87dd54f12d30a8ba8b22fbd1",
   "result": {
     "valid": true
   },
   "trace": {
-    "B": "95e018b5b7fe84bff803e829231870d1dec64608083a6a7b4b8f5be66ee9a6e25a6d067f528e48712528205ae9cdf340",
+    "B": "8a79e61543112d3815948c6ac3f1e6ce7ef8a2f39266d825c8c09f85abf3e645f58f19a66eece8653b282631c5516f4e",
     "domain": "04ad1197bffbb54ae41c1d43c61dc29325c2dc771d5cc7dba67907b17f564a04"
   }
 }

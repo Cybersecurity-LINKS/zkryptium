@@ -1,5 +1,5 @@
 {
-  "caseName": "valid multiple committed messages commitment with proof",
+  "caseName": "Valid Multiple Blind Messages Commitment with Proof",
   "mockRngParameters": {
     "SEED": "3.141592653589793238462643383279",
     "commit": {
@@ -7,15 +7,30 @@
       "count": 7
     }
   },
-  "committedMessages": [
-    "5982967821da3c5983496214df36aa5e58de6fa25314af4cf4c00400779f08c3",
-    "a75d8b634891af92282cc81a675972d1929d3149863c1fc0",
-    "835889a40744813a892eff9deb1edaeb",
-    "e1ca9729410dc6ba",
-    ""
+  "blindMessages": [
+    [
+      "HASH",
+      "5982967821da3c5983496214df36aa5e58de6fa25314af4cf4c00400779f08c3"
+    ],
+    [
+      "RAW",
+      "a75d8b634891af92282cc81a675972d1929d3149863c1fc0"
+    ],
+    [
+      "HASH",
+      "835889a40744813a892eff9deb1edaeb"
+    ],
+    [
+      "RAW",
+      "e1ca9729410dc6ba"
+    ],
+    [
+      "HASH",
+      ""
+    ]
   ],
   "proverBlind": "41fb2f74c30256398c927a262602b5ac3ebc6f84d9169476f8fcb1525c93b649",
-  "commitmentWithProof": "85d8034b358566ebfd26f921211b257d30def9962ddf80dc7cbdbf96da2bf598a8bbdc03bdc311ff290673ab29edf4a642be726c577a1aaeb11d00d10c5a07c824bbf8e47af13042f570b6bfc05e42783d70fb3ee76ab7c2565fda74ed6536e14105adf9ae943736a6c96c1102d1dc4424eda4ee1961f0d450736d1cc9f6b3ad2f9f1bcd3b63ef5445798b65ad04806240edee143b5c7c57f61ab7fc9fd8f0b05d984e12cee674541b6a79202931e0ef11bcfc908660861b48cfd4ce0970c9726d9359b4bd0c853da78891e9c9db41f2029195279d92f6831b37b5c6d5ac28840e97c12f7962e65adac6705ae712daa61c0c0bda85a3da6850a8dce296797beff88b1c8e8459dba0730ecace09177f79",
+  "commitmentWithProof": "9226bdcf56d5ee4b7c762c7fdbf92b7e06c9e8b38e5466846c6fcf101540fb5f6847a3ac1d89a51e42a6cc4c6166995a3973fac4e958df34b6d8fba2d9a5127c12d51644761cbd2c6f81bf8fda019eb312ae9ec8bbd8ce840d3bef6dff7189c95b6c8418f9b0de630e1119bed6160c577058b26926d7b440d71c470a20f9c9fd858dcb794318bfa37d3bf10ec1656b27565e16bcb3182edad94dec48a9bc35f8d5a6d8f9c83da5978c0d5318f709ce12409d91d0abe7c87c8a85a56e1b7af3d8a700274d0591f2f4c693cdf58eac25da5e50c09176e80cc0822aa5ad9febb0e092bf95fa24993b847070778662d8736b4a8f3f803d5db98f56a9da46b597b2b3140c9284f07031bdc3f53fe8d466d044",
   "result": {
     "valid": true
   },
