@@ -199,6 +199,9 @@ pub mod bbsplus_utils {
         fn to_bytes_be(&self) -> [u8; 32];
         /// Converts a big-endian byte array to a scalar.
         fn from_bytes_be(bytes: &[u8]) -> Result<Scalar, Error>;
+        /// OS2IP followed by scalar conversion.
+        /// Accepts inputs of arbitrary length (big-endian); returns an error if the value is >= r.
+        fn from_os2ip_be(bytes: &[u8]) -> Result<Scalar, Error>;
         /// Encodes the scalar to a hexadecimal string.
         fn encode(&self) -> String;
     }
@@ -218,6 +221,28 @@ pub mod bbsplus_utils {
                 return Err(Error::DeserializationError("Not a valid Scalar".to_owned()));
             }
 
+            Ok(s.unwrap())
+        }
+
+        /// OS2IP for scalar conversion.
+        /// Accepts input of arbitrary length (big-endian); returns an error if the value is >= r
+        fn from_os2ip_be(bytes: &[u8]) -> Result<Self, Error> {
+            // Leading zeros do not affect the value: I discard them before checking the length
+            let first_nz = bytes.iter().position(|&b| b != 0).unwrap_or(bytes.len());
+            let trimmed = &bytes[first_nz..];
+
+            if trimmed.len() > Scalar::BYTES {
+                return Err(Error::DeserializationError("Not a valid Scalar".to_owned()));
+            }
+
+            // Left-padding up to 32 bytes
+            let mut be = [0u8; Scalar::BYTES];
+            be[Scalar::BYTES - trimmed.len()..].copy_from_slice(trimmed);
+
+            let s = Scalar::from_be_bytes(&be);
+            if s.is_none().into() {
+                return Err(Error::DeserializationError("Not a valid Scalar".to_owned()));
+            }
             Ok(s.unwrap())
         }
 

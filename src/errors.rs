@@ -32,7 +32,7 @@ pub enum Error {
     ///Not a valid Signature
     #[error("Not a valid Signature")]
     InvalidSignature,
-    ///Error during hash to scalar computation
+    ///Error during hash-to-scalar computation
     #[error("Error during hash to scalar computation")]
     HashToScalarError,
     ///Error mapping a message to scalar
@@ -65,7 +65,7 @@ pub enum Error {
     ///Invalid Proof of Knowledge of a Signature
     #[error("Invalid Proof of Knowledge of a Signature")]
     InvalidProofOfKnowledgeSignature,
-    ///Proof of Knowledge of a Signature verification failed
+    ///Proof of Knowledge of Signature verification failed
     #[error("Proof of Knowledge of a Signature verification failed")]
     PoKSVerificationError(String),
     ///UnespectedError This should NOT happen!
@@ -83,7 +83,13 @@ pub enum Error {
     ///Invalid number of Generators
     #[error("Invalid number of Generators")]
     InvalidNumberOfGenerators,
+    ///Invalid number of Blind Generators
+    #[error("Invalid number of Blind Generators")]
+    InvalidNumberOfBlindGenerators,
     ///Invalid pseudonym
     #[error("Invalid pseudonym")]
     InvalidPseudonym,
+    ///Invalid message flag
+    #[error("Invalid message flag, should be HASH or RAW")]
+    InvalidMessageFlag,
 }
