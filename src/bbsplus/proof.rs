@@ -105,6 +105,17 @@ impl BBSplusPoKSignature {
         let D = parse_g1_projective(&bytes[96..144])
             .map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
 
+        // draft-irtf-cfrg-bbs-signatures-14 §4.2.5.5 octets_to_proof step 7:
+        // if A_i is INVALID or Identity_G1, return INVALID (Abar, Bbar, D).
+        // The subgroup check already ran inside parse_g1_projective, and
+        // identity passes it.
+        if Abar == G1Projective::IDENTITY
+            || Bbar == G1Projective::IDENTITY
+            || D == G1Projective::IDENTITY
+        {
+            return Err(Error::InvalidProofOfKnowledgeSignature);
+        }
+
         let e_cap = Scalar::from_bytes_be(&bytes[144..176])
             .map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
         let r1_cap = Scalar::from_bytes_be(&bytes[176..208])
@@ -1111,7 +1122,8 @@ mod tests {
     // FROM_BYTES LENGTH VALIDATION
     use crate::{bbsplus::{proof::{BBSplusPoKSignature, BBSplusZKPoK}, valid_fixture_bytes},
                 errors::Error};
-    use bls12_381_plus::Scalar;
+    use bls12_381_plus::{G1Projective, Scalar};
+    use elliptic_curve::group::Curve;
 
     const POK_FIXTURE_DIRS: [&str; 2] = [
         "./fixture_data/fixture_data/bls12-381-sha-256/proof/",
@@ -1127,6 +1139,20 @@ mod tests {
             "proof of {} bytes should be rejected",
             bytes.len()
         );
+    }
+
+    #[test]
+    fn pok_from_bytes_rejects_identity_points() {
+        let identity = G1Projective::IDENTITY.to_affine().to_compressed();
+        for dir in POK_FIXTURE_DIRS {
+            for proof in valid_fixture_bytes(dir, "proof") {
+                for offset in [0usize, 48, 96] {
+                    let mut bytes = proof.clone();
+                    bytes[offset..offset + 48].copy_from_slice(&identity);
+                    assert_pok_rejected(&bytes);
+                }
+            }
+        }
     }
 
     #[test]

@@ -87,6 +87,13 @@ impl BBSplusCommitment {
 
         let commitment = parse_g1_projective(&bytes[0..G1Projective::COMPRESSED_BYTES])
             .map_err(|_| Error::InvalidCommitment)?;
+        // draft-irtf-cfrg-bbs-blind-signatures-05 §5.5.2 step 6:
+        // if C == Identity_G1, return INVALID. The subgroup check already ran
+        // inside parse_g1_projective, and identity passes it. The empty
+        // commitment default is a separate path (deserialize_and_validate_commit).
+        if commitment == G1Projective::IDENTITY {
+            return Err(Error::InvalidCommitment);
+        }
         let proof = BBSplusZKPoK::from_bytes(&bytes[G1Projective::COMPRESSED_BYTES..])
             .map_err(|_| Error::InvalidCommitmentProof)?;
 
@@ -409,11 +416,28 @@ mod tests {
     // FROM_BYTES LENGTH VALIDATION
 
     use crate::{bbsplus::{commitment::BBSplusCommitment, valid_fixture_bytes}, errors::Error};
+    use bls12_381_plus::G1Projective;
+    use elliptic_curve::group::Curve;
 
     const COMMIT_FIXTURE_DIRS: [&str; 2] = [
         "./fixture_data/fixture_data_blind/bls12-381-sha-256/commit/",
         "./fixture_data/fixture_data_blind/bls12-381-shake-256/commit/",
     ];
+
+    #[test]
+    fn commitment_from_bytes_rejects_identity_commitment() {
+        let identity = G1Projective::IDENTITY.to_affine().to_compressed();
+        for dir in COMMIT_FIXTURE_DIRS {
+            for c in valid_fixture_bytes(dir, "commitmentWithProof") {
+                let mut bytes = c.clone();
+                bytes[0..48].copy_from_slice(&identity);
+                assert!(matches!(
+                    BBSplusCommitment::from_bytes(&bytes),
+                    Err(Error::InvalidCommitment)
+                ));
+            }
+        }
+    }
 
     #[test]
     fn commitment_from_bytes_round_trip() {

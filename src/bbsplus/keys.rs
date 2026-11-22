@@ -76,6 +76,12 @@ impl BBSplusPublicKey {
     fn from_bytes_uncompressed(bytes: &[u8; G2Affine::UNCOMPRESSED_BYTES]) -> Result<Self, Error> {
         let g2 =
             parse_g2_projective_uncompressed(bytes).map_err(|_| Error::KeyDeserializationError)?;
+        // draft-irtf-cfrg-bbs-signatures-14 §4.2.5.6 octets_to_pubkey step 4:
+        // if W == Identity_G2, return INVALID. The subgroup check already ran
+        // inside parse_g2_projective_uncompressed, and identity passes it.
+        if g2 == G2Projective::IDENTITY {
+            return Err(Error::KeyDeserializationError);
+        }
         Ok(Self(g2))
     }
 
@@ -106,6 +112,12 @@ impl BBSplusPublicKey {
 
         let g2 = parse_g2_projective_compressed(&bytes[0..G2Affine::COMPRESSED_BYTES])
             .map_err(|_| Error::KeyDeserializationError)?;
+        // draft-irtf-cfrg-bbs-signatures-14 §4.2.5.6 octets_to_pubkey step 4:
+        // if W == Identity_G2, return INVALID. The subgroup check already ran
+        // inside parse_g2_projective_compressed, and identity passes it.
+        if g2 == G2Projective::IDENTITY {
+            return Err(Error::KeyDeserializationError);
+        }
         Ok(Self(g2))
     }
 }
@@ -307,6 +319,8 @@ mod tests {
     // FROM_BYTES LENGTH VALIDATION
 
     use crate::{bbsplus::{keys::BBSplusPublicKey, valid_fixture_bytes}, errors::Error};
+    use bls12_381_plus::G2Projective;
+    use elliptic_curve::group::Curve;
 
     const PK_FIXTURE_DIRS: [&str; 2] = [
         "./fixture_data/fixture_data/bls12-381-sha-256/proof/",
@@ -319,6 +333,24 @@ mod tests {
             "public key of {} bytes should be rejected",
             bytes.len()
         );
+    }
+
+    #[test]
+    fn public_key_from_bytes_rejects_identity() {
+        let identity = G2Projective::IDENTITY.to_affine().to_compressed();
+        assert_pk_rejected(&identity);
+    }
+
+    #[test]
+    fn public_key_from_coordinates_rejects_identity() {
+        let uncompressed = G2Projective::IDENTITY.to_affine().to_uncompressed();
+        let (x, y) = uncompressed.split_at(BBSplusPublicKey::COORDINATE_LEN);
+        let x: [u8; BBSplusPublicKey::COORDINATE_LEN] = x.try_into().unwrap();
+        let y: [u8; BBSplusPublicKey::COORDINATE_LEN] = y.try_into().unwrap();
+        assert!(matches!(
+            BBSplusPublicKey::from_coordinates(&x, &y),
+            Err(Error::KeyDeserializationError)
+        ));
     }
 
     #[test]
