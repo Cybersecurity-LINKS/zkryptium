@@ -1843,6 +1843,8 @@ mod tests {
         utils::message::bbsplus_message::BBSplusMessage,
     };
     use elliptic_curve::hash2curve::ExpandMsg;
+    #[cfg(feature = "bbsplus_blind")]
+    use crate::bbsplus::test_utils::{parse_disclosures, parse_messages};
 
     //mocked_rng - SHA256 - UPDATED
     #[test]
@@ -1863,7 +1865,7 @@ mod tests {
     }
 
     // FROM_BYTES LENGTH VALIDATION
-    use crate::{bbsplus::{proof::{BBSplusPoKSignature, BBSplusZKPoK}, valid_fixture_bytes},
+    use crate::{bbsplus::{proof::{BBSplusPoKSignature, BBSplusZKPoK}, test_utils::valid_fixture_bytes},
                 errors::Error};
     use bls12_381_plus::{G1Projective, Scalar};
     use elliptic_curve::group::Curve;
@@ -2262,34 +2264,6 @@ mod tests {
     }
 
     #[cfg(feature = "bbsplus_blind")]
-    fn parse_blind_messages(v: &serde_json::Value) -> Vec<Message> {
-        v.as_array()
-            .map(|a| {
-                a.iter()
-                    .map(|m| {
-                        let pair = m.as_array().expect("message: [flag, hex]");
-                        let flag = pair[0].as_str().expect("message: flag").to_owned();
-                        let value = hex::decode(pair[1].as_str().expect("message: value"))
-                            .expect("message: invalid hex");
-                        Message::try_from((flag, value)).expect("message: invalid flag")
-                    })
-                    .collect()
-            })
-            .unwrap_or_default()
-    }
-
-    #[cfg(feature = "bbsplus_blind")]
-    fn parse_disclosures(v: &serde_json::Value) -> Vec<Disclosure> {
-        v.as_array()
-            .map(|a| {
-                a.iter()
-                    .map(|d| Disclosure::try_from(d.as_str().unwrap()).unwrap())
-                    .collect()
-            })
-            .unwrap_or_default()
-    }
-
-    #[cfg(feature = "bbsplus_blind")]
     fn blind_proof_check<S: Scheme>(pathname: &str, proof_filename: &str)
     where
         S::Ciphersuite: BbsCiphersuite,
@@ -2318,8 +2292,8 @@ mod tests {
         )
         .unwrap();
 
-        let issuer_messages = parse_blind_messages(&sig_json["messages"]);
-        let blind_messages = parse_blind_messages(&sig_json["blindMessages"]);
+        let issuer_messages = parse_messages(&sig_json["messages"]);
+        let blind_messages = parse_messages(&sig_json["blindMessages"]);
         let secret_prover_blind = sig_json["proverBlind"].as_str().map(|b| {
             BlindFactor::from_bytes(&hex::decode(b).unwrap().try_into().unwrap()).unwrap()
         });
@@ -2484,8 +2458,8 @@ mod tests {
             )
             .unwrap();
             let signature = hex::decode(sig_json["signature"].as_str().unwrap()).unwrap();
-            let issuer_messages = parse_blind_messages(&sig_json["messages"]);
-            let blind_messages = parse_blind_messages(&sig_json["blindMessages"]);
+            let issuer_messages = parse_messages(&sig_json["messages"]);
+            let blind_messages = parse_messages(&sig_json["blindMessages"]);
             let secret_prover_blind = sig_json["proverBlind"].as_str().map(|b| {
                 BlindFactor::from_bytes(&hex::decode(b).unwrap().try_into().unwrap()).unwrap()
             });

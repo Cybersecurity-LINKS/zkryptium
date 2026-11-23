@@ -488,7 +488,7 @@ mod tests {
     use serde_json::Value;
     use crate::{
         bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators,
-                  {commitment::{BBSplusCommitment, BlindFactor, Message}, valid_fixture_bytes}
+                  {commitment::{BBSplusCommitment, BlindFactor, Message}, test_utils::{parse_messages, valid_fixture_bytes}}
         },
         schemes::{
             algorithms::{BBSplus, BbsBls12381Sha256, BbsBls12381Shake256, Scheme},
@@ -499,7 +499,8 @@ mod tests {
 
     // FROM_BYTES LENGTH VALIDATION
     use elliptic_curve::group::Curve;
-    use bls12_381_plus::G1Projective;
+    use bls12_381_plus::{G1Projective, Scalar};
+    use crate::utils::util::bbsplus_utils::ScalarExt;
 
     const COMMIT_FIXTURE_DIRS: [&str; 2] = [
         "./fixture_data/fixture_data_blind/bls12-381-sha-256/commit/",
@@ -643,6 +644,55 @@ mod tests {
         .is_ok());
     }
 
+    fn check_rejects_tampered_commitment<S: Scheme>(dir: &str)
+    where
+        S::Ciphersuite: BbsCiphersuite,
+        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
+    {
+        for c in valid_fixture_bytes(dir, "commitmentWithProof") {
+            let generators_count = (c.len() - 48) / 32 - 1;
+
+            // Each proof scalar (s^, m^_1..m^_M, challenge) replaced by a different valid scalar.
+            for k in 0..(c.len() - 48) / 32 {
+                let range = 48 + k * 32..48 + (k + 1) * 32;
+                let scalar = Scalar::from_bytes_be(&c[range.clone()]).unwrap() + Scalar::ONE;
+                let mut bytes = c.clone();
+                bytes[range].copy_from_slice(&scalar.to_be_bytes());
+                assert!(
+                    matches!(
+                        validate_with_generators::<S>(&bytes, generators_count),
+                        Err(Error::InvalidCommitmentProof)
+                    ),
+                    "proof scalar {k} tampered"
+                );
+            }
+
+            // Commitment replaced by a different valid point.
+            let mut bytes = c.clone();
+            bytes[..48].copy_from_slice(&G1Projective::GENERATOR.to_affine().to_compressed());
+            assert!(matches!(
+                validate_with_generators::<S>(&bytes, generators_count),
+                Err(Error::InvalidCommitmentProof)
+            ));
+
+            // Valid proof checked against the generators of another api_id.
+            let other_generators = Generators::create::<S::Ciphersuite>(generators_count, Some(b"BLIND_other"));
+            assert!(Commitment::<BBSplus<S::Ciphersuite>>::deserialize_and_validate_commit(
+                Some(&c),
+                &other_generators,
+                Some(<S::Ciphersuite as BbsCiphersuite>::API_ID_BLIND),
+            )
+            .is_err());
+        }
+    }
+
+    #[test]
+    fn deserialize_and_validate_commit_rejects_tampered_commitment() {
+        // BLIND-08: tampered proof or commitment must fail CoreCommitVerify.
+        check_rejects_tampered_commitment::<BbsBls12381Sha256>(COMMIT_FIXTURE_DIRS[0]);
+        check_rejects_tampered_commitment::<BbsBls12381Shake256>(COMMIT_FIXTURE_DIRS[1]);
+    }
+
     #[test]
     fn blind_factor_debug_is_redacted() {
         // BLIND-03: the secret_prover_blind must not leak through {:?}.
@@ -709,21 +759,4 @@ mod tests {
 
         assert_eq!(result, expected_result);
         }
-
-    fn parse_message(v: &Value) -> Message {
-        let pair = v.as_array().expect("message: [flag, hex]");
-        let flag = pair[0].as_str().expect("message: flag is not a string");
-        let bytes = hex::decode(pair[1].as_str().expect("message: value not a string"))
-                .expect("message: invalid hex");
-
-        match flag {
-            "HASH" => Message::Hash(bytes),
-            "RAW" => Message::Raw(bytes),
-            other => panic!("flag unknown: {other}"),
-        }
-    }
-
-    pub fn parse_messages(v: &Value) -> Vec<Message> {
-        v.as_array().unwrap_or(&Vec::new()).iter().map(parse_message).collect()
-    }
 }

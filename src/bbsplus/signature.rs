@@ -398,7 +398,7 @@ mod tests {
         bbsplus::{
             keys::{BBSplusPublicKey, BBSplusSecretKey},
             signature::BBSplusSignature,
-            valid_fixture_bytes,
+            test_utils::valid_fixture_bytes,
         },
         errors::Error,
         schemes::{algorithms::BBSplus, generics::Signature},
