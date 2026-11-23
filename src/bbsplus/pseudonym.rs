@@ -1052,7 +1052,7 @@ mod tests {
 
     // FROM_BYTES LENGTH VALIDATION
 
-    use crate::{bbsplus::{pseudonym::BBSplusPseudonym, valid_fixture_bytes}, errors::Error};
+    use crate::{bbsplus::{pseudonym::BBSplusPseudonym, test_utils::valid_fixture_bytes}, errors::Error};
 
     const NYM_FIXTURE_DIRS: [&str; 2] = [
         "./fixture_data/fixture_data_nym/bls12-381-sha-256/nymProof/",

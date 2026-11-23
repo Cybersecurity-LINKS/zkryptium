@@ -318,7 +318,7 @@ mod tests {
 
     // FROM_BYTES LENGTH VALIDATION
 
-    use crate::{bbsplus::{keys::BBSplusPublicKey, valid_fixture_bytes}, errors::Error};
+    use crate::{bbsplus::{keys::BBSplusPublicKey, test_utils::valid_fixture_bytes}, errors::Error};
     use bls12_381_plus::G2Projective;
     use elliptic_curve::group::Curve;
 

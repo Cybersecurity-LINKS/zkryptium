@@ -144,7 +144,7 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
     /// * `header` (OPTIONAL), an octet string containing context and application specific information.
     ///
     /// # Output:
-    /// * a result either [`value@Ok`] or [`Error`]
+    /// * a result either [`Ok`] or [`Error`]
     pub fn verify(
         &self,
         pk: &BBSplusPublicKey,
@@ -398,7 +398,7 @@ mod tests {
         bbsplus::{
             keys::{BBSplusPublicKey, BBSplusSecretKey},
             signature::BBSplusSignature,
-            valid_fixture_bytes,
+            test_utils::valid_fixture_bytes,
         },
         errors::Error,
         schemes::{algorithms::BBSplus, generics::Signature},

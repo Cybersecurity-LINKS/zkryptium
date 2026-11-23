@@ -152,7 +152,7 @@ mod bbsplus_example {
             .iter()
             .map(|&i| committed_messages[i].clone())
             .collect::<Vec<_>>();
-        let poks_verification_result = poks.proof_verify_with_nym(
+        poks.proof_verify_with_nym(
                 issuer_pk,
                 Some(&header),
                 Some(&nonce_verifier),
@@ -164,13 +164,7 @@ mod bbsplus_example {
                 Some(&disclosed_committed_messages),
                 Some(&disclosed_indexes),
                 Some(&disclosed_commitment_indexes),
-            )
-            .is_ok();
-
-        assert!(
-            poks_verification_result,
-            "Signature Proof of Knowledge with Pseudonym Verification Failed!"
-        );
+            )?;
         log::info!("Signature Proof of Knowledge with Pseudonym is VALID!");
 
         Ok(())
@@ -178,9 +172,9 @@ mod bbsplus_example {
 }
 
 #[cfg(feature = "bbsplus_nym")]
-fn main() {
+fn main() -> std::process::ExitCode {
     use crate::bbsplus_example::bbsplus_main;
-    use std::env;
+    use std::{env, process::ExitCode};
     use zkryptium::schemes::algorithms::{BbsBls12381Sha256, BbsBls12381Shake256};
 
     dotenvy::dotenv().ok();
@@ -189,32 +183,42 @@ fn main() {
     let args: Vec<String> = env::args().collect();
 
     if args.len() != 2 {
-        println!(
+        eprintln!(
             "Usage: {} <cipher_suite>
                 Ciphersuites:
                     - BLS12-381-SHA-256
                     - BLS12-381-SHAKE-256",
             args[0]
         );
-        return;
+        return ExitCode::FAILURE;
     }
 
     let cipher_suite = &args[1];
 
-    match cipher_suite.as_str() {
+    let result = match cipher_suite.as_str() {
         "BLS12-381-SHA-256" => {
             println!("\n");
             log::info!("Ciphersuite: BLS12-381-SHA-256");
-            let _ = bbsplus_main::<BbsBls12381Sha256>();
+            bbsplus_main::<BbsBls12381Sha256>()
         }
         "BLS12-381-SHAKE-256" => {
             println!("\n");
             log::info!("Ciphersuite: BLS12-381-SHAKE-256");
-            let _ = bbsplus_main::<BbsBls12381Shake256>();
+            bbsplus_main::<BbsBls12381Shake256>()
         }
         _ => {
-            println!("Unknown cipher suite: {}", cipher_suite);
-            // Handle other cipher suites or raise an error if necessary
+            eprintln!("Unknown cipher suite: {}", cipher_suite);
+            return ExitCode::FAILURE;
+        }
+    };
+
+    // Report the library error (with its details) and exit with a non-zero status,
+    // instead of silently discarding it.
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("Example failed: {e} ({e:?})");
+            ExitCode::FAILURE
         }
     }
 }
