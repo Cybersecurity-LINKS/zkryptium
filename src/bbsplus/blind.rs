@@ -26,11 +26,11 @@
 //! 
 //! ```toml
 //! [dependencies]
-//! zkryptium = { version = "0.9", default-features = false, features = ["bbsplus", "bbsplus_blind"] }
+//! zkryptium = { version = "0.8.3", default-features = false, features = ["bbsplus", "bbsplus_blind"] }
 //! ```
 
 use super::{
-    commitment::BlindFactor,
+    commitment::{BBSplusCommitment, BlindFactor},
     keys::{BBSplusPublicKey, BBSplusSecretKey},
     signature::{core_verify, BBSplusSignature},
 };
@@ -72,6 +72,18 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     /// # Output:
     /// a [`BlindSignature::BBSplus`] or [`Error`].
     ///
+    /// # Resource usage
+    /// `commitment_with_proof` comes from the Prover and is not trusted. To verify it, the Signer
+    /// must derive `M + 1` blind generators, where `M` is the number of committed messages encoded
+    /// in it: each one costs a hash-to-curve. A malformed commitment is rejected before any
+    /// generator is computed, but a well-formed one with many committed messages is processed in
+    /// full before its proof is found invalid, so the cost grows linearly with its length
+    /// (one hash-to-curve every 32 bytes).
+    ///
+    /// The library does not cap `M`, since the draft does not define a limit. Applications exposing
+    /// this operation to untrusted Provers should bound the size of `commitment_with_proof`
+    /// (for `M` committed messages it is `48 + 32 * (M + 2)` bytes) before calling it.
+    ///
     pub fn blind_sign(
         sk: &BBSplusSecretKey,
         pk: &BBSplusPublicKey,
@@ -83,20 +95,16 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         let L = messages.len();
         let commitment_with_proof = commitment_with_proof.unwrap_or(&[]);
 
-        let mut M = commitment_with_proof.len();
-        //commitment_with_proof = g1_point + [s_hat, m_hat0...m_hatM, challenge]
-        //M = (length(commitment_with_proof) - point_length - 2*scalar_length)/scalar_length
-        if M != 0 {
-            M = M
-                .checked_sub(G1Projective::COMPRESSED_BYTES)
-                .ok_or(Error::InvalidCommitmentProof)?;
-            M = M
-                .checked_sub(Scalar::BYTES * 2)
-                .ok_or(Error::InvalidCommitmentProof)?;
-            M = M
-                .checked_div(Scalar::BYTES)
-                .ok_or(Error::InvalidCommitmentProof)?;
-        }
+        // Number of blind generators used by the commitment, if any.
+        // The draft derives M from length(commitment_with_proof) alone. Here the commitment is
+        // parsed first (format, point, scalars), so a malformed input is rejected before paying
+        // for the M + 1 hash-to-curve calls of create_generators. For well-formed inputs M is
+        // the same value: commitment_with_proof = C || s^ || m^_1..m^_M || challenge.
+        let M = if commitment_with_proof.is_empty() {
+            0
+        } else {
+            BBSplusCommitment::from_bytes(commitment_with_proof)?.proof.m_cap.len()
+        };
             
         let generators = Generators::create::<CS>(L + 1, Some(CS::API_ID_BLIND));
 
@@ -124,7 +132,8 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
             Some(CS::API_ID_BLIND)
         )?;
 
-        let B_val = B.pop().expect("missing B from calculate_b");
+        // B_calculate returns exactly one element: an empty result is an internal error.
+        let B_val = B.pop().ok_or(Error::UnespectedError)?;
 
         let blind_sig = finalize_blind_sign::<CS>(
             sk,
@@ -513,6 +522,58 @@ mod tests {
 
         assert_eq!(result, expected_result);
 
+    }
+
+    #[test]
+    fn blind_sign_rejects_malformed_commitment() {
+        // BLIND-04: malformed commitments are rejected (now before the blind generators are created).
+        type S = BbsBls12381Sha256;
+        let path = "./fixture_data/fixture_data_blind/bls12-381-sha-256/signature/signature004.json";
+        let data = fs::read_to_string(path).expect("Unable to read file");
+        let json: Value = serde_json::from_str(&data).expect("Unable to parse");
+
+        let sk = BBSplusSecretKey::from_bytes(
+            &hex::decode(json["signerKeyPair"]["secretKey"].as_str().unwrap()).unwrap(),
+        )
+        .unwrap();
+        let pk = BBSplusPublicKey::from_bytes(
+            &hex::decode(json["signerKeyPair"]["publicKey"].as_str().unwrap()).unwrap(),
+        )
+        .unwrap();
+        let header = hex::decode(json["header"].as_str().unwrap()).unwrap();
+        let messages = parse_messages(&json["messages"]);
+        let commitment = hex::decode(json["commitmentWithProof"].as_str().unwrap()).unwrap();
+
+        let sign = |c: &[u8]| {
+            BlindSignature::<BBSplus<<S as Scheme>::Ciphersuite>>::blind_sign(
+                &sk,
+                &pk,
+                Some(c),
+                Some(&header),
+                Some(&messages),
+            )
+        };
+
+        assert!(sign(&commitment).is_ok());
+
+        let mut cases: Vec<Vec<u8>> = vec![
+            commitment[..48].to_vec(),                 // point only
+            commitment[..48 + 32].to_vec(),            // a single scalar
+            commitment[..commitment.len() - 1].to_vec(), // truncated
+        ];
+        let mut extra = commitment.clone();
+        extra.push(0);
+        cases.push(extra); // trailing byte
+        let mut zero_scalar = commitment.clone();
+        zero_scalar.extend([0u8; 32]);
+        cases.push(zero_scalar); // well aligned, but the extra scalar is zero
+        let mut wrong_m = commitment.clone();
+        wrong_m.extend(&commitment[48..80]);
+        cases.push(wrong_m); // well-formed, one m^ too many: proof verification fails
+
+        for c in cases {
+            assert!(sign(&c).is_err(), "commitment of {} bytes should be rejected", c.len());
+        }
     }
 
     fn parse_message(v: &Value) -> Message {

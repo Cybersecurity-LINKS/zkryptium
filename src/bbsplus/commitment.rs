@@ -62,24 +62,6 @@ impl BBSplusCommitment {
     /// # Returns
     ///
     /// * A result containing the `BBSplusCommitment` or an error.
-    /// Converts a byte slice to a Commitment.
-    ///
-    /// # Arguments
-    ///
-    /// * `bytes` - A byte slice representing the serialized Commitment.
-    ///
-    /// # Returns
-    ///
-    /// * A result containing the `Commitment` or an error.
-    /// Converts a byte slice to a Commitment.
-    ///
-    /// # Arguments
-    ///
-    /// * `bytes` - A byte slice representing the serialized Commitment.
-    ///
-    /// # Returns
-    ///
-    /// * A result containing the `Commitment` or an error.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         if bytes.len() < G1Projective::COMPRESSED_BYTES {
             return Err(Error::InvalidCommitment);
@@ -314,17 +296,17 @@ where
 {
     let committed_messages = committed_messages.unwrap_or(&[]);
 
-    let commited_message_scalars: Vec<Scalar> =
+    let committed_message_scalars: Vec<Scalar> =
             messages_to_scalar::<CS>(committed_messages, api_id)?;
 
     let api_id = api_id.unwrap_or(b"");
     
     let blind_generators: Vec<G1Projective> = Generators::create::<CS>(
-        commited_message_scalars.len() + 1, 
+        committed_message_scalars.len() + 1,
         Some(&[b"BLIND_", api_id].concat())
     ).values;
 
-    core_commit::<CS>(blind_generators,Some(commited_message_scalars), Some(api_id))
+    core_commit::<CS>(blind_generators, Some(committed_message_scalars), Some(api_id))
 
 }
 
@@ -343,7 +325,7 @@ where
 /// * `api_id`  (OPTIONAL), an octet string. If not supplied it defaults to the empty octet string ("").
 ///
 /// # Output:
-/// ([`BBSplusCommitment`], [`BlindFactor`]), a tuple (commit_with_proof + proof, secret_prover_blind) or [`Error`].
+/// ([`BBSplusCommitment`], [`BlindFactor`]), a tuple (commitment_with_proof, secret_prover_blind) or [`Error`].
 ///
 pub(super) fn core_commit<CS>(
     blind_generators: Vec<G1Projective>,
@@ -365,7 +347,6 @@ where
         return Err(Error::InvalidNumberOfGenerators);
     }
 
-    let blind_gens = blind_generators.clone();
     
     let Q2 = blind_generators[0];
     let Js = &blind_generators[1..M + 1];
@@ -395,7 +376,7 @@ where
     let challenge = calculate_blind_challenge::<CS>(
         commitment, 
         Cbar,
-        &blind_gens,
+        &blind_generators,
         Some(api_id)
     )?;
 
@@ -442,7 +423,8 @@ pub(super) fn messages_to_scalar<CS: BbsCiphersuite>(
 
     messages.iter().map(|m| match m {
         Message::Hash(v) => hash_to_scalar::<CS>(v, &map_dst),
-        Message::Raw(v)  => Scalar::from_os2ip_be(v),
+        // A RAW value must already be a scalar (OS2IP(value) < r): report it as a mapping error.
+        Message::Raw(v)  => Scalar::from_os2ip_be(v).map_err(|_| Error::MapMessageToScalarError),
     }).collect()
 
 }
@@ -636,6 +618,29 @@ mod tests {
         // BLIND-02: draft 05 §4.1.2 step 5, the count must be exactly M + 1.
         check_generators_count::<BbsBls12381Sha256>(COMMIT_FIXTURE_DIRS[0]);
         check_generators_count::<BbsBls12381Shake256>(COMMIT_FIXTURE_DIRS[1]);
+    }
+
+    #[test]
+    fn raw_message_not_a_scalar_is_rejected() {
+        // BLIND-06: a RAW value >= r is reported as MapMessageToScalarError.
+        let api_id = <BbsBls12381Sha256 as Scheme>::Ciphersuite::API_ID_BLIND;
+        for v in [vec![0xffu8; 32], vec![0x01u8; 33]] {
+            assert!(matches!(
+                super::messages_to_scalar::<<BbsBls12381Sha256 as Scheme>::Ciphersuite>(
+                    &[Message::Raw(v)],
+                    Some(api_id)
+                ),
+                Err(Error::MapMessageToScalarError)
+            ));
+        }
+        // Leading zeros are fine: the value is what matters.
+        let mut padded = vec![0u8; 40];
+        padded[39] = 5;
+        assert!(super::messages_to_scalar::<<BbsBls12381Sha256 as Scheme>::Ciphersuite>(
+            &[Message::Raw(padded)],
+            Some(api_id)
+        )
+        .is_ok());
     }
 
     #[test]

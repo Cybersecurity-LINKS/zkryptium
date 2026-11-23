@@ -30,7 +30,7 @@
 //! # Usage
 //! To use the BBS Signature Scheme, enable the `bbsplus` feature in the `Cargo.toml` file
 //! ```toml
-//! zkryptium = { version = "0.8", default-features = false, features = ["bbsplus"] }
+//! zkryptium = { version = "0.8.3", default-features = false, features = ["bbsplus"] }
 //! ```    
 
 
