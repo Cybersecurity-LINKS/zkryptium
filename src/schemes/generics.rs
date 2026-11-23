@@ -31,7 +31,7 @@ use crate::bbsplus::{
 };
 
 #[cfg(feature = "bbsplus_blind")]
-use crate::bbsplus::commitment::BBSplusCommitment;
+use crate::bbsplus::{commitment::BBSplusCommitment, proof::BBSplusBlindPoKSignature};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 /// An enum representing a blind signature scheme.
@@ -68,6 +68,17 @@ pub enum PoKSignature<S: Scheme> {
     #[cfg(feature = "cl03")]
     /// CL03 proof of knowledge signature variant
     CL03(CL03PoKSignature),
+    /// Unreachable variant to satisfy the type system
+    _Unreachable(PhantomData<S>),
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+/// An enum representing a proof of knowledge of a blind signature, with optional
+/// committed disclosure of undisclosed messages.
+pub enum BlindPoKSignature<S: Scheme> {
+    #[cfg(feature = "bbsplus_blind")]
+    /// BBS+ blind proof of knowledge signature variant
+    BBSplus(BBSplusBlindPoKSignature),
     /// Unreachable variant to satisfy the type system
     _Unreachable(PhantomData<S>),
 }
