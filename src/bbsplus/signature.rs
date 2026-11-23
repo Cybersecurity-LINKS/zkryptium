@@ -68,6 +68,12 @@ impl BBSplusSignature {
     pub fn from_bytes(data: &[u8; Self::BYTES]) -> Result<Self, Error> {
         let A: G1Projective = parse_g1_projective(&data[0..G1Projective::COMPRESSED_BYTES])
             .map_err(|_| Error::InvalidSignature)?;
+        // draft-irtf-cfrg-bbs-signatures-14 §4.2.5.3 octets_to_signature step 6:
+        // if A == Identity_G1, return INVALID. The subgroup check already ran
+        // inside parse_g1_projective, and identity passes it.
+        if A == G1Projective::IDENTITY {
+            return Err(Error::InvalidSignature);
+        }
         let e = Scalar::from_bytes_be(&data[G1Projective::COMPRESSED_BYTES..Self::BYTES])
             .map_err(|_| Error::InvalidSignature)?;
 
@@ -389,10 +395,16 @@ mod tests {
     use crate::schemes::algorithms::Scheme;
     use crate::schemes::algorithms::{BbsBls12381Sha256, BbsBls12381Shake256};
     use crate::{
-        bbsplus::keys::{BBSplusPublicKey, BBSplusSecretKey},
+        bbsplus::{
+            keys::{BBSplusPublicKey, BBSplusSecretKey},
+            signature::BBSplusSignature,
+            valid_fixture_bytes,
+        },
+        errors::Error,
         schemes::{algorithms::BBSplus, generics::Signature},
     };
-    use elliptic_curve::hash2curve::ExpandMsg;
+    use bls12_381_plus::{G1Projective, Scalar};
+    use elliptic_curve::{group::Curve, hash2curve::ExpandMsg};
     use std::fs;
 
     //MSG SIGNATURE
@@ -428,6 +440,38 @@ mod tests {
             (msg_signature_shake256_9, "signature/signature009.json"),
             (msg_signature_shake256_10, "signature/signature010.json"),
         },
+    }
+
+    // FROM_BYTES IDENTITY / ROUND TRIP
+
+    const SIG_FIXTURE_DIRS: [&str; 2] = [
+        "./fixture_data/fixture_data/bls12-381-sha-256/signature/",
+        "./fixture_data/fixture_data/bls12-381-shake-256/signature/",
+    ];
+
+    #[test]
+    fn signature_from_bytes_rejects_identity() {
+        let mut bytes = [0u8; BBSplusSignature::BYTES];
+        bytes[0..G1Projective::COMPRESSED_BYTES]
+            .copy_from_slice(&G1Projective::IDENTITY.to_affine().to_compressed());
+        bytes[G1Projective::COMPRESSED_BYTES..].copy_from_slice(&Scalar::ONE.to_be_bytes());
+        assert!(matches!(
+            BBSplusSignature::from_bytes(&bytes),
+            Err(Error::InvalidSignature)
+        ));
+    }
+
+    #[test]
+    fn signature_from_bytes_round_trip() {
+        for dir in SIG_FIXTURE_DIRS {
+            for sig in valid_fixture_bytes(dir, "signature") {
+                let bytes: [u8; BBSplusSignature::BYTES] = sig.clone().try_into().unwrap();
+                assert_eq!(
+                    BBSplusSignature::from_bytes(&bytes).unwrap().to_bytes().to_vec(),
+                    sig
+                );
+            }
+        }
     }
 
     //Update Signature - SHA256
