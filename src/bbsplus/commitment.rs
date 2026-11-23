@@ -480,8 +480,6 @@ mod tests {
     };
 
     // FROM_BYTES LENGTH VALIDATION
-
-    use crate::{bbsplus::{commitment::BBSplusCommitment, valid_fixture_bytes}, errors::Error};
     use elliptic_curve::group::Curve;
     use bls12_381_plus::G1Projective;
 
