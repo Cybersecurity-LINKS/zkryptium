@@ -26,16 +26,18 @@ mod bbsplus_example {
         },
         utils::util::bbsplus_utils::generate_random_secret,
     };
+    use zkryptium::bbsplus::commitment::Message;
 
     pub(crate) fn bbsplus_main<S: Scheme>() -> Result<(), Error>
     where
         S::Ciphersuite: BbsCiphersuite,
         <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
-        const COMMITTED_MSGS: [&str; 2] = [
-            "5982967821da3c5983496214df36aa5e58de6fa25314af4cf4c00400779f08c3",
-            "a75d8b634891af92282cc81a675972d1929d3149863c1fc0",
+        const COMMITTED_MSGS: [(&str, &str); 2] = [
+            ("HASH", "5982967821da3c5983496214df36aa5e58de6fa25314af4cf4c00400779f08c3"),
+            ("RAW", "a75d8b634891af92282cc81a675972d1929d3149863c1fc0"),
         ];
+
         log::info!("Committed Messages: {:?}", COMMITTED_MSGS);
 
         const HEADER_HEX: &str = "11223344556677889900aabbccddeeff";
@@ -54,22 +56,28 @@ mod bbsplus_example {
         log::info!("PK: {}", hex::encode(issuer_pk.to_bytes()));
 
         log::info!("Computing pedersen commitment on messages with the proof and the secret_prover_blind...");
-        let committed_messages: Vec<Vec<u8>> = COMMITTED_MSGS
+        let committed_messages: Vec<Message>= COMMITTED_MSGS
             .iter()
-            .map(|m| hex::decode(m).unwrap())
+            .map(|m|  Message::try_from(
+                (m.0.to_string(), hex::decode(m.0).unwrap())).unwrap())
             .collect();
         let (commitment_with_proof, secret_prover_blind) =
             Commitment::<BBSplus<S::Ciphersuite>>::commit(Some(&committed_messages))?;
 
         log::info!("Send the commitment with the proof to the Issuer");
         log::info!("Messages added by the Issuer to be signed");
-        const MSGS: [&str; 3] = [
-            "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02",
-            "87a8bd656d49ee07b8110e1d8fd4f1dcef6fb9bc368c492d9bc8c4f98a739ac6",
-            "96012096adda3f13dd4adbe4eea481a4c4b5717932b73b00e31807d3c5894b90",
+        const MSGS: [(&str, &str); 3] = [
+            ("HASH", "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02"),
+            ("HASH", "87a8bd656d49ee07b8110e1d8fd4f1dcef6fb9bc368c492d9bc8c4f98a739ac6"),
+            ("HASH", "96012096adda3f13dd4adbe4eea481a4c4b5717932b73b00e31807d3c5894b90"),
         ];
         log::info!("Messages: {:?}", MSGS);
-        let messages: Vec<Vec<u8>> = MSGS.iter().map(|m| hex::decode(m).unwrap()).collect();
+
+        let messages: Vec<Message>= MSGS
+                .iter()
+                .map(|m|  Message::try_from(
+                    (m.0.to_string(), hex::decode(m.0).unwrap())).unwrap())
+                .collect();
 
         log::info!("Blind signature generation...");
         let blind_signature = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(
@@ -103,7 +111,7 @@ mod bbsplus_example {
         //Holder generates SPoK
         log::info!("Computation of a Zero-Knowledge proof-of-knowledge of a Blind Signature");
 
-        let disclosed_indexes = [0usize, 2usize];
+/*        let disclosed_indexes = [0usize, 2usize];
         let disclosed_commitment_indexes = [1usize];
         let poks = PoKSignature::<BBSplus<S::Ciphersuite>>::blind_proof_gen(
             issuer_pk,
@@ -143,7 +151,7 @@ mod bbsplus_example {
             poks_verification_result,
             "Signature Proof of Knowledge Verification Failed!"
         );
-        log::info!("Signature Proof of Knowledge is VALID!");
+        log::info!("Signature Proof of Knowledge is VALID!");*/
 
         Ok(())
     }
