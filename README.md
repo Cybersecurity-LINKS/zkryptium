@@ -8,9 +8,9 @@
 
 Zkryptium library provides an experimental implementation for research purposes of:
 * **BBS+**([draft-irtf-cfrg-bbs-signatures-14](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14)) signature scheme
-* **Blind BBS Signatures** ([draft-irtf-cfrg-bbs-blind-signatures-02](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-02)) signature scheme with some fixes taken from [grotto-bbs-signatures](https://github.com/Wind4Greg/grotto-bbs-signatures)
+* **Blind BBS Signatures** ([draft-irtf-cfrg-bbs-blind-signatures-05](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-05)) signature scheme, including committed disclosure of undisclosed messages
 * **BBS per Verifier Linkability** ([draft-irtf-cfrg-bbs-per-verifier-linkability-03](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-03))
-* **CL2003** (https://link.springer.com/chapter/10.1007/3-540-36413-7_20) signature scheme 
+* **CL2003** (<https://link.springer.com/chapter/10.1007/3-540-36413-7_20>) signature scheme
 
 
 This library enables the creation of zero-knowledge proofs, exposing cryptographic primitives facilitating the development of a Verifiable Credentials (VCs) system capable of handling both Anonymous Credentials and Selective Disclosure Credentials.
@@ -60,9 +60,9 @@ zkryptium = { version = "0.8.3", default-features = false, features = ["cl03"] }
 
 Take a look at the [examples](https://github.com/Cybersecurity-LINKS/ZKryptium/tree/main/examples).
 
-You can run the examples based on the [BBS+](https://identity.foundation/bbs-signature/draft-irtf-cfrg-bbs-signatures.html) Signature Scheme with:
+You can run the examples based on the [BBS+](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14) Signature Scheme with:
 
-```
+```bash
 cargo run --example bbsplus <ciphersuite>
 cargo run --example bbsplus_blind <ciphersuite>
 cargo run --example bbsplus_nym <ciphersuite>
@@ -73,7 +73,7 @@ cargo run --example bbsplus_nym <ciphersuite>
 - BLS12-381-SHAKE-256
 
 You can run the examples based on the [CL2003](https://link.springer.com/chapter/10.1007/3-540-36413-7_20) Signature Scheme with:
-```
+```bash
 cargo run --features="cl03" --example cl03 <ciphersuite>
 cargo run --features="cl03" --example cl03_multiattr <ciphersuite>
 ```
@@ -86,7 +86,13 @@ cargo run --features="cl03" --example cl03_multiattr <ciphersuite>
 
 To test the library you can launch the test vectors with:
 
-```
+```bash
 cargo test
+```
+
+The default features cover BBS+ and Blind BBS. To also run the tests of the other schemes, enable their features, e.g.:
+
+```bash
+cargo test --features="cl03"
 ```
 
