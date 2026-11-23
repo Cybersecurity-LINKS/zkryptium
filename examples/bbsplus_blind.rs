@@ -22,11 +22,11 @@ mod bbsplus_example {
         keys::pair::KeyPair,
         schemes::{
             algorithms::{BBSplus, Scheme},
-            generics::{BlindSignature, Commitment, PoKSignature},
+            generics::{BlindPoKSignature, BlindSignature, Commitment},
         },
         utils::util::bbsplus_utils::generate_random_secret,
     };
-    use zkryptium::bbsplus::commitment::Message;
+    use zkryptium::bbsplus::{commitment::Message, proof::Disclosure};
 
     pub(crate) fn bbsplus_main<S: Scheme>() -> Result<(), Error>
     where
@@ -56,11 +56,10 @@ mod bbsplus_example {
         log::info!("PK: {}", hex::encode(issuer_pk.to_bytes()));
 
         log::info!("Computing pedersen commitment on messages with the proof and the secret_prover_blind...");
-        let committed_messages: Vec<Message>= COMMITTED_MSGS
+        let committed_messages: Vec<Message> = COMMITTED_MSGS
             .iter()
-            .map(|m|  Message::try_from(
-                (m.0.to_string(), hex::decode(m.0).unwrap())).unwrap())
-            .collect();
+            .map(|m| Message::try_from((m.0.to_string(), hex::decode(m.1).unwrap())))
+            .collect::<Result<_, _>>()?;
         let (commitment_with_proof, secret_prover_blind) =
             Commitment::<BBSplus<S::Ciphersuite>>::commit(Some(&committed_messages))?;
 
@@ -73,11 +72,10 @@ mod bbsplus_example {
         ];
         log::info!("Messages: {:?}", MSGS);
 
-        let messages: Vec<Message>= MSGS
-                .iter()
-                .map(|m|  Message::try_from(
-                    (m.0.to_string(), hex::decode(m.0).unwrap())).unwrap())
-                .collect();
+        let messages: Vec<Message> = MSGS
+            .iter()
+            .map(|m| Message::try_from((m.0.to_string(), hex::decode(m.1).unwrap())))
+            .collect::<Result<_, _>>()?;
 
         log::info!("Blind signature generation...");
         let blind_signature = BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(
@@ -89,15 +87,13 @@ mod bbsplus_example {
         )?;
 
         log::info!("Blind Signature Verification...");
-        assert!(blind_signature
-            .verify_blind_sign(
-                issuer_pk,
-                Some(&header),
-                Some(&messages),
-                Some(&committed_messages),
-                Some(&secret_prover_blind),
-            )
-            .is_ok());
+        blind_signature.verify_blind_sign(
+            issuer_pk,
+            Some(&header),
+            Some(&messages),
+            Some(&committed_messages),
+            Some(&secret_prover_blind),
+        )?;
         log::info!("Blind Signature is VALID!");
 
         //Holder receive nonce from Verifier
@@ -111,56 +107,74 @@ mod bbsplus_example {
         //Holder generates SPoK
         log::info!("Computation of a Zero-Knowledge proof-of-knowledge of a Blind Signature");
 
-/*        let disclosed_indexes = [0usize, 2usize];
-        let disclosed_commitment_indexes = [1usize];
-        let poks = PoKSignature::<BBSplus<S::Ciphersuite>>::blind_proof_gen(
+        // Issuer messages: disclose the 1st, only commit to the 2nd, hide the 3rd.
+        // Blind messages: disclose the 1st, hide the 2nd.
+        let issuer_message_disclosures =
+            [Disclosure::Disclose, Disclosure::Commit, Disclosure::Hide];
+        let blind_message_disclosures = [Disclosure::Disclose, Disclosure::Hide];
+
+        let (poks, add_zkp_info) = BlindPoKSignature::<BBSplus<S::Ciphersuite>>::blind_proof_gen(
             issuer_pk,
             &blind_signature.to_bytes(),
             Some(&header),
             Some(&nonce_verifier),
             Some(&messages),
             Some(&committed_messages),
-            Some(&disclosed_indexes),
-            Some(&disclosed_commitment_indexes),
-            Some(&secret_prover_blind)
+            Some(&issuer_message_disclosures),
+            Some(&blind_message_disclosures),
+            Some(&secret_prover_blind),
         )?;
+        // add_zkp_info (committed message scalars and commitment randomness) stays with the
+        // Holder: it can be used for external ZKPs over the commitments, never sent to the Verifier.
+        log::info!(
+            "Proof generated with {} committed disclosure(s)",
+            add_zkp_info.commitment_rands.len()
+        );
+
+        let poks_bytes = poks.to_bytes();
+        log::info!("Holder sends the proof to the Verifier: {}", hex::encode(&poks_bytes));
 
         //Verifier verifies SPok
         log::info!("Signature Proof of Knowledge verification...");
-        let disclosed_messages = disclosed_indexes
+        // The Verifier sees a single list of disclosures (issuer messages followed by blind
+        // messages) and the disclosed messages in the same order.
+        let message_disclosures: Vec<Disclosure> = issuer_message_disclosures
             .iter()
-            .map(|&i| messages[i].clone())
-            .collect::<Vec<_>>();
-        let disclosed_committed_messages = disclosed_commitment_indexes
+            .chain(&blind_message_disclosures)
+            .copied()
+            .collect();
+        let disclosed_messages: Vec<Message> = messages
             .iter()
-            .map(|&i| committed_messages[i].clone())
-            .collect::<Vec<_>>();
-        let poks_verification_result = poks
-            .blind_proof_verify(
-                issuer_pk,
-                Some(&header),
-                Some(&nonce_verifier),
-                Some(messages.len()),
-                Some(&disclosed_messages),
-                Some(&disclosed_committed_messages),
-                Some(&disclosed_indexes),
-                Some(&disclosed_commitment_indexes),
-            )
-            .is_ok();
-        assert!(
-            poks_verification_result,
-            "Signature Proof of Knowledge Verification Failed!"
-        );
-        log::info!("Signature Proof of Knowledge is VALID!");*/
+            .chain(&committed_messages)
+            .zip(&message_disclosures)
+            .filter(|(_, d)| **d == Disclosure::Disclose)
+            .map(|(m, _)| m.clone())
+            .collect();
+        let commitments_count = message_disclosures
+            .iter()
+            .filter(|d| **d == Disclosure::Commit)
+            .count();
+
+        let received_poks =
+            BlindPoKSignature::<BBSplus<S::Ciphersuite>>::from_bytes(&poks_bytes, commitments_count)?;
+        received_poks.blind_proof_verify(
+            issuer_pk,
+            Some(&header),
+            Some(&nonce_verifier),
+            Some(messages.len()),
+            Some(&disclosed_messages),
+            Some(&message_disclosures),
+        )?;
+        log::info!("Signature Proof of Knowledge is VALID!");
 
         Ok(())
     }
 }
 
 #[cfg(feature = "bbsplus_blind")]
-fn main() {
+fn main() -> std::process::ExitCode {
     use crate::bbsplus_example::bbsplus_main;
-    use std::env;
+    use std::{env, process::ExitCode};
     use zkryptium::schemes::algorithms::{BbsBls12381Sha256, BbsBls12381Shake256};
 
     dotenvy::dotenv().ok();
@@ -169,32 +183,42 @@ fn main() {
     let args: Vec<String> = env::args().collect();
 
     if args.len() != 2 {
-        println!(
+        eprintln!(
             "Usage: {} <cipher_suite>
                 Ciphersuites:
                     - BLS12-381-SHA-256
                     - BLS12-381-SHAKE-256",
             args[0]
         );
-        return;
+        return ExitCode::FAILURE;
     }
 
     let cipher_suite = &args[1];
 
-    match cipher_suite.as_str() {
+    let result = match cipher_suite.as_str() {
         "BLS12-381-SHA-256" => {
             println!("\n");
             log::info!("Ciphersuite: BLS12-381-SHA-256");
-            let _ = bbsplus_main::<BbsBls12381Sha256>();
+            bbsplus_main::<BbsBls12381Sha256>()
         }
         "BLS12-381-SHAKE-256" => {
             println!("\n");
             log::info!("Ciphersuite: BLS12-381-SHAKE-256");
-            let _ = bbsplus_main::<BbsBls12381Shake256>();
+            bbsplus_main::<BbsBls12381Shake256>()
         }
         _ => {
-            println!("Unknown cipher suite: {}", cipher_suite);
-            // Handle other cipher suites or raise an error if necessary
+            eprintln!("Unknown cipher suite: {}", cipher_suite);
+            return ExitCode::FAILURE;
+        }
+    };
+
+    // Report the library error (with its details) and exit with a non-zero status,
+    // instead of silently discarding it.
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("Example failed: {e} ({e:?})");
+            ExitCode::FAILURE
         }
     }
 }
