@@ -159,9 +159,10 @@ impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
             _ => return Err(Error::UnespectedError),
         };
 
-        let M = commitment_proof.m_cap.len() + 1;
-        if blind_generators.values.len() < M {
-            return Err(Error::NotEnoughGenerators);
+        // draft 05 §4.1.2 step 5: length(commitment_proof[1]) + 1 != length(blind_generators)
+        // -> INVALID. The count must match exactly: extra generators are not ignored.
+        if blind_generators.values.len() != commitment_proof.m_cap.len() + 1 {
+            return Err(Error::InvalidNumberOfGenerators);
         }
 
         if core_commit_verify::<CS>(
@@ -198,9 +199,17 @@ impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
     }
 }
 
-#[derive(Debug)]
 /// A struct representing a blind factor used in BBS+ commitments.
+///
+/// It holds the Prover's `secret_prover_blind`: it must never be disclosed, so its
+/// [`Debug`](std::fmt::Debug) output is redacted.
 pub struct BlindFactor(pub(crate) Scalar);
+
+impl std::fmt::Debug for BlindFactor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("BlindFactor(<redacted>)")
+    }
+}
 
 impl BlindFactor {
     /// Generates a random blind factor.
@@ -466,9 +475,10 @@ where
     let api_id = api_id.unwrap_or(b"");
     let M = commitment_proof.m_cap.len();
 
-    let blind_generators = blind_generators
-        .get(..M + 1)
-        .ok_or(Error::InvalidNumberOfGenerators)?;
+    // draft 05 §4.3.2 deserialization step 4: length(blind_generators) != M + 1 -> INVALID.
+    if blind_generators.len() != M + 1 {
+        return Err(Error::InvalidNumberOfGenerators);
+    }
 
     let G2: G1Projective = blind_generators[0];
     let Js: &[G1Projective] = &blind_generators[1..];
@@ -496,7 +506,7 @@ mod tests {
     use serde_json::Value;
     use crate::{
         bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators,
-                  {commitment::{BBSplusCommitment, Message}, valid_fixture_bytes}
+                  {commitment::{BBSplusCommitment, BlindFactor, Message}, valid_fixture_bytes}
         },
         schemes::{
             algorithms::{BBSplus, BbsBls12381Sha256, BbsBls12381Shake256, Scheme},
@@ -568,6 +578,73 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn commitment_from_bytes_rejects_zero_scalars() {
+        // BLIND-01: s^, each m^_i and the challenge must be non-zero.
+        for dir in COMMIT_FIXTURE_DIRS {
+            for c in valid_fixture_bytes(dir, "commitmentWithProof") {
+                for k in 0..(c.len() - 48) / 32 {
+                    let mut bytes = c.clone();
+                    bytes[48 + k * 32..48 + (k + 1) * 32].fill(0);
+                    assert!(matches!(
+                        BBSplusCommitment::from_bytes(&bytes),
+                        Err(Error::InvalidCommitmentProof)
+                    ));
+                }
+            }
+        }
+    }
+
+    fn validate_with_generators<S: Scheme>(commitment_with_proof: &[u8], count: usize) -> Result<(), Error>
+    where
+        S::Ciphersuite: BbsCiphersuite,
+        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
+    {
+        let api_id = <S::Ciphersuite as BbsCiphersuite>::API_ID_BLIND;
+        let blind_generators =
+            Generators::create::<S::Ciphersuite>(count, Some(&[b"BLIND_", api_id].concat()));
+        Commitment::<BBSplus<S::Ciphersuite>>::deserialize_and_validate_commit(
+            Some(commitment_with_proof),
+            &blind_generators,
+            Some(api_id),
+        )
+        .map(|_| ())
+    }
+
+    fn check_generators_count<S: Scheme>(dir: &str)
+    where
+        S::Ciphersuite: BbsCiphersuite,
+        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
+    {
+        for c in valid_fixture_bytes(dir, "commitmentWithProof") {
+            // M + 1 blind generators, with M = number of m^ in the proof.
+            let expected = (c.len() - 48) / 32 - 1;
+            assert!(validate_with_generators::<S>(&c, expected).is_ok());
+            for count in [expected - 1, expected + 1, expected + 2] {
+                assert!(matches!(
+                    validate_with_generators::<S>(&c, count),
+                    Err(Error::InvalidNumberOfGenerators)
+                ));
+            }
+        }
+    }
+
+    #[test]
+    fn deserialize_and_validate_commit_requires_exact_generators_count() {
+        // BLIND-02: draft 05 §4.1.2 step 5, the count must be exactly M + 1.
+        check_generators_count::<BbsBls12381Sha256>(COMMIT_FIXTURE_DIRS[0]);
+        check_generators_count::<BbsBls12381Shake256>(COMMIT_FIXTURE_DIRS[1]);
+    }
+
+    #[test]
+    fn blind_factor_debug_is_redacted() {
+        // BLIND-03: the secret_prover_blind must not leak through {:?}.
+        let blind = BlindFactor::from_bytes(&[0x11; 32]).unwrap();
+        let debug = format!("{:?}", blind);
+        assert_eq!(debug, "BlindFactor(<redacted>)");
+        assert!(!debug.contains("11"));
     }
 
     macro_rules! commit_tests {

@@ -768,7 +768,7 @@ where
     let undisclosed_indexes = get_remaining_indexes(L, disclosed_indexes);
 
     // Procedure
-    // Get all needed random scalars at once
+    // Get all necessary random scalars at once
     #[cfg(not(test))]
     let mut random_scalars = calculate_random_scalars(5 + U + 2 * N);
     #[cfg(test)]
@@ -1788,13 +1788,22 @@ impl BBSplusZKPoK {
             return Err(Error::InvalidCommitmentProof);
         }
 
-        let s_cap = Scalar::from_bytes_be(&bytes[0..Scalar::BYTES])
-            .map_err(|_| Error::InvalidCommitmentProof)?;
+        // draft-irtf-cfrg-bbs-blind-signatures-05, octets_to_commitment_with_proof step 13:
+        // if s_j = 0 or if s_j >= r, return INVALID. from_bytes_be only rejects s_j >= r.
+        let parse_scalar = |chunk: &[u8]| -> Result<Scalar, Error> {
+            let s = Scalar::from_bytes_be(chunk).map_err(|_| Error::InvalidCommitmentProof)?;
+            if s == Scalar::ZERO {
+                return Err(Error::InvalidCommitmentProof);
+            }
+            Ok(s)
+        };
+
+        let s_cap = parse_scalar(&bytes[0..Scalar::BYTES])?;
 
         let mut m_cap: Vec<Scalar> = Vec::new();
 
         for chunk in bytes[Scalar::BYTES..].chunks_exact(Scalar::BYTES) {
-            m_cap.push(Scalar::from_bytes_be(chunk).map_err(|_| Error::InvalidCommitmentProof)?);
+            m_cap.push(parse_scalar(chunk)?);
         }
 
         //at least the challenge should be present (even if all attributes are disclosed)
@@ -1964,6 +1973,22 @@ mod tests {
             let bytes = zkpok.to_bytes();
             assert_eq!(bytes.len(), 64 + 32 * m as usize);
             assert_eq!(BBSplusZKPoK::from_bytes(&bytes).unwrap(), zkpok);
+        }
+    }
+
+    #[test]
+    fn zkpok_from_bytes_rejects_zero_scalars() {
+        // s^, each m^_i and the challenge must all be non-zero (octets_to_commitment_with_proof step 13).
+        let zkpok = BBSplusZKPoK::new(
+            Scalar::from(7u64),
+            vec![Scalar::from(100u64), Scalar::from(101u64)],
+            Scalar::from(42u64),
+        );
+        let bytes = zkpok.to_bytes();
+        for k in 0..bytes.len() / 32 {
+            let mut tampered = bytes.clone();
+            tampered[k * 32..(k + 1) * 32].fill(0);
+            assert_zkpok_rejected(&tampered);
         }
     }
 
