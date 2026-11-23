@@ -135,7 +135,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         Ok(Self::BBSplus(blind_sig))
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-05#name-blind-signature-verificatio
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-05#name-blind-signature-verificatio>
     ///
     /// # Description
     /// This operation validates a blind BBS signature (signature), given the Signer's public key (PK),
@@ -234,9 +234,12 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     }
 }
 
-/// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-02#name-prepare-parameters>
+/// Prepares message scalars and generators for the blind operations.
 ///
-/// 
+/// This helper comes from draft-irtf-cfrg-bbs-blind-signatures-02 (§"Prepare Parameters"), which
+/// draft 05 no longer defines: the Blind BBS operations now build generators and scalars inline.
+/// It is kept only for the per-verifier-linkability (pseudonym) operations, which still use it.
+///
 /// # Inputs:
 /// * `messages` (OPTIONAL), a vector of octet strings. If not supplied, it defaults to the empty array "()".
 /// * `committed_messages` (OPTIONAL), a vector of octet strings. If not supplied, it defaults to the empty array "()".
@@ -290,7 +293,7 @@ where
 
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-05#name-calculate-b-value
+/// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-05#name-calculate-b-value>
 ///
 /// # Description
 /// The B_calculate is defined to return an array of elements, to establish extendability of the scheme 
@@ -469,12 +472,6 @@ mod tests {
         let sk = BBSplusSecretKey::from_bytes(&hex::decode(sk_hex).unwrap()).unwrap();
         let pk = BBSplusPublicKey::from_bytes(&hex::decode(pk_hex).unwrap()).unwrap();
 
-        let committed_messages: Option<Vec<String>> =
-            proof_json["committedMessages"].as_array().and_then(|cm| {
-                cm.iter()
-                    .map(|m| serde_json::from_value(m.clone()).unwrap())
-                    .collect()
-            });
         let prover_blind = proof_json["proverBlind"].as_str().map(|b| {
             BlindFactor::from_bytes(&hex::decode(b).unwrap().try_into().unwrap()).unwrap()
         });
@@ -496,8 +493,7 @@ mod tests {
             Some(&header),
             Some(&messages),
         ).unwrap();
-
-
+        
         let expected_signature = proof_json["signature"].as_str().unwrap();
         let signature_oct = signature.to_bytes();
 
@@ -517,7 +513,6 @@ mod tests {
 
         assert_eq!(result, expected_result);
 
-
     }
 
     fn parse_message(v: &Value) -> Message {
@@ -536,8 +531,5 @@ mod tests {
     pub fn parse_messages(v: &Value) -> Vec<Message> {
         v.as_array().unwrap_or(&Vec::new()).iter().map(parse_message).collect()
     }
-
-
-
 
 }

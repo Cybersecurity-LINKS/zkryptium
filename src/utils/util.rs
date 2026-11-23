@@ -309,7 +309,7 @@ pub mod bbsplus_utils {
         result
     }
 
-    /// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-multi-exponentiation
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-multi-exponentiation>
     ///
     /// The following operation, given a vector of points in G1 points = (P_1, P_2, ..., P_n)
     /// and a vector of scalars scalars = (s_1, s_2, ..., s_n) calculates the multi exponentiation
@@ -457,7 +457,7 @@ pub mod bbsplus_utils {
         scalars
     }
 
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-02#name-blind-challenge-calculation>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-05#name-blind-challenge-calculation>
     ///
     /// # Description
     /// Utility function to generate a challenge

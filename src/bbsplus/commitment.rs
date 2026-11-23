@@ -227,19 +227,45 @@ impl BlindFactor {
     }
 }
 
+/// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-05#name-messages-to-scalars>
+///
+/// A message to be signed, committed or disclosed in the Blind BBS operations.
+///
+/// Draft 05 represents each message as an object `{flag, value}`, where `flag` (`"HASH"` or
+/// `"RAW"`) tells how the octets in `value` are mapped to a scalar by `messages_to_scalars`.
+/// This enum carries the flag in the variant and the octets in its payload.
+///
+/// # Example
+/// ```
+/// use zkryptium::bbsplus::commitment::Message;
+///
+/// // Arbitrary data (e.g. a name): hashed to a scalar.
+/// let name = Message::hash(b"Alice".to_vec());
+/// // A number the application wants to use as-is (e.g. in a range proof over a commitment):
+/// // its big-endian encoding is taken as the scalar value.
+/// let birth_date = Message::raw(19900131u32.to_be_bytes().to_vec());
+/// ```
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub enum Message {
-    ///hash_to_scalar with DST MAP_MSG_TO_SCALAR_AS_HASH_
+    /// Flag `"HASH"`: the scalar is `hash_to_scalar(value, api_id || "MAP_MSG_TO_SCALAR_AS_HASH_")`.
+    /// Use it for arbitrary octet strings.
     Hash(Vec<u8>),
-    /// raw scalar in big endian OS2IP
+    /// Flag `"RAW"`: the scalar is `OS2IP(value)`, i.e. the octets read as a big-endian integer.
+    /// The value MUST be smaller than the group order `r`, otherwise the conversion fails.
+    /// Use it when the scalar itself carries meaning (e.g. numbers to be used in external ZKPs).
     Raw(Vec<u8>),
 }
 
 impl Message {
+    /// Creates a [`Message::Hash`] message (flag `"HASH"`) from the given octets.
     pub fn hash(v: impl Into<Vec<u8>>) -> Self { Message::Hash(v.into()) }
+    /// Creates a [`Message::Raw`] message (flag `"RAW"`) from the given big-endian octets.
     pub fn raw(v: impl Into<Vec<u8>>) -> Self { Message::Raw(v.into()) }
 }
 
+/// Builds a [`Message`] from a `(flag, value)` pair, as in the draft 05 test vectors.
+/// The flag is `"HASH"` or `"RAW"` (case-insensitive variants `"hash"` / `"raw"` are accepted);
+/// any other flag returns [`InvalidMessageFlag`].
 impl TryFrom<(String, Vec<u8>)> for Message{
     type Error = Error;
 
