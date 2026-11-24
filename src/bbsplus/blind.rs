@@ -243,65 +243,6 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     }
 }
 
-/// Prepares message scalars and generators for the blind operations.
-///
-/// This helper comes from draft-irtf-cfrg-bbs-blind-signatures-02 (§"Prepare Parameters"), which
-/// draft 05 no longer defines: the Blind BBS operations now build generators and scalars inline.
-/// It is kept only for the per-verifier-linkability (pseudonym) operations, which still use it.
-///
-/// # Inputs:
-/// * `messages` (OPTIONAL), a vector of octet strings. If not supplied, it defaults to the empty array "()".
-/// * `committed_messages` (OPTIONAL), a vector of octet strings. If not supplied, it defaults to the empty array "()".
-/// * `generators_number` (REQUIRED), the number of generators.
-/// * `blind_generators_number` (REQUIRED), the number of blind generators.
-/// * `secret_prover_blind` (OPTIONAL), a scalar value ([`BlindFactor`]). If not supplied, it defaults it defaults to zero "0"
-/// * `api_id` (OPTIONAL), an octet string. If not supplied it defaults to the empty octet string ("")
-/// 
-/// # Output:
-/// a [`(Vec<BBSplusMessage>, Generators)`] A vector message_scalars of scalar values and a vector generators of points from the G1 subgroup; or [`Error`].
-///
-pub fn prepare_parameters<CS>(
-    messages: Option<&[Vec<u8>]>,
-    committed_messages: Option<&[Vec<u8>]>,
-    generators_number: usize,
-    blind_generators_number: usize,
-    secret_prover_blind: Option<&BlindFactor>,
-    api_id: Option<&[u8]>
-) -> Result<(Vec<BBSplusMessage>, Generators), Error> 
-where
-    CS: BbsCiphersuite,
-    CS::Expander: for<'a> ExpandMsg<'a>,
-    {
-        //TODO remove
-    let messages = messages.unwrap_or(&[]);
-    let committed_messages = committed_messages.unwrap_or(&[]);
-    
-    let api_id = api_id.unwrap_or(b"");
-
-    let mut message_scalars = BBSplusMessage::messages_to_scalar::<CS>(messages, api_id)?;
-
-    let mut committed_message_scalars = Vec::<BBSplusMessage>::new();
-
-    if let Some(secret_prover_blind ) = secret_prover_blind {
-        committed_message_scalars.push(BBSplusMessage::new(secret_prover_blind.0));
-        
-    }
-
-    committed_message_scalars.append(&mut BBSplusMessage::messages_to_scalar::<CS>(committed_messages, api_id)?);
-
-    let generators = Generators::create::<CS>(generators_number, Some(api_id));
-
-    let blind_generators = Generators::create::<CS>(
-        blind_generators_number,
-        Some(&[b"BLIND_", api_id].concat())
-    );
-
-    message_scalars.append(&mut committed_message_scalars);
-    
-    Ok((message_scalars, generators.append(blind_generators)))
-
-}
-
 /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-05#name-calculate-b-value>
 ///
 /// # Description

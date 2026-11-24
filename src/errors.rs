@@ -92,4 +92,7 @@ pub enum Error {
     ///Invalid message flag
     #[error("Invalid message flag, should be HASH or RAW")]
     InvalidMessageFlag,
+    ///Invalid length of the nym secrets vector
+    #[error("Invalid length of the nym secrets vector")]
+    InvalidNymSecretsLength,
 }
