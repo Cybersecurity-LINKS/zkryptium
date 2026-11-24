@@ -670,7 +670,7 @@ impl<CS: BbsCiphersuite> BlindPoKSignature<BBSplus<CS>> {
 /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-05#name-core-proof-generation>
 ///
 /// Result of the initialization of the commitments proof of correctness.
-struct CommitmentInitRes {
+pub(super) struct CommitmentInitRes {
     commitments: Vec<G1Projective>,
     commitments_proofs: Vec<G1Projective>,
     commitment_indexes: Vec<usize>,
@@ -685,7 +685,7 @@ fn is_strictly_ascending_in_range(indexes: &[usize], L: usize) -> bool {
 #[cfg(feature = "bbsplus_blind")]
 /// Validates disclosed and commitment indexes as required by CoreProofGen / CoreProofVerify:
 /// both strictly ascending in `0..L` and disjoint.
-fn validate_disclosure_indexes(
+pub(super) fn validate_disclosure_indexes(
     disclosed_indexes: &[usize],
     commitment_indexes: &[usize],
     L: usize,
@@ -704,7 +704,7 @@ fn validate_disclosure_indexes(
 
 #[cfg(feature = "bbsplus_blind")]
 /// `(Y_0, Y_1) = BBS.create_generators(2, "COM_DIS_" || api_id)`
-fn committed_disclosure_generators<CS>(api_id: &[u8]) -> (G1Projective, G1Projective)
+pub(super) fn committed_disclosure_generators<CS>(api_id: &[u8]) -> (G1Projective, G1Projective)
 where
     CS: BbsCiphersuite,
     CS::Expander: for<'a> ExpandMsg<'a>,
@@ -792,6 +792,68 @@ where
     )?;
 
     // Calculate the commitments and initiate the correctness proof
+    let commitment_init_res = commitments_proof_init::<CS>(
+        messages,
+        commitment_indexes,
+        &undisclosed_indexes,
+        &s,
+        &s_tilde,
+        &m_tilde,
+        api_id,
+    )?;
+
+    let challenge = blind_proof_challenge_calculate::<CS>(
+        &init_res,
+        &commitment_init_res,
+        &[],
+        ph,
+        Some(api_id),
+    )?;
+
+    let bbs_proof = proof_finalize(&init_res, challenge)?;
+
+    Ok(commitments_proof_finalize(
+        bbs_proof,
+        commitment_init_res,
+        messages,
+        challenge,
+        s,
+        &s_tilde,
+    ))
+}
+
+#[cfg(feature = "bbsplus_blind")]
+/// Steps 12–17 of the committed disclosure proof generation
+/// (draft-irtf-cfrg-bbs-blind-signatures-05 §4.3.4, shared with
+/// draft-irtf-cfrg-bbs-per-verifier-linkability-05 §8.1):
+///
+/// ```text
+/// for i in (1, 2, ..., N):
+///     idx = commitment_indexes[i]
+///     C_i = Y_0 * s_i + Y_1 * proof_scalars[idx]
+///     let k be the integer such that j_k == idx
+///     C~_i = Y_0 * s~_i + Y_1 * m~_k
+/// ```
+pub(super) fn commitments_proof_init<CS>(
+    messages: &[BBSplusMessage],
+    commitment_indexes: &[usize],
+    undisclosed_indexes: &[usize],
+    s: &[Scalar],
+    s_tilde: &[Scalar],
+    m_tilde: &[Scalar],
+    api_id: &[u8],
+) -> Result<CommitmentInitRes, Error>
+where
+    CS: BbsCiphersuite,
+    CS::Expander: for<'a> ExpandMsg<'a>,
+{
+    let N = commitment_indexes.len();
+    if s.len() != N || s_tilde.len() != N || m_tilde.len() != undisclosed_indexes.len() {
+        return Err(Error::BlindProofGenError(
+            "inconsistent number of random scalars".to_owned(),
+        ));
+    }
+
     let (Y_0, Y_1) = committed_disclosure_generators::<CS>(api_id);
 
     let mut commitments = Vec::with_capacity(N);
@@ -803,27 +865,47 @@ where
             .ok_or_else(|| {
                 Error::BlindProofGenError("committed message is not undisclosed".to_owned())
             })?;
-        commitments.push(Y_0 * s[i] + Y_1 * messages[idx].value);
+        let m = messages
+            .get(idx)
+            .ok_or_else(|| Error::BlindProofGenError("commitment index out of range".to_owned()))?;
+        commitments.push(Y_0 * s[i] + Y_1 * m.value);
         commitments_proofs.push(Y_0 * s_tilde[i] + Y_1 * m_tilde[k]);
     }
 
-    let commitment_init_res = CommitmentInitRes {
+    Ok(CommitmentInitRes {
         commitments,
         commitments_proofs,
         commitment_indexes: commitment_indexes.to_vec(),
-    };
+    })
+}
 
-    let challenge =
-        blind_proof_challenge_calculate::<CS>(&init_res, &commitment_init_res, ph, Some(api_id))?;
-
-    let bbs_proof = proof_finalize(&init_res, challenge)?;
-
-    // Finalize the commitment correctness proof
+#[cfg(feature = "bbsplus_blind")]
+/// Last steps of the committed disclosure proof generation: `s^_i = s~_i + challenge * s_i`,
+/// the proof and the `add_zkp_info` (draft-irtf-cfrg-bbs-blind-signatures-05 §4.3.4, shared with
+/// draft-irtf-cfrg-bbs-per-verifier-linkability-05 §8.1 steps 21–24).
+pub(super) fn commitments_proof_finalize(
+    bbs_proof: BBSplusPoKSignature,
+    commitment_init_res: CommitmentInitRes,
+    messages: &[BBSplusMessage],
+    challenge: Scalar,
+    s: Vec<Scalar>,
+    s_tilde: &[Scalar],
+) -> (BBSplusBlindPoKSignature, AddZkpInfo) {
     let commitments_proof: Vec<Scalar> = s_tilde
         .iter()
         .zip(&s)
         .map(|(st, si)| st + challenge * si)
         .collect();
+
+    let add_zkp_info = AddZkpInfo {
+        // indexes already validated by commitments_proof_init
+        committed_message_scalars: commitment_init_res
+            .commitment_indexes
+            .iter()
+            .map(|&idx| messages[idx].value)
+            .collect(),
+        commitment_rands: s,
+    };
 
     let proof = BBSplusBlindPoKSignature {
         bbs_proof,
@@ -831,15 +913,64 @@ where
         commitments_proof,
     };
 
-    let add_zkp_info = AddZkpInfo {
-        committed_message_scalars: commitment_indexes
-            .iter()
-            .map(|&idx| messages[idx].value)
-            .collect(),
-        commitment_rands: s,
-    };
+    (proof, add_zkp_info)
+}
 
-    Ok((proof, add_zkp_info))
+#[cfg(feature = "bbsplus_blind")]
+/// Steps 4–8 of the committed disclosure proof verification
+/// (draft-irtf-cfrg-bbs-blind-signatures-05 §4.3.5, shared with
+/// draft-irtf-cfrg-bbs-per-verifier-linkability-05 §8.2):
+///
+/// ```text
+/// for i in (1, 2, ..., N):
+///     idx = commitment_indexes[i]
+///     let k be the integer such that j_k == idx
+///     C^_i = Y_0 * s^_i + Y_1 * m^_k - C_i * cp
+/// ```
+pub(super) fn commitments_verify_init<CS>(
+    proof: &BBSplusBlindPoKSignature,
+    commitment_indexes: &[usize],
+    undisclosed_indexes: &[usize],
+    api_id: &[u8],
+) -> Result<CommitmentInitRes, Error>
+where
+    CS: BbsCiphersuite,
+    CS::Expander: for<'a> ExpandMsg<'a>,
+{
+    let N = commitment_indexes.len();
+    if proof.commitments.len() != N || proof.commitments_proof.len() != N {
+        return Err(Error::PoKSVerificationError(
+            "number of commitments mismatch".to_owned(),
+        ));
+    }
+    if proof.bbs_proof.m_cap.len() != undisclosed_indexes.len() {
+        return Err(Error::PoKSVerificationError(
+            "number of undisclosed messages mismatch".to_owned(),
+        ));
+    }
+
+    let (Y_0, Y_1) = committed_disclosure_generators::<CS>(api_id);
+    let cp = proof.bbs_proof.challenge;
+
+    let mut commitments_proofs = Vec::with_capacity(N);
+    for (i, &idx) in commitment_indexes.iter().enumerate() {
+        let k = undisclosed_indexes
+            .iter()
+            .position(|&j| j == idx)
+            .ok_or_else(|| {
+                Error::PoKSVerificationError("committed message is not undisclosed".to_owned())
+            })?;
+        commitments_proofs.push(
+            Y_0 * proof.commitments_proof[i] + Y_1 * proof.bbs_proof.m_cap[k]
+                - proof.commitments[i] * cp,
+        );
+    }
+
+    Ok(CommitmentInitRes {
+        commitments: proof.commitments.clone(),
+        commitments_proofs,
+        commitment_indexes: commitment_indexes.to_vec(),
+    })
 }
 
 #[cfg(feature = "bbsplus_blind")]
@@ -910,31 +1041,21 @@ where
         Some(api_id),
     )?;
 
-    let (Y_0, Y_1) = committed_disclosure_generators::<CS>(api_id);
     let cp = proof.bbs_proof.challenge;
+    let commitment_init_res = commitments_verify_init::<CS>(
+        proof,
+        commitment_indexes,
+        &undisclosed_indexes,
+        api_id,
+    )?;
 
-    let mut commitments_proofs = Vec::with_capacity(N);
-    for (i, &idx) in commitment_indexes.iter().enumerate() {
-        let k = undisclosed_indexes
-            .iter()
-            .position(|&j| j == idx)
-            .ok_or_else(|| {
-                Error::PoKSVerificationError("committed message is not undisclosed".to_owned())
-            })?;
-        commitments_proofs.push(
-            Y_0 * proof.commitments_proof[i] + Y_1 * proof.bbs_proof.m_cap[k]
-                - proof.commitments[i] * cp,
-        );
-    }
-
-    let commitment_init_res = CommitmentInitRes {
-        commitments: proof.commitments.clone(),
-        commitments_proofs,
-        commitment_indexes: commitment_indexes.to_vec(),
-    };
-
-    let challenge =
-        blind_proof_challenge_calculate::<CS>(&init_res, &commitment_init_res, ph, Some(api_id))?;
+    let challenge = blind_proof_challenge_calculate::<CS>(
+        &init_res,
+        &commitment_init_res,
+        &[],
+        ph,
+        Some(api_id),
+    )?;
 
     if cp != challenge {
         return Err(Error::PoKSVerificationError("invalid challenge".to_owned()));
@@ -949,18 +1070,25 @@ where
 /// # Description
 /// Challenge calculation shared by the BBS proof and the commitments proof of correctness.
 ///
+/// The same procedure is used by the pseudonym proof
+/// (draft-irtf-cfrg-bbs-per-verifier-linkability-05 §9.1,
+/// `ProofWithPseudonymChallengeCalculate`), which only adds `(pseudonym, Ut)` between `T2`
+/// and `domain`: they are passed as `pseudonym_points` (empty for Blind BBS).
+///
 /// # Inputs:
 /// * `init_res` (REQUIRED), [`ProofInitRes`] (holds the disclosed messages and indexes).
 /// * `commitment_init_res` (REQUIRED), [`CommitmentInitRes`].
+/// * `pseudonym_points` (REQUIRED), `[]` for Blind BBS, `[pseudonym, Ut]` for the pseudonym proof.
 /// * `ph` (OPTIONAL), an octet string containing the presentation header.
 /// * `api_id` (OPTIONAL), an octet string.
 ///
 /// # Output:
 /// a challenge ([`Scalar`]) or [`Error`].
 ///
-fn blind_proof_challenge_calculate<CS>(
+pub(super) fn blind_proof_challenge_calculate<CS>(
     init_res: &ProofInitRes,
     commitment_init_res: &CommitmentInitRes,
+    pseudonym_points: &[G1Projective],
     ph: Option<&[u8]>,
     api_id: Option<&[u8]>,
 ) -> Result<Scalar, Error>
@@ -980,7 +1108,7 @@ where
     let challenge_dst = [api_id, CS::H2S].concat();
     let ph = ph.unwrap_or(b"");
 
-    let mut c_octs = proof_challenge_octets(init_res)?;
+    let mut c_octs = proof_challenge_octets(init_res, pseudonym_points)?;
 
     c_octs.extend_from_slice(&i2osp::<8>(N));
     for ((ci, C), C_tilde) in commitment_init_res
@@ -1453,7 +1581,7 @@ where
 
     let ph = ph.unwrap_or(b"");
 
-    let mut c_arr = proof_challenge_octets(init_res)?;
+    let mut c_arr = proof_challenge_octets(init_res, &[])?;
 
     let ph_i2osp = i2osp::<8>(ph.len());
 
@@ -1463,10 +1591,17 @@ where
     hash_to_scalar::<CS>(&c_arr, &challenge_dst)
 }
 
-/// Serialization of `(R, i1, msg_i1, ..., iR, msg_iR, Abar, Bbar, D, T1, T2, domain)`,
+/// Serialization of `(R, i1, msg_i1, ..., iR, msg_iR, Abar, Bbar, D, T1, T2, extra..., domain)`,
 /// the common prefix of the challenge input, shared with the blind (committed disclosure)
-/// challenge calculation.
-fn proof_challenge_octets(init_res: &ProofInitRes) -> Result<Vec<u8>, Error> {
+/// and pseudonym challenge calculations.
+///
+/// `extra_points` are serialized between `T2` and `domain`: empty for BBS and Blind BBS,
+/// `(pseudonym, Ut)` for the pseudonym proof
+/// (draft-irtf-cfrg-bbs-per-verifier-linkability-05 §9.1, procedure step 1).
+fn proof_challenge_octets(
+    init_res: &ProofInitRes,
+    extra_points: &[G1Projective],
+) -> Result<Vec<u8>, Error> {
     validate_init_res(init_res)?;
 
     let R = init_res.disclosed_indexes.len();
@@ -1485,6 +1620,9 @@ fn proof_challenge_octets(init_res: &ProofInitRes) -> Result<Vec<u8>, Error> {
     c_arr.extend_from_slice(&init_res.D.to_affine().to_compressed());
     c_arr.extend_from_slice(&init_res.T1.to_affine().to_compressed());
     c_arr.extend_from_slice(&init_res.T2.to_affine().to_compressed());
+    for P in extra_points {
+        c_arr.extend_from_slice(&P.to_affine().to_compressed());
+    }
     c_arr.extend_from_slice(&init_res.domain.to_bytes_be());
 
     Ok(c_arr)
@@ -1616,7 +1754,7 @@ where
 }
 
 /// Final pairing check of the proof verification: `e(Abar, W) * e(Bbar, -BP2) == Identity_GT`.
-fn verify_proof_pairing(pk: &BBSplusPublicKey, proof: &BBSplusPoKSignature) -> Result<(), Error> {
+pub(super) fn verify_proof_pairing(pk: &BBSplusPublicKey, proof: &BBSplusPoKSignature) -> Result<(), Error> {
     let BP2 = G2Projective::GENERATOR;
 
     let term1 = (&proof.Abar.to_affine(), &G2Prepared::from(pk.0.to_affine()));
