@@ -1,25 +1,41 @@
 {
-  "caseName": "valid multiple committed messages commitment with proof, 10 prover nyms",
+  "caseName": "Valid Multiple Blind Messages, Ten Prover Nyms Commitment with Proof",
   "mockRngParameters": {
     "SEED": "3.141592653589793238462643383279",
     "commit": {
-      "DST": "BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_COMMIT_MOCK_RANDOM_SCALARS_DST_"
+      "DST": "BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_COMMIT_MOCK_RANDOM_SCALARS_DST_",
+      "count": 17
     }
   },
-  "committedMessages": [
-    "5982967821da3c5983496214df36aa5e58de6fa25314af4cf4c00400779f08c3",
-    "a75d8b634891af92282cc81a675972d1929d3149863c1fc0",
-    "835889a40744813a892eff9deb1edaeb",
-    "e1ca9729410dc6ba",
-    ""
+  "blindMessages": [
+    [
+      "HASH",
+      "5982967821da3c5983496214df36aa5e58de6fa25314af4cf4c00400779f08c3"
+    ],
+    [
+      "HASH",
+      "a75d8b634891af92282cc81a675972d1929d3149863c1fc0"
+    ],
+    [
+      "HASH",
+      "835889a40744813a892eff9deb1edaeb"
+    ],
+    [
+      "HASH",
+      "e1ca9729410dc6ba"
+    ],
+    [
+      "HASH",
+      ""
+    ]
   ],
   "proverNyms": [
     "359a3ff97fe4554a128ccca9e4940d72776324148625064ed7f8c9e076267872",
     "31a3eef9c4f64660fd3cf4b5415c5664b0428fbb1a67e55a15fb64f679052dce",
     "27e4799055e7fb866ebf33d0015d969595893b8a32f697cd3ad8fb4eae2789b3",
     "4fdf6edd605a5739ab0f3c3c270c1cf3966a3dd4612a3938e65df46a943684b9",
-    "049b977366fa3dfa3bb3b69b9339c72e07696d9d82542c040c839cf981cea751",
-    "0fda4e24ef0b8710c6a1d05ee860e78d46acc906fecc88e5e8e51ca70add646b",
+    "49b977366fa3dfa3bb3b69b9339c72e07696d9d82542c040c839cf981cea751",
+    "fda4e24ef0b8710c6a1d05ee860e78d46acc906fecc88e5e8e51ca70add646b",
     "3802c1b3aa27dbe7961c0da5556979e7237bd140b697bc0e61e8a016a3d3c781",
     "3aaf0f90d978d84e92ba9fd32e4997f30ae489417af921f2d21550f4dbacf1ca",
     "667c5e1643f0f5df65bdb35fa401f1c3bed45fe91f1e26f430dd44b8bbef6a4b",

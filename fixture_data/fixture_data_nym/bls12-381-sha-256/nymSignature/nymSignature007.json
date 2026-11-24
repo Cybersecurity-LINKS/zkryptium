@@ -1,0 +1,96 @@
+{
+  "caseName": "Valid Multiple Blind Messages, Mixed RAW and HASH Signer Messages Signature",
+  "mockRngParameters": {
+    "SEED": "3.141592653589793238462643383279",
+    "commit": {
+      "DST": "BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_H2G_HM2S_COMMIT_MOCK_RANDOM_SCALARS_DST_",
+      "count": 8
+    }
+  },
+  "signerKeyPair": {
+    "secretKey": "60e55110f76883a13d030b2f6bd11883422d5abde717569fc0731f51237169fc",
+    "publicKey": "a820f230f6ae38503b86c70dc50b61c58a77e45c39ab25c0652bbaa8fa136f2851bd4781c9dcde39fc9d1d52c9e60268061e7d7632171d91aa8d460acee0e96f1e7c4cfb12d3ff9ab5d5dc91c277db75c845d649ef3c4f63aebc364cd55ded0c"
+  },
+  "header": "11223344556677889900aabbccddeeff",
+  "messages": [
+    [
+      "HASH",
+      "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02"
+    ],
+    [
+      "HASH",
+      "c344136d9ab02da4dd5908bbba913ae6f58c2cc844b802a6f811f5fb075f9b80"
+    ],
+    [
+      "RAW",
+      "7372e9daa5ed31e6cd5c825eac1b855e84476a1d94932aa348e07b73"
+    ],
+    [
+      "RAW",
+      "77fe97eb97a1ebe2e81e4e3597a3ee740a66e9ef2412472c"
+    ],
+    [
+      "HASH",
+      "496694774c5604ab1b2544eababcf0f53278ff50"
+    ],
+    [
+      "HASH",
+      "515ae153e22aae04ad16f759e07237b4"
+    ],
+    [
+      "RAW",
+      "d183ddc6e2665aa4e2f088af"
+    ],
+    [
+      "RAW",
+      "ac55fb33a75909ed"
+    ],
+    [
+      "HASH",
+      "96012096"
+    ],
+    [
+      "HASH",
+      ""
+    ]
+  ],
+  "blindMessages": [
+    [
+      "HASH",
+      "5982967821da3c5983496214df36aa5e58de6fa25314af4cf4c00400779f08c3"
+    ],
+    [
+      "RAW",
+      "a75d8b634891af92282cc81a675972d1929d3149863c1fc0"
+    ],
+    [
+      "HASH",
+      "835889a40744813a892eff9deb1edaeb"
+    ],
+    [
+      "RAW",
+      "e1ca9729410dc6ba"
+    ],
+    [
+      "HASH",
+      ""
+    ]
+  ],
+  "proverNyms": [
+    "6830ea571e9fca0194d9ebd5c571369d8b81655afe0bbb9c6f5efe934f699418"
+  ],
+  "signer_nym_entropy": "3d40961fce6c09eec24a371322732932503b458d7a4cf7891bdaa765b30027c5",
+  "commitmentWithProof": "b7346c9ad2e046f4101d8640581ae7844ebcb33ae81e06d5df6dc74f0c016c2263e464e9f112b8bddded8f1ea027ec886cdb2263221b6054e6d92ecd5975dcd13f77f34b5e2a759ef83651afd066ddd03526d9c988b0b720e003d2bde6b30c5742506fae76459539ed19187ca0bc230636aa47d133f61f1a2be44b61aeed6868af66f2624d856b1e16c1b2cc12f8adc230577d4ad9519655896026d9b78fe6e84735fa86d6f95e352e11395ce61a567951f2bbb70773bc6f5efc56ee423e8bc951dc4248f519282dec834aea375499b72a46b59f30151bb2d74dcf79b1f71510a3ba318b22f9c22ecae8f42a57d9154f51a0d3a6c2b61869b8020cd1212d19a8e6b994bda34781af6da357c6a9ecc78851ce8986ac1947fd88fb112d759fc0faa2ef224b3fedef66771c14408ce05093",
+  "proverBlind": "15494ae70742a6a4f420106c79ee405c138557385f3f6f7256449d147ebf22b8",
+  "nym_secrets": [
+    "3183d923c36e56a823ea4ae0de4287ca87ff06e5785a57268b39a5fa0269bbdc"
+  ],
+  "signature": "b0cd5f336b28a29b9b0027b346ba8d807b538292f94d4626b67e007437006ee0ae1db1ecc52297b5739ee990ee8e5987544ebba866e3d240b4a3cfbd12b1b6defec12dbbf3cfa5dc65df26acaadef257",
+  "result": {
+    "valid": true
+  },
+  "trace": {
+    "B": "8870a9df101abb0a831262b70de558ef66bdd38a51616d6693f76d5bd6c190ace23700ea31d02ebfa6a6d1370a87216b",
+    "domain": "18a554af90e12ae7a81bd511901abfe1cf882387033796cc47df19b244a15894"
+  }
+}
