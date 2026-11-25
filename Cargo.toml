@@ -6,36 +6,37 @@ license = "Apache-2.0"
 authors = ["LINKS Foundation"]
 description = "Rust crypto library for zero-knowledge proofs"
 repository = "https://github.com/Cybersecurity-LINKS/zkryptium"
-rust-version = "1.65"
+rust-version = "1.88"
 keywords = [ "crypto", "signatures", "zero-knowledge", "bbs", "blind-signature"]
 categories = [ "cryptography", "authentication" ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rand = {version = "0.8.5"}
-serde = { version = "1.0.25", default-features = false, features = ["derive", "serde_derive"] }
-serde_json = "1.0.59"
+rand = "0.10.4"
+serde = { version = "1.0.229", default-features = false, features = ["derive", "serde_derive"] }
+serde_json = "1.0.154"
 hex = "0.4.3"
-thiserror = "2.0.12"
+thiserror = "2.0.21"
 
 # cl03
-rug = { version = "1.27.0", features = ["serde"], optional = true }
-rand_chacha = { version = "0.9.0", optional = true }
+rug = { version = "1.30.0", features = ["serde"], optional = true }
+rand_chacha = { version = "0.10.0", optional = true }
 
-sha3 = "0.10.8"
-sha2 = "0.10.6"
-digest = "0.10.6"
+shake = "0.1.0"
+sha2 = "0.11.2"
+digest = "0.11.3"
 
 # bbsplus
-bls12_381_plus = { version = "0.8.13", optional = true }
-ff = "0.13.1"
-group = "0.13.0"
-elliptic-curve = "0.13.4"
+bls12_381_plus = { version = "0.10.0", optional = true }
+ff = "0.14.0"
+group = "0.14.0"
+elliptic-curve = "0.14.3"
+hash2curve = "0.14.0"
 
 [dev-dependencies]
-log = "0.4.0"
-env_logger = "0.11.8"
+log = "0.4.35"
+env_logger = "0.11.12"
 dotenvy = "0.15.7"
 
 [lib]

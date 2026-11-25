@@ -20,7 +20,6 @@ pub mod bbsplus_message {
     use crate::errors::Error;
     use crate::utils::util::bbsplus_utils::hash_to_scalar;
     use bls12_381_plus::Scalar;
-    use elliptic_curve::hash2curve::ExpandMsg;
     use serde::{Deserialize, Serialize};
 
     #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -51,10 +50,7 @@ pub mod bbsplus_message {
         pub fn messages_to_scalar<CS: BbsCiphersuite>(
             messages: &[Vec<u8>],
             api_id: &[u8],
-        ) -> Result<Vec<Self>, Error>
-        where
-            CS::Expander: for<'a> ExpandMsg<'a>,
-        {
+        ) -> Result<Vec<Self>, Error> {
             let map_dst = [api_id, CS::MAP_MSG_SCALAR].concat();
             let mut msg_scalars: Vec<Self> = Vec::new();
             for m in messages {
@@ -79,10 +75,7 @@ pub mod bbsplus_message {
         pub fn map_message_to_scalar_as_hash<CS: BbsCiphersuite>(
             data: &[u8],
             api_id: &[u8],
-        ) -> Result<Self, Error>
-        where
-            CS::Expander: for<'a> ExpandMsg<'a>,
-        {
+        ) -> Result<Self, Error> {
             let map_dst = [api_id, CS::MAP_MSG_SCALAR].concat();
             let scalar = hash_to_scalar::<CS>(data, &map_dst)?;
 
@@ -115,7 +108,6 @@ pub mod bbsplus_message {
         use crate::schemes::algorithms::Scheme;
         use crate::schemes::algorithms::{BbsBls12381Sha256, BbsBls12381Shake256};
         use crate::utils::message::bbsplus_message::BBSplusMessage;
-        use elliptic_curve::hash2curve::ExpandMsg;
         use std::fs;
 
         //MAP MESSAGE TO SCALAR - SHA256
@@ -155,7 +147,6 @@ pub mod bbsplus_message {
         fn map_message_to_scalar_as_hash<S: Scheme>(filename: &str)
         where
             S::Ciphersuite: BbsCiphersuite,
-            <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
         {
             let data = fs::read_to_string(filename).expect("Unable to read file");
             let json: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
@@ -189,7 +180,6 @@ pub mod bbsplus_message {
         fn messages_to_scalars<S: Scheme>(filename: &str)
         where
             S::Ciphersuite: BbsCiphersuite,
-            <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
         {
             let data = fs::read_to_string(filename).expect("Unable to read file");
             let json: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");

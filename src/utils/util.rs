@@ -22,10 +22,11 @@ pub mod bbsplus_utils {
     use bls12_381_plus::{G1Affine, G1Projective, G2Affine, G2Projective, Scalar};
     use elliptic_curve::{
         group::Curve,
-        hash2curve::{ExpandMsg, Expander},
     };
     use ff::Field;
-    use rand::{thread_rng, RngCore};
+    use hash2curve::{ExpandMsg, Expander};
+    use rand::Rng;
+    use std::num::NonZeroU16;
     use std::any::{Any, TypeId};
     use std::ops::{AddAssign, Mul};
     use crate::bbsplus::generators::Generators;
@@ -71,7 +72,7 @@ pub mod bbsplus_utils {
     /// # Output
     /// * `Vec<u8>`, a secret
     pub fn generate_random_secret(n: usize) -> Vec<u8> {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let mut secret = vec![0; n]; // Initialize a vector of length n with zeros
         rng.fill_bytes(&mut secret); // Fill the vector with random bytes
         secret
@@ -98,6 +99,34 @@ pub mod bbsplus_utils {
         out
     }
 
+    /// <https://www.rfc-editor.org/rfc/rfc9380#name-expand_message>
+    ///
+    /// # Description
+    /// Runs the `expand_message` function of the ciphersuite on `msg` with domain separation tag
+    /// `dst`, filling the whole `out` buffer.
+    ///
+    /// # Output:
+    /// * `()` or [`Error::HashToScalarError`] if `out` is empty, longer than `u16::MAX`, or longer
+    ///   than the expander can produce.
+    pub(crate) fn expand_message<CS: BbsCiphersuite>(
+        msg: &[&[u8]],
+        dst: &[u8],
+        out: &mut [u8],
+    ) -> Result<(), Error> {
+        let len = u16::try_from(out.len())
+            .ok()
+            .and_then(NonZeroU16::new)
+            .ok_or(Error::HashToScalarError)?;
+        let read = CS::Expander::expand_message(msg, &[dst], len)
+            .map_err(|_| Error::HashToScalarError)?
+            .fill_bytes(out)
+            .map_err(|_| Error::HashToScalarError)?;
+        if read != out.len() {
+            return Err(Error::HashToScalarError);
+        }
+        Ok(())
+    }
+
     /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-hash-to-scalar>
     ///
     /// # Description
@@ -114,20 +143,14 @@ pub mod bbsplus_utils {
     pub fn hash_to_scalar<CS: BbsCiphersuite>(
         msg_octects: &[u8],
         dst: &[u8],
-    ) -> Result<Scalar, Error>
-    where
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
+    ) -> Result<Scalar, Error> {
         if dst.len() > 255 {
             return Err(Error::HashToScalarError);
         }
         let mut uniform_bytes = vec![0u8; CS::EXPAND_LEN];
-        let dsts = [dst];
 
         // uniform_bytes = expand_message(msg_octets, dst, expand_len)
-        CS::Expander::expand_message(&[msg_octects], &dsts, CS::EXPAND_LEN)
-            .map_err(|_| Error::HashToScalarError)?
-            .fill_bytes(&mut uniform_bytes);
+        expand_message::<CS>(&[msg_octects], dst, &mut uniform_bytes)?;
 
         // OS2IP(uniform_bytes) mod r
         Ok(Scalar::from_okm(
@@ -161,10 +184,7 @@ pub mod bbsplus_utils {
         generators: &Generators,
         header: Option<&[u8]>,
         api_id: Option<&[u8]>,
-    ) -> Result<Scalar, Error>
-    where
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
+    ) -> Result<Scalar, Error> {
         let header = header.unwrap_or(b"");
 
         let L = generators.values.len() - 1;
@@ -389,8 +409,8 @@ pub mod bbsplus_utils {
     }
 
     pub(crate) fn get_random() -> Scalar {
-        let rng = rand::thread_rng();
-        Scalar::random(rng)
+        let mut rng = rand::rng();
+        Scalar::random(&mut rng)
     }
 
     /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-random-scalars>
@@ -435,14 +455,11 @@ pub mod bbsplus_utils {
     pub fn seeded_random_scalars<CS>(count: usize, seed: &[u8], dst: &[u8]) -> Vec<Scalar>
     where
         CS: BbsCiphersuite,
-        CS::Expander: for<'a> ExpandMsg<'a>,
     {
         let out_len = CS::EXPAND_LEN * count;
         let mut v = vec![0u8; out_len];
 
-        CS::Expander::expand_message(&[&seed], &[&dst], out_len)
-            .unwrap()
-            .fill_bytes(&mut v);
+        expand_message::<CS>(&[seed], dst, &mut v).unwrap();
 
         let mut scalars: Vec<Scalar> = Vec::new();
 
@@ -479,7 +496,6 @@ pub mod bbsplus_utils {
     ) -> Result<Scalar, Error>
     where
         CS: BbsCiphersuite,
-        CS::Expander: for<'a> ExpandMsg<'a>,
     {
         if generators.len() == 0 {
             return Err(Error::NotEnoughGenerators);
@@ -507,7 +523,6 @@ pub mod bbsplus_utils {
         use crate::schemes::algorithms::Scheme;
         use crate::schemes::algorithms::{BbsBls12381Sha256, BbsBls12381Shake256};
         use crate::utils::util::bbsplus_utils::{hash_to_scalar, ScalarExt};
-        use elliptic_curve::hash2curve::ExpandMsg;
         use std::fs;
 
         //h2s - SHA256
@@ -533,7 +548,6 @@ pub mod bbsplus_utils {
         fn h2s<S: Scheme>(pathname: &str, filename: &str)
         where
             S::Ciphersuite: BbsCiphersuite,
-            <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
         {
             let data =
                 fs::read_to_string([pathname, filename].concat()).expect("Unable to read file");

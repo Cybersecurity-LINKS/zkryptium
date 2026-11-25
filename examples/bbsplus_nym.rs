@@ -14,8 +14,7 @@
 
 #[cfg(feature = "bbsplus_nym")]
 mod bbsplus_example {
-    use elliptic_curve::hash2curve::ExpandMsg;
-    use rand::Rng;
+    use rand::RngExt;
     use zkryptium::{
         bbsplus::{
             ciphersuites::BbsCiphersuite,
@@ -35,7 +34,6 @@ mod bbsplus_example {
     pub(crate) fn bbsplus_main<S: Scheme>() -> Result<(), Error>
     where
         S::Ciphersuite: BbsCiphersuite,
-        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
         const COMMITTED_MSGS: [(&str, &str); 2] = [
             ("HASH", "5982967821da3c5983496214df36aa5e58de6fa25314af4cf4c00400779f08c3"),
@@ -46,8 +44,8 @@ mod bbsplus_example {
         const HEADER_HEX: &str = "11223344556677889900aabbccddeeff";
         let header = hex::decode(HEADER_HEX).unwrap();
 
-        let mut rng = rand::thread_rng();
-        let key_material: Vec<u8> = (0..S::Ciphersuite::IKM_LEN).map(|_| rng.gen()).collect();
+        let mut rng = rand::rng();
+        let key_material: Vec<u8> = (0..S::Ciphersuite::IKM_LEN).map(|_| rng.random()).collect();
 
         log::info!("Keypair Generation");
         let issuer_keypair =

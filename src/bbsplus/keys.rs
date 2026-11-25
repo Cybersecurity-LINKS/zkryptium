@@ -26,7 +26,7 @@ use crate::{
     },
 };
 use bls12_381_plus::{G2Affine, G2Projective, Scalar};
-use elliptic_curve::{group::Curve, hash2curve::ExpandMsg};
+use elliptic_curve::group::Curve;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -209,10 +209,7 @@ impl<CS: BbsCiphersuite> KeyPair<BBSplus<CS>> {
         key_material: &[u8],
         key_info: Option<&[u8]>,
         key_dst: Option<&[u8]>,
-    ) -> Result<Self, Error>
-    where
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
+    ) -> Result<Self, Error> {
         let sk = key_gen::<CS>(key_material, key_info, key_dst)?;
 
         let pk = sk_to_pk(sk);
@@ -228,10 +225,7 @@ impl<CS: BbsCiphersuite> KeyPair<BBSplus<CS>> {
     ///
     /// # Output:
     /// * a keypair [`KeyPair`]
-    pub fn random() -> Result<Self, Error>
-    where
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
+    pub fn random() -> Result<Self, Error> {
         let key_material = generate_random_secret(64);
         let sk = key_gen::<CS>(&key_material, None, None)?;
 
@@ -266,7 +260,6 @@ fn key_gen<CS>(
 ) -> Result<Scalar, Error>
 where
     CS: BbsCiphersuite,
-    CS::Expander: for<'a> ExpandMsg<'a>,
 {
     // if length(key_material) < 32, return INVALID
     if key_material.len() < CS::IKM_LEN {

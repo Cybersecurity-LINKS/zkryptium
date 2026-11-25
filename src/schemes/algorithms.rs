@@ -66,7 +66,7 @@ impl Ciphersuite for Bls12381Sha256 {
 }
 #[cfg(feature = "bbsplus")]
 impl Ciphersuite for Bls12381Shake256 {
-    type HashAlg = sha3::Shake256;
+    type HashAlg = shake::Shake256;
 }
 
 /// A trait representing a cryptographic scheme.
