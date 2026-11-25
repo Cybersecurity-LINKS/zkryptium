@@ -68,7 +68,7 @@ impl BBSplusSignature {
     pub fn from_bytes(data: &[u8; Self::BYTES]) -> Result<Self, Error> {
         let A: G1Projective = parse_g1_projective(&data[0..G1Projective::COMPRESSED_BYTES])
             .map_err(|_| Error::InvalidSignature)?;
-        // draft-irtf-cfrg-bbs-signatures-14 §4.2.5.3 octets_to_signature step 6:
+        // draft-irtf-cfrg-bbs-signatures-15 §4.2.5.3 octets_to_signature step 6:
         // if A == Identity_G1, return INVALID. The subgroup check already ran
         // inside parse_g1_projective, and identity passes it.
         if A == G1Projective::IDENTITY {
@@ -98,7 +98,7 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         }
     }
 
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-signature-generation-sign>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15#name-signature-generation-sign>
     /// # Description
     /// The `sign` API returns a BBS signature from a secret key (SK), over a header and a set of messages.
     ///
@@ -131,7 +131,7 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         Ok(Self::BBSplus(signature))
     }
 
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-signature-verification-veri>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15#name-signature-verification-veri>
     /// # Description
     /// The `verify` API validates a BBS signature, given a public key (PK), a header and a set of messages
     /// # Inputs:
@@ -245,7 +245,7 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-coresign
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15#name-coresign
 /// # Description
 /// This operation computes a deterministic signature from a secret key (SK),
 /// a set of generators (points of G1) and optionally a header and a vector of messages.
@@ -315,7 +315,7 @@ where
     Ok(BBSplusSignature { A, e })
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-coreverify
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15#name-coreverify
 /// # Description
 /// This operation checks that a signature is valid for a given set of generators, header
 /// and vector of messages, against a supplied public key (PK). The set of messages MUST be

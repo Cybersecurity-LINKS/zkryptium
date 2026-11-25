@@ -478,6 +478,15 @@ impl<CS: BbsCiphersuite> BlindPoKSignature<BBSplus<CS>> {
     /// pseudonym, i.e., that it is correctly calculated from the (undisclosed) `nym_secrets` and
     /// the `context_id`, and that `nym_secrets` is signed by the Signer.
     ///
+    /// # Signature validity
+    /// As required by draft-irtf-cfrg-bbs-signatures-15 (Section 3.6.3), `signature` MUST be a
+    /// valid signature of the Signer: the Prover MUST verify it with
+    /// [`BlindSignature::verify_finalize_with_nym`](crate::schemes::generics::BlindSignature::verify_finalize_with_nym)
+    /// when it receives it from the Signer (that function also returns the `nym_secrets` to use
+    /// here), otherwise the unlinkability of the generated proofs is not guaranteed. This
+    /// function does not verify the signature; if the storage of the signature is not trusted,
+    /// it is RECOMMENDED to verify it again before every call.
+    ///
     /// # Inputs:
     /// * `pk` (REQUIRED), the Signer public key.
     /// * `signature` (REQUIRED), an octet string.

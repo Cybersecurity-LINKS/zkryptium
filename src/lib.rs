@@ -18,7 +18,7 @@
 //! [![](https://img.shields.io/docsrs/zkryptium?style=flat-square)](https://docs.rs/zkryptium/)
 //! ## Description
 //! Zkryptium library provides an experimental implementation for research purposes of:
-//! * **BBS+**([draft-irtf-cfrg-bbs-signatures-14](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14)) signature scheme
+//! * **BBS+**([draft-irtf-cfrg-bbs-signatures-15](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15)) signature scheme
 //! * **Blind BBS Signatures** ([draft-irtf-cfrg-bbs-blind-signatures-05](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-05)) signature scheme, including committed disclosure of undisclosed messages
 //! * **BBS per Verifier Linkability** ([draft-irtf-cfrg-bbs-per-verifier-linkability-05](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-05))
 //! * **CL2003** (<https://link.springer.com/chapter/10.1007/3-540-36413-7_20>) signature scheme

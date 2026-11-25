@@ -104,7 +104,7 @@ impl BBSplusPoKSignature {
         let D = parse_g1_projective(&bytes[96..144])
             .map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
 
-        // draft-irtf-cfrg-bbs-signatures-14 §4.2.5.5 octets_to_proof step 7:
+        // draft-irtf-cfrg-bbs-signatures-15 §4.2.5.5 octets_to_proof step 7:
         // if A_i is INVALID or Identity_G1, return INVALID (Abar, Bbar, D).
         // The subgroup check already ran inside parse_g1_projective, and
         // identity passes it.
@@ -341,6 +341,14 @@ impl<CS: BbsCiphersuite> BlindPoKSignature<BBSplus<CS>> {
     /// (either chosen by the Issuer or committed by the Prover). In addition, this operation
     /// can generate commitments to un-revealed messages and include with the BBS proof that
     /// these commitments correspond to specific un-revealed messages.
+    ///
+    /// # Signature validity
+    /// As required by draft-irtf-cfrg-bbs-signatures-15 (Section 3.6.3), `signature` MUST be a
+    /// valid signature of the Signer: the Prover MUST verify it with
+    /// [`BlindSignature::verify_blind_sign`](crate::schemes::generics::BlindSignature::verify_blind_sign)
+    /// when it receives it from the Signer, otherwise the unlinkability of the generated proofs
+    /// is not guaranteed. This function does not verify the signature; if the storage of the
+    /// signature is not trusted, it is RECOMMENDED to verify it again before every call.
     ///
     /// # Inputs:
     /// * `pk` (REQUIRED), the Signer public key.
@@ -1112,7 +1120,7 @@ where
 }
 
 impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-proof-generation-proofgen>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15#name-proof-generation-proofgen>
     ///
     /// # Description
     /// The ProofGen operation creates BBS proof, which is a zero-knowledge, proof-of-knowledge of 
@@ -1124,6 +1132,14 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     /// will also be integrity protected (signed) by the resulting proof. Finally, to indicate 
     /// which of the messages should be disclosed, the operation accepts a list of integers 
     /// in ascending order, representing the indexes of those message
+    ///
+    /// # Signature validity
+    /// As required by draft-irtf-cfrg-bbs-signatures-15 (Section 3.6.3), `signature` MUST be a
+    /// valid signature of the Signer: the Prover MUST verify it with
+    /// [`Signature::verify`](crate::schemes::generics::Signature::verify) when it receives it
+    /// from the Signer, otherwise the unlinkability of the generated proofs is not guaranteed.
+    /// This function does not verify the signature; if the storage of the signature is not
+    /// trusted, it is RECOMMENDED to verify it again before every call.
     ///
     /// # Inputs:
     /// * `pk` (REQUIRED), the Signer public key.
@@ -1172,7 +1188,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         Ok(Self::BBSplus(proof))
     }
 
-    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-proof-verification-proofver>
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15#name-proof-verification-proofver>
     ///
     /// # Description
     /// The ProofVerify operation validates a BBS proof, given the Signer's public key (PK), 
@@ -1247,7 +1263,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-coreproofgen
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15#name-coreproofgen
 ///
 /// # Description
 /// This operation computes a zero-knowledge proof-of-knowledge of a signature, while optionally
@@ -1313,7 +1329,7 @@ where
     Ok(proof)
 }
 
-///https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-proof-initialization-result
+///https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15#name-proof-initialization-result
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(super) struct ProofInitRes {
     pub Abar: G1Projective,
@@ -1361,7 +1377,7 @@ pub(super) fn validate_init_res(init_res: &ProofInitRes) -> Result<(), Error> {
     Ok(())
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-proof-initialization
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15#name-proof-initialization
 ///
 /// # Description
 /// This operation initializes the proof and returns one of the inputs passed to the challenge 
@@ -1525,7 +1541,7 @@ where
     })
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-challenge-calculation
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15#name-challenge-calculation
 ///
 /// # Description
 /// This operation calculates the challenge scalar value, used during the [`core_proof_gen`]
@@ -1602,7 +1618,7 @@ fn proof_challenge_octets(
     Ok(c_arr)
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-proof-finalization
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15#name-proof-finalization
 ///
 /// # Description
 /// This operation finalizes the proof calculation during the [`core_proof_gen`] operation and
@@ -1668,7 +1684,7 @@ pub(super) fn proof_finalize(
     })
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-coreproofverify
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15#name-coreproofverify
 ///
 /// # Description
 /// This operation checks that a proof is valid for a header,
@@ -1743,7 +1759,7 @@ pub(super) fn verify_proof_pairing(pk: &BBSplusPublicKey, proof: &BBSplusPoKSign
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-proof-verification-initiali
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15#name-proof-verification-initiali
 ///
 /// # Description
 /// This operation initializes the proof verification operation and returns part of the input that

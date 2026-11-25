@@ -76,7 +76,7 @@ impl BBSplusPublicKey {
     fn from_bytes_uncompressed(bytes: &[u8; G2Affine::UNCOMPRESSED_BYTES]) -> Result<Self, Error> {
         let g2 =
             parse_g2_projective_uncompressed(bytes).map_err(|_| Error::KeyDeserializationError)?;
-        // draft-irtf-cfrg-bbs-signatures-14 §4.2.5.6 octets_to_pubkey step 4:
+        // draft-irtf-cfrg-bbs-signatures-15 §4.2.5.6 octets_to_pubkey step 4:
         // if W == Identity_G2, return INVALID. The subgroup check already ran
         // inside parse_g2_projective_uncompressed, and identity passes it.
         if g2 == G2Projective::IDENTITY {
@@ -112,7 +112,7 @@ impl BBSplusPublicKey {
 
         let g2 = parse_g2_projective_compressed(&bytes[0..G2Affine::COMPRESSED_BYTES])
             .map_err(|_| Error::KeyDeserializationError)?;
-        // draft-irtf-cfrg-bbs-signatures-14 §4.2.5.6 octets_to_pubkey step 4:
+        // draft-irtf-cfrg-bbs-signatures-15 §4.2.5.6 octets_to_pubkey step 4:
         // if W == Identity_G2, return INVALID. The subgroup check already ran
         // inside parse_g2_projective_compressed, and identity passes it.
         if g2 == G2Projective::IDENTITY {
@@ -238,7 +238,7 @@ impl<CS: BbsCiphersuite> KeyPair<BBSplus<CS>> {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-secret-key
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15#name-secret-key
 ///
 /// # Description
 /// This operation generates a secret key (SK) deterministically from a secret octet string (key_material)
@@ -284,7 +284,7 @@ where
     Ok(sk)
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-public-key
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15#name-public-key
 ///
 /// # Description
 /// This operation takes a secret key (SK) and outputs a corresponding public key (PK).

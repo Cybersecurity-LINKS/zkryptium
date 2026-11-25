@@ -7,7 +7,7 @@
 ## Description
 
 Zkryptium library provides an experimental implementation for research purposes of:
-* **BBS+**([draft-irtf-cfrg-bbs-signatures-14](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14)) signature scheme
+* **BBS+**([draft-irtf-cfrg-bbs-signatures-15](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15)) signature scheme
 * **Blind BBS Signatures** ([draft-irtf-cfrg-bbs-blind-signatures-05](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-05)) signature scheme, including committed disclosure of undisclosed messages
 * **BBS per Verifier Linkability** ([draft-irtf-cfrg-bbs-per-verifier-linkability-05](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-05))
 * **CL2003** (<https://link.springer.com/chapter/10.1007/3-540-36413-7_20>) signature scheme
@@ -60,7 +60,7 @@ zkryptium = { version = "0.8.3", default-features = false, features = ["cl03"] }
 
 Take a look at the [examples](https://github.com/Cybersecurity-LINKS/ZKryptium/tree/main/examples).
 
-You can run the examples based on the [BBS+](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14) Signature Scheme with:
+You can run the examples based on the [BBS+](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15) Signature Scheme with:
 
 ```bash
 cargo run --example bbsplus <ciphersuite>

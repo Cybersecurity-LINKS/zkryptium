@@ -35,7 +35,7 @@ pub mod bbsplus_message {
             Self { value: msg }
         }
 
-        /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-messages-to-scalars>
+        /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15#name-messages-to-scalars>
         ///
         /// # Description
         /// The messages_to_scalars operation is used to map a list of messages to their respective scalar values

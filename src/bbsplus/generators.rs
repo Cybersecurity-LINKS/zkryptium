@@ -92,7 +92,7 @@ impl Generators {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-generators-calculation
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15#name-generators-calculation
 ///
 /// # Description
 /// The create_generators procedure defines how to create a set of randomly sampled points
