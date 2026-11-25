@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rand::Rng;
+use rand::RngExt;
 use rug::rand::{RandGen, RandState};
 use rug::{Complete, Integer};
 use std::cmp::Ordering;
 use rand_chacha::ChaCha20Rng;
-use rand_chacha::rand_core::{RngCore, SeedableRng};
+use rand_chacha::rand_core::{Rng, SeedableRng};
 
 struct CryptographicallySecurePRNG(ChaCha20Rng);
 
@@ -30,8 +30,8 @@ impl RandGen for CryptographicallySecurePRNG {
 /// Generates a random integer with the specified number of bits.
 pub fn random_bits(n: u32) -> Integer {
 
-    let mut rng = rand::thread_rng();
-    let seed = rng.gen();
+    let mut rng = rand::rng();
+    let seed = rng.random();
     let mut binding = CryptographicallySecurePRNG(ChaCha20Rng::from_seed(seed));
     let mut rand = RandState::new_custom(&mut binding);
 
@@ -43,8 +43,8 @@ pub fn random_bits(n: u32) -> Integer {
 /// Generates a random integer less than the specified integer.
 pub fn random_number(n: Integer) -> Integer {
 
-    let mut rng = rand::thread_rng();
-    let seed = rng.gen();
+    let mut rng = rand::rng();
+    let seed = rng.random();
     let mut binding = CryptographicallySecurePRNG(ChaCha20Rng::from_seed(seed));
     let mut rand = RandState::new_custom(&mut binding);
 
@@ -75,8 +75,8 @@ pub fn random_qr(n: &Integer) -> Integer {
 /// Generates a random integer in the range [a, b].
 pub fn rand_int(a: Integer, b: Integer) -> Integer {
 
-    let mut rng = rand::thread_rng();
-    let seed = rng.gen();
+    let mut rng = rand::rng();
+    let seed = rng.random();
     let mut binding = CryptographicallySecurePRNG(ChaCha20Rng::from_seed(seed));
     let mut rand = RandState::new_custom(&mut binding);
 

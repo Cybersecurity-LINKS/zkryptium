@@ -14,7 +14,7 @@
 
 #[cfg(feature = "bbsplus")]
 mod bbsplus_example {
-    use rand::Rng;
+    use rand::RngExt;
     use zkryptium::{
         bbsplus::ciphersuites::BbsCiphersuite,
         errors::Error,
@@ -41,8 +41,8 @@ mod bbsplus_example {
         const HEADER_HEX: &str = "11223344556677889900aabbccddeeff";
         let header = hex::decode(HEADER_HEX).unwrap();
 
-        let mut rng = rand::thread_rng();
-        let key_material: Vec<u8> = (0..S::Ciphersuite::IKM_LEN).map(|_| rng.gen()).collect();
+        let mut rng = rand::rng();
+        let key_material: Vec<u8> = (0..S::Ciphersuite::IKM_LEN).map(|_| rng.random()).collect();
 
         log::info!("Keypair Generation");
         let issuer_keypair =

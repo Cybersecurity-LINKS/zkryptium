@@ -23,9 +23,9 @@ pub mod bbsplus_utils {
     use elliptic_curve::{
         group::Curve,
     };
-    use bls12_381_plus::ff_013::Field;
+    use ff::Field;
     use hash2curve::{ExpandMsg, Expander};
-    use rand::{thread_rng, RngCore};
+    use rand::Rng;
     use std::num::NonZeroU16;
     use std::any::{Any, TypeId};
     use std::ops::{AddAssign, Mul};
@@ -72,7 +72,7 @@ pub mod bbsplus_utils {
     /// # Output
     /// * `Vec<u8>`, a secret
     pub fn generate_random_secret(n: usize) -> Vec<u8> {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let mut secret = vec![0; n]; // Initialize a vector of length n with zeros
         rng.fill_bytes(&mut secret); // Fill the vector with random bytes
         secret
@@ -409,8 +409,8 @@ pub mod bbsplus_utils {
     }
 
     pub(crate) fn get_random() -> Scalar {
-        let rng = rand::thread_rng();
-        Scalar::random(rng)
+        let mut rng = rand::rng();
+        Scalar::random(&mut rng)
     }
 
     /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-random-scalars>
