@@ -14,7 +14,6 @@
 
 #[cfg(feature = "bbsplus")]
 mod bbsplus_example {
-    use elliptic_curve::hash2curve::ExpandMsg;
     use rand::Rng;
     use zkryptium::{
         bbsplus::ciphersuites::BbsCiphersuite,
@@ -30,7 +29,6 @@ mod bbsplus_example {
     pub(crate) fn bbsplus_main<S: Scheme>() -> Result<(), Error>
     where
         S::Ciphersuite: BbsCiphersuite,
-        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
         const MSGS: [&str; 3] = [
             "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02",

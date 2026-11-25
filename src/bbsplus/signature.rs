@@ -25,7 +25,7 @@ use crate::{
     },
 };
 use bls12_381_plus::{multi_miller_loop, G1Projective, G2Prepared, G2Projective, Gt, Scalar};
-use elliptic_curve::{group::Curve, hash2curve::ExpandMsg};
+use elliptic_curve::group::Curve;
 use serde::{Deserialize, Serialize};
 use crate::utils::util::bbsplus_utils::multi_exponentiation_g1;
 
@@ -115,10 +115,7 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         sk: &BBSplusSecretKey,
         pk: &BBSplusPublicKey,
         header: Option<&[u8]>,
-    ) -> Result<Self, Error>
-    where
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
+    ) -> Result<Self, Error> {
         let messages = messages.unwrap_or(&[]);
         let message_scalars = BBSplusMessage::messages_to_scalar::<CS>(messages, CS::API_ID)?;
         let generators = Generators::create::<CS>(messages.len() + 1, Some(CS::API_ID));
@@ -150,10 +147,7 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         pk: &BBSplusPublicKey,
         messages: Option<&[Vec<u8>]>,
         header: Option<&[u8]>,
-    ) -> Result<(), Error>
-    where
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
+    ) -> Result<(), Error> {
         let messages = messages.unwrap_or(&[]);
         let message_scalars = BBSplusMessage::messages_to_scalar::<CS>(messages, CS::API_ID)?;
         let generators = Generators::create::<CS>(messages.len() + 1, Some(CS::API_ID));
@@ -277,7 +271,6 @@ fn core_sign<CS>(
 ) -> Result<BBSplusSignature, Error>
 where
     CS: BbsCiphersuite,
-    CS::Expander: for<'a> ExpandMsg<'a>,
 {
     let L = messages.len();
 
@@ -349,7 +342,6 @@ pub(super) fn core_verify<CS>(
 ) -> Result<(), Error>
 where
     CS: BbsCiphersuite,
-    CS::Expander: for<'a> ExpandMsg<'a>,
 {
     let L = messages.len();
 
@@ -404,7 +396,7 @@ mod tests {
         schemes::{algorithms::BBSplus, generics::Signature},
     };
     use bls12_381_plus::{G1Projective, Scalar};
-    use elliptic_curve::{group::Curve, hash2curve::ExpandMsg};
+    use elliptic_curve::group::Curve;
     use std::fs;
 
     //MSG SIGNATURE
@@ -489,7 +481,6 @@ mod tests {
     fn msg_signature<S: Scheme>(pathname: &str, filename: &str)
     where
         S::Ciphersuite: BbsCiphersuite,
-        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
         let data = fs::read_to_string([pathname, filename].concat()).expect("Unable to read file");
         let res: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
@@ -564,7 +555,6 @@ mod tests {
     fn update_signature<S: Scheme>()
     where
         S::Ciphersuite: BbsCiphersuite,
-        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
         const IKM: &str = "746869732d49532d6a7573742d616e2d546573742d494b4d2d746f2d67656e65726174652d246528724074232d6b6579";
         const KEY_INFO: &str = "746869732d49532d736f6d652d6b65792d6d657461646174612d746f2d62652d757365642d696e2d746573742d6b65792d67656e";

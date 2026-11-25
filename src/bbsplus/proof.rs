@@ -31,7 +31,7 @@ use crate::{
     },
 };
 use bls12_381_plus::{multi_miller_loop, G1Projective, G2Prepared, G2Projective, Scalar};
-use elliptic_curve::{group::Curve, hash2curve::ExpandMsg, Group};
+use elliptic_curve::{group::Curve, Group};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "bbsplus_blind")]
 use super::commitment::{messages_to_scalar, BlindFactor, Message};
@@ -373,10 +373,7 @@ impl<CS: BbsCiphersuite> BlindPoKSignature<BBSplus<CS>> {
         issuer_message_disclosures: Option<&[Disclosure]>,
         blind_message_disclosures: Option<&[Disclosure]>,
         secret_prover_blind: Option<&BlindFactor>,
-    ) -> Result<(Self, AddZkpInfo), Error>
-    where
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
+    ) -> Result<(Self, AddZkpInfo), Error> {
         let signature = BBSplusSignature::from_bytes(
             signature.try_into().map_err(|_| Error::InvalidSignature)?,
         )?;
@@ -488,10 +485,7 @@ impl<CS: BbsCiphersuite> BlindPoKSignature<BBSplus<CS>> {
         issuer_known_messages_no: Option<usize>,
         disclosed_messages: Option<&[Message]>,
         message_disclosures: Option<&[Disclosure]>,
-    ) -> Result<(), Error>
-    where
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
+    ) -> Result<(), Error> {
         let proof = self.to_bbsplus_blind_proof();
         let api_id = CS::API_ID_BLIND;
         let L = issuer_known_messages_no.unwrap_or(0);
@@ -577,10 +571,7 @@ impl<CS: BbsCiphersuite> BlindPoKSignature<BBSplus<CS>> {
     ///
     /// # Output:
     /// `(Y_0, Y_1)`, two points of G1.
-    pub fn committed_disclosure_generators() -> (G1Projective, G1Projective)
-    where
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
+    pub fn committed_disclosure_generators() -> (G1Projective, G1Projective) {
         committed_disclosure_generators::<CS>(CS::API_ID_BLIND)
     }
 
@@ -622,10 +613,7 @@ impl<CS: BbsCiphersuite> BlindPoKSignature<BBSplus<CS>> {
     /// // recomputed[i] can now be used as the public input of an external ZKP whose
     /// // witness is (add_zkp_info.commitment_rands[i], add_zkp_info.committed_message_scalars[i]).
     /// ```
-    pub fn recompute_commitments(add_zkp_info: &AddZkpInfo) -> Result<Vec<G1Projective>, Error>
-    where
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
+    pub fn recompute_commitments(add_zkp_info: &AddZkpInfo) -> Result<Vec<G1Projective>, Error> {
         if add_zkp_info.committed_message_scalars.len() != add_zkp_info.commitment_rands.len() {
             return Err(Error::BlindProofGenError(
                 "add_zkp_info: committed_message_scalars and commitment_rands lengths differ"
@@ -707,7 +695,6 @@ pub(super) fn validate_disclosure_indexes(
 pub(super) fn committed_disclosure_generators<CS>(api_id: &[u8]) -> (G1Projective, G1Projective)
 where
     CS: BbsCiphersuite,
-    CS::Expander: for<'a> ExpandMsg<'a>,
 {
     let Y = Generators::create::<CS>(2, Some(&[b"COM_DIS_", api_id].concat())).values;
     (Y[0], Y[1])
@@ -750,7 +737,6 @@ fn core_blind_proof_gen<CS>(
 ) -> Result<(BBSplusBlindPoKSignature, AddZkpInfo), Error>
 where
     CS: BbsCiphersuite,
-    CS::Expander: for<'a> ExpandMsg<'a>,
 {
     let api_id = api_id.unwrap_or(b"");
 
@@ -845,7 +831,6 @@ pub(super) fn commitments_proof_init<CS>(
 ) -> Result<CommitmentInitRes, Error>
 where
     CS: BbsCiphersuite,
-    CS::Expander: for<'a> ExpandMsg<'a>,
 {
     let N = commitment_indexes.len();
     if s.len() != N || s_tilde.len() != N || m_tilde.len() != undisclosed_indexes.len() {
@@ -935,7 +920,6 @@ pub(super) fn commitments_verify_init<CS>(
 ) -> Result<CommitmentInitRes, Error>
 where
     CS: BbsCiphersuite,
-    CS::Expander: for<'a> ExpandMsg<'a>,
 {
     let N = commitment_indexes.len();
     if proof.commitments.len() != N || proof.commitments_proof.len() != N {
@@ -1007,7 +991,6 @@ fn core_blind_proof_verify<CS>(
 ) -> Result<(), Error>
 where
     CS: BbsCiphersuite,
-    CS::Expander: for<'a> ExpandMsg<'a>,
 {
     let api_id = api_id.unwrap_or(b"");
 
@@ -1163,10 +1146,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         ph: Option<&[u8]>,
         messages: Option<&[Vec<u8>]>,
         disclosed_indexes: Option<&[usize]>,
-    ) -> Result<Self, Error>
-    where
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
+    ) -> Result<Self, Error> {
         let signature = BBSplusSignature::from_bytes(
             signature.try_into().map_err(|_| Error::InvalidSignature)?,
         )?;
@@ -1219,10 +1199,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
         disclosed_indexes: Option<&[usize]>,
         header: Option<&[u8]>,
         ph: Option<&[u8]>,
-    ) -> Result<(), Error>
-    where
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
+    ) -> Result<(), Error> {
         let proof = self.to_bbsplus_proof();
         let disclosed_messages = disclosed_messages.unwrap_or(&[]);
         let mut disclosed_indexes = disclosed_indexes.unwrap_or(&[]).to_vec();
@@ -1304,7 +1281,6 @@ fn core_proof_gen<CS>(
 ) -> Result<BBSplusPoKSignature, Error>
 where
     CS: BbsCiphersuite,
-    CS::Expander: for<'a> ExpandMsg<'a>,
 {
     let L = messages.len();
     if L > generators.values.len() - 1 {
@@ -1419,7 +1395,6 @@ pub(super) fn proof_init<CS>(
 ) -> Result<ProofInitRes, Error>
 where
     CS: BbsCiphersuite,
-    CS::Expander: for<'a> ExpandMsg<'a>,
 {
     let mut disclosed_indexes = disclosed_indexes.to_vec();
     disclosed_indexes.sort();
@@ -1466,7 +1441,6 @@ pub(super) fn proof_init_with_scalars<CS>(
 ) -> Result<ProofInitRes, Error>
 where
     CS: BbsCiphersuite,
-    CS::Expander: for<'a> ExpandMsg<'a>,
 {
     let L = messages.len();
 
@@ -1980,7 +1954,6 @@ mod tests {
         schemes::generics::BlindPoKSignature,
         utils::message::bbsplus_message::BBSplusMessage,
     };
-    use elliptic_curve::hash2curve::ExpandMsg;
     #[cfg(feature = "bbsplus_blind")]
     use crate::bbsplus::test_utils::{parse_disclosures, parse_messages};
 
@@ -2248,7 +2221,6 @@ mod tests {
     fn mocked_rng<S: Scheme>(pathname: &str, filename: &str)
     where
         S::Ciphersuite: BbsCiphersuite,
-        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
         let data =
             std::fs::read_to_string([pathname, filename].concat()).expect("Unable to read file");
@@ -2291,7 +2263,6 @@ mod tests {
     fn proof_check<S: Scheme>(pathname: &str, proof_filename: &str)
     where
         S::Ciphersuite: BbsCiphersuite,
-        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
         let data = std::fs::read_to_string([pathname, proof_filename].concat())
             .expect("Unable to read file");
@@ -2405,7 +2376,6 @@ mod tests {
     fn blind_proof_check<S: Scheme>(pathname: &str, proof_filename: &str)
     where
         S::Ciphersuite: BbsCiphersuite,
-        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
         let data = std::fs::read_to_string([pathname, proof_filename].concat())
             .expect("Unable to read file");

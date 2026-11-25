@@ -16,7 +16,6 @@ use core::fmt::{self, Formatter};
 use std::ops::Add;
 
 use bls12_381_plus::{G1Projective, Scalar};
-use elliptic_curve::hash2curve::ExpandMsg;
 use serde::{Deserialize, Serialize};
 use crate::errors::Error;
 use crate::schemes::algorithms::BBSplus;
@@ -200,10 +199,7 @@ impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>>{
     pub fn commit_with_nym(
         blind_messages: Option<&[Message]>,
         prover_nyms: Vec<PseudonymSecret>
-    ) -> Result<(Self, BlindFactor), Error>
-    where
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
+    ) -> Result<(Self, BlindFactor), Error> {
         let (commitment_with_proof, secret) =
             commit_with_nym::<CS>(blind_messages, prover_nyms, Some(CS::API_ID_NYM))?;
         Ok((Self::BBSplus(commitment_with_proof), secret))
@@ -236,7 +232,6 @@ fn commit_with_nym<CS>(
 ) -> Result<(BBSplusCommitment, BlindFactor), Error>
 where
     CS: BbsCiphersuite,
-    CS::Expander: for<'a> ExpandMsg<'a>,
 {
     // prover_nyms is REQUIRED: the Signer rejects length_nym_vector < 1 (§8.2), so fail early.
     if prover_nyms.is_empty() {
@@ -518,10 +513,7 @@ impl<CS: BbsCiphersuite> BlindPoKSignature<BBSplus<CS>> {
         issuer_message_disclosures: Option<&[Disclosure]>,
         blind_message_disclosures: Option<&[Disclosure]>,
         secret_prover_blind: Option<&BlindFactor>,
-    ) -> Result<(Self, BBSplusPseudonym, AddZkpInfo), Error>
-    where
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
+    ) -> Result<(Self, BBSplusPseudonym, AddZkpInfo), Error> {
         let signature = BBSplusSignature::from_bytes(
             signature.try_into().map_err(|_| Error::InvalidSignature)?,
         )?;
@@ -650,10 +642,7 @@ impl<CS: BbsCiphersuite> BlindPoKSignature<BBSplus<CS>> {
         issuer_known_messages_no: Option<usize>,
         disclosed_messages: Option<&[Message]>,
         message_disclosures: Option<&[Disclosure]>,
-    ) -> Result<(), Error>
-    where
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
+    ) -> Result<(), Error> {
         let proof = self.to_bbsplus_blind_proof();
         let api_id = CS::API_ID_NYM;
         let L = issuer_known_messages_no.unwrap_or(0);
@@ -795,7 +784,6 @@ fn core_proof_gen_with_nym<CS>(
 ) -> Result<(BBSplusBlindPoKSignature, BBSplusPseudonym, AddZkpInfo), Error>
 where
     CS: BbsCiphersuite,
-    CS::Expander: for<'a> ExpandMsg<'a>,
 {
     let api_id = api_id.unwrap_or(b"");
     let header = header.unwrap_or(b"");
@@ -944,7 +932,6 @@ fn core_proof_verify_with_nym<CS>(
 ) -> Result<(), Error>
 where
     CS: BbsCiphersuite,
-    CS::Expander: for<'a> ExpandMsg<'a>,
 {
     let api_id = api_id.unwrap_or(b"");
     let header = header.unwrap_or(b"");
@@ -1041,7 +1028,6 @@ fn pseudonym_poly_eval<CS, const K: usize>(
 ) -> Result<(G1Projective, [Scalar; K]), Error>
 where
     CS: BbsCiphersuite,
-    CS::Expander: for<'a> ExpandMsg<'a>,
 {
     let OP = G1Projective::hash::<CS::Expander>(context_id, api_id);
     let z = hash_to_scalar::<CS>(context_id, &[api_id, b"VECT_NYM_SECRETS"].concat())?;
@@ -1075,7 +1061,6 @@ fn pseudonym_proof_init<CS>(
 ) -> Result<PseudonymProofInitResult, Error>
 where
     CS: BbsCiphersuite,
-    CS::Expander: for<'a> ExpandMsg<'a>,
 {
     if random_scalars.len() != nym_secrets.len() {
         return Err(Error::InvalidNymSecretsLength);
@@ -1118,7 +1103,6 @@ fn pseudonym_proof_verify_init<CS>(
 ) -> Result<PseudonymProofInitResult, Error>
 where
     CS: BbsCiphersuite,
-    CS::Expander: for<'a> ExpandMsg<'a>,
 {
     // 1-5.
     let (OP, [poly_eval_proof]) =
@@ -1142,7 +1126,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use elliptic_curve::hash2curve::ExpandMsg;
     use serde_json::Value;
     use bls12_381_plus::{group::Curve, G1Projective, Scalar};
     use crate::{
@@ -1244,7 +1227,6 @@ mod tests {
     fn commit_with_nym_rejects_empty_nyms<S: Scheme>()
     where
         S::Ciphersuite: BbsCiphersuite,
-        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
         let blind_messages = [crate::bbsplus::commitment::Message::hash(b"msg".to_vec())];
         for messages in [None, Some(&blind_messages[..])] {
@@ -1268,7 +1250,6 @@ mod tests {
     fn commit_with_nym<S: Scheme>(pathname: &str, filename: &str)
     where
         S::Ciphersuite: BbsCiphersuite,
-        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
         let proof_json = read_fixture(&[pathname, filename].concat());
         println!("{}", proof_json["caseName"]);
@@ -1350,7 +1331,6 @@ mod tests {
     fn nym_sign_negative_cases<S: Scheme>(pathname: &str)
     where
         S::Ciphersuite: BbsCiphersuite,
-        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
         let json = read_fixture(&[pathname, NYM_SIGN_NEGATIVE_FIXTURE].concat());
 
@@ -1405,7 +1385,6 @@ mod tests {
     fn blind_sign_with_nym<S: Scheme>(pathname: &str, filename: &str)
     where
         S::Ciphersuite: BbsCiphersuite,
-        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
         let proof_json = read_fixture(&[pathname, filename].concat());
         println!("{}", proof_json["caseName"]);
@@ -1555,7 +1534,6 @@ mod tests {
         fn gen<S: Scheme>(&self) -> Result<NymProofGen<S>, Error>
         where
             S::Ciphersuite: BbsCiphersuite,
-            <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
         {
             BlindPoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen_with_nym(
                 &self.pk,
@@ -1597,7 +1575,6 @@ mod tests {
         ) -> Result<(), Error>
         where
             S::Ciphersuite: BbsCiphersuite,
-            <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
         {
             proof.proof_verify_with_nym(
                 &self.pk,
@@ -1616,7 +1593,6 @@ mod tests {
     fn nym_proof_check<S: Scheme>(pathname: &str, proof_filename: &str)
     where
         S::Ciphersuite: BbsCiphersuite,
-        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
         let case = NymProofCase::load(pathname, proof_filename);
         let json = &case.json;

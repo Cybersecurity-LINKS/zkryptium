@@ -47,7 +47,6 @@ use crate::{
     },
 };
 use bls12_381_plus::{G1Projective, Scalar, group::Curve};
-use elliptic_curve::hash2curve::ExpandMsg;
 use crate::bbsplus::commitment::{messages_to_scalar, Message};
 
 impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
@@ -341,7 +340,6 @@ pub(super) fn finalize_blind_sign<CS>(
 ) -> Result<BBSplusSignature, Error>
 where
     CS: BbsCiphersuite,
-    CS::Expander: for<'a> ExpandMsg<'a>,
 {
 
     let api_id = api_id.unwrap_or(b"");
@@ -381,7 +379,6 @@ mod tests {
         },
     };
     use bls12_381_plus::Scalar;
-    use elliptic_curve::hash2curve::ExpandMsg;
 
     /// A blind signature test vector (`signature/signatureXXX.json`).
     struct SignCase {
@@ -418,7 +415,6 @@ mod tests {
         fn sign<S: Scheme>(&self, commitment_with_proof: Option<&[u8]>) -> Result<BlindSignature<BBSplus<S::Ciphersuite>>, crate::errors::Error>
         where
             S::Ciphersuite: BbsCiphersuite,
-            <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
         {
             BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(
                 &self.sk,
@@ -463,7 +459,6 @@ mod tests {
     fn blind_sign<S: Scheme>(pathname: &str, filename: &str)
     where
         S::Ciphersuite: BbsCiphersuite,
-        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
         let case = SignCase::load(&[pathname, filename].concat());
 
@@ -490,7 +485,6 @@ mod tests {
     fn check_rejects_malformed_commitment<S: Scheme>(dir: &str)
     where
         S::Ciphersuite: BbsCiphersuite,
-        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
         // Multiple blind and signer messages, with a commitment.
         let case = SignCase::load(&[dir, "signature004.json"].concat());
@@ -537,7 +531,6 @@ mod tests {
     fn check_verify_rejects_wrong_inputs<S: Scheme>(dir: &str)
     where
         S::Ciphersuite: BbsCiphersuite,
-        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
         let case = SignCase::load(&[dir, "signature004.json"].concat());
         let signature = case.signature::<S>();

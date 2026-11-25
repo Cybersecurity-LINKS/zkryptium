@@ -13,10 +13,15 @@
 // limitations under the License.
 
 use crate::schemes::algorithms::Ciphersuite;
-use elliptic_curve::hash2curve::{ExpandMsg, ExpandMsgXmd, ExpandMsgXof};
+use elliptic_curve::consts::U16;
+use hash2curve::{ExpandMsg, ExpandMsgXmd, ExpandMsgXof};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
-use sha3::Shake256;
+use shake::Shake256;
+
+/// Security level `k` (in bytes) passed to `expand_message`: 128 bits, as for the
+/// BLS12-381 G1 hash-to-curve suites of RFC 9380.
+pub type SecurityLevel = U16;
 
 /// A trait representing the BBS ciphersuite.
 pub trait BbsCiphersuite: Eq + 'static + Ciphersuite {
@@ -55,7 +60,7 @@ pub trait BbsCiphersuite: Eq + 'static + Ciphersuite {
     /// The domain separation tag for the generator signature.
     const GENERATOR_SIG_DST: &'static [u8];
     /// The expander used for hashing to the curve.
-    type Expander: for<'a> ExpandMsg<'a>;
+    type Expander: ExpandMsg<SecurityLevel>;
     /// The length of the expander output.
     const EXPAND_LEN: usize = 48;
     /// The length of the octet scalar.

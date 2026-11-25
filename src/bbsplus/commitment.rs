@@ -25,7 +25,6 @@ use crate::{
 };
 use bls12_381_plus::group::Curve;
 use bls12_381_plus::{G1Projective, Scalar};
-use elliptic_curve::hash2curve::ExpandMsg;
 use serde::{Deserialize, Serialize};
 use crate::errors::Error::InvalidMessageFlag;
 #[cfg(not(test))]
@@ -97,10 +96,7 @@ impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
     /// # Output:
     /// ([`Commitment::BBSplus`], [`BlindFactor`]), a tuple (**`commitment_with_proof`**, **`secret_prover_blind`**) or [`Error`].
     ///
-    pub fn commit(committed_messages: Option<&[Message]>) -> Result<(Self, BlindFactor), Error>
-    where
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
+    pub fn commit(committed_messages: Option<&[Message]>) -> Result<(Self, BlindFactor), Error> {
         let (commitment_with_proof, secret) =
             commit::<CS>(committed_messages, Some(CS::API_ID_BLIND))?;
         Ok((Self::BBSplus(commitment_with_proof), secret))
@@ -292,7 +288,6 @@ fn commit<CS>(
 ) -> Result<(BBSplusCommitment, BlindFactor), Error>
 where
     CS: BbsCiphersuite,
-    CS::Expander: for<'a> ExpandMsg<'a>,
 {
     let committed_messages = committed_messages.unwrap_or(&[]);
 
@@ -334,7 +329,6 @@ pub(super) fn core_commit<CS>(
 ) -> Result<(BBSplusCommitment, BlindFactor), Error> 
 where
     CS: BbsCiphersuite,
-    CS::Expander: for<'a> ExpandMsg<'a>,
     {
 
     let committed_messages_scalars = committed_message_scalars
@@ -452,7 +446,6 @@ pub(super) fn messages_to_scalar<CS: BbsCiphersuite>(
 ) -> Result<(), Error>
 where
     CS: BbsCiphersuite,
-    CS::Expander: for<'a> ExpandMsg<'a>,
 {
     let api_id = api_id.unwrap_or(b"");
     let M = commitment_proof.m_cap.len();
@@ -484,7 +477,6 @@ where
 mod tests {
     use std::fs;
 
-    use elliptic_curve::hash2curve::ExpandMsg;
     use serde_json::Value;
     use crate::{
         bbsplus::{ciphersuites::BbsCiphersuite, generators::Generators,
@@ -583,7 +575,6 @@ mod tests {
     fn validate_with_generators<S: Scheme>(commitment_with_proof: &[u8], count: usize) -> Result<(), Error>
     where
         S::Ciphersuite: BbsCiphersuite,
-        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
         let api_id = <S::Ciphersuite as BbsCiphersuite>::API_ID_BLIND;
         let blind_generators =
@@ -599,7 +590,6 @@ mod tests {
     fn check_generators_count<S: Scheme>(dir: &str)
     where
         S::Ciphersuite: BbsCiphersuite,
-        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
         for c in valid_fixture_bytes(dir, "commitmentWithProof") {
             // M + 1 blind generators, with M = number of m^ in the proof.
@@ -647,7 +637,6 @@ mod tests {
     fn check_rejects_tampered_commitment<S: Scheme>(dir: &str)
     where
         S::Ciphersuite: BbsCiphersuite,
-        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
         for c in valid_fixture_bytes(dir, "commitmentWithProof") {
             let generators_count = (c.len() - 48) / 32 - 1;
@@ -722,7 +711,6 @@ mod tests {
     fn commit<S: Scheme>(pathname: &str, filename: &str)
     where
         S::Ciphersuite: BbsCiphersuite,
-        <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
     {
         let data = fs::read_to_string([pathname, filename].concat()).expect("Unable to read file");
         let proof_json: Value = serde_json::from_str(&data).expect("Unable to parse");
