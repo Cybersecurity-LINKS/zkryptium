@@ -153,8 +153,11 @@ impl<CS: CLCiphersuite> PoKSignature<CL03<CS>> {
         let max_x = Integer::from(2).pow(CS::lm) - 1;
         let CLSPoK = self.to_cl03_proof();
         // Input-shape checks: the proof comes from the Prover, it must not make us panic.
+        // Revealed messages outside [0, 2^lm) are rejected: from a signature on m_i the Prover
+        // can derive one on m_i + k*e (CL03-11).
         let U = unrevealed_message_indexes.len();
-        if CLSPoK.proofs_commited_mi.len() != U
+        if !messages.iter().all(|m| m.is_in_range::<CS>())
+            || CLSPoK.proofs_commited_mi.len() != U
             || CLSPoK.range_proofs_commited_mi.len() != U
             || commitment_pk.g_bases.is_empty()
             || unrevealed_message_indexes.iter().any(|&i| i >= commitment_pk.g_bases.len())
@@ -526,6 +529,95 @@ mod tests {
     #[test]
     fn spok_cl1024_sha256() {
         spok::<CL03_CL1024_SHA256>();
+    }
+
+    // CL03-11: from a signature (e, s, v) on m, (e, s, v * a_i^k) is a valid signature on
+    // m_i + k*e. Messages outside [0, 2^lm) must be rejected when verifying (T1), when
+    // verifying a SPoK that reveals them (T5) and when signing.
+    #[test]
+    fn shifted_messages_rejected_cl1024_sha256() {
+        use crate::{cl03::signature::CL03Signature, errors::Error, schemes::generics::Signature};
+        use rug::Integer;
+        type CS = <CL03_CL1024_SHA256 as Scheme>::Ciphersuite;
+
+        let messages: Vec<CL03Message> = ["01", "02", "03"]
+            .iter()
+            .map(|m| CL03Message::map_message_to_integer_as_hash::<CS>(&hex::decode(m).unwrap()))
+            .collect();
+        let keypair = KeyPair::<CL03<CS>>::generate();
+        let (pk, sk) = (keypair.public_key(), keypair.private_key());
+        let a_bases = Bases::generate(pk, messages.len());
+        let signature = Signature::<CL03<CS>>::sign_multiattr(pk, sk, &a_bases, &messages).unwrap();
+        let CL03Signature { e, s, v } = signature.cl03Signature().clone();
+        // (e, s, v * a_i^k) and the messages with m_i + k*e.
+        let shifted = |i: usize, k: i32| {
+            let ak = Integer::from(a_bases.0[i].pow_mod_ref(&Integer::from(k), &pk.N).unwrap());
+            let sig = CL03Signature { e: e.clone(), s: s.clone(), v: (v.clone() * ak) % &pk.N };
+            let mut msgs = messages.clone();
+            msgs[i] = CL03Message::new(messages[i].value.clone() + e.clone() * k);
+            (sig, msgs)
+        };
+
+        // T1: the shifted signature verifies algebraically, but the message is out of range.
+        for k in [1, -1, 5] {
+            let (sig, msgs) = shifted(0, k);
+            assert!(!msgs[0].is_in_range::<CS>());
+            let sig = Signature::<CL03<CS>>::CL03(sig);
+            assert!(!sig.verify_multiattr(pk, &a_bases, &msgs), "k = {k}");
+        }
+        let single_bases = Bases(vec![a_bases.0[0].clone()]);
+        let single = Signature::<CL03<CS>>::sign(pk, sk, &single_bases, &messages[0]).unwrap();
+        let CL03Signature { e: e1, s: s1, v: v1 } = single.cl03Signature().clone();
+        let forged = Signature::<CL03<CS>>::CL03(CL03Signature {
+            e: e1.clone(),
+            s: s1,
+            v: (v1 * &single_bases.0[0]) % &pk.N,
+        });
+        assert!(!forged.verify(pk, &single_bases, &CL03Message::new(messages[0].value.clone() + e1)));
+
+        // T5: SPoK revealing m1 + k*e, generated honestly from the shifted signature.
+        let unrevealed = [0usize];
+        let verifier_pk = CL03CommitmentPublicKey::generate::<CS>(Some(pk.N.clone()), Some(messages.len()));
+        for k in [-1, 1] {
+            let (sig, msgs) = shifted(1, k);
+            let spok = PoKSignature::<CL03<CS>>::proof_gen(&sig, &verifier_pk, pk, &a_bases, &msgs, &unrevealed);
+            let revealed = [msgs[1].clone(), msgs[2].clone()];
+            assert!(!spok.proof_verify(&verifier_pk, pk, &a_bases, &revealed, &unrevealed, msgs.len()), "k = {k}");
+        }
+
+        // Signing out-of-range messages is refused.
+        for bad in [Integer::from(-1), Integer::from(1) << CS::lm] {
+            let mut msgs = messages.clone();
+            msgs[0] = CL03Message::new(bad);
+            assert!(matches!(
+                Signature::<CL03<CS>>::sign_multiattr(pk, sk, &a_bases, &msgs),
+                Err(Error::SignatureGenerationError(_))
+            ));
+            assert!(Signature::<CL03<CS>>::sign(pk, sk, &a_bases, &msgs[0]).is_err());
+            let revealed = [msgs[0].clone()];
+            let commitment = Commitment::<CL03<CS>>::commit_with_pk(&messages, pk, &a_bases, Some(&[1, 2]));
+            let zkpok = ZKPoK::<CL03<CS>>::generate_proof(&messages, commitment.cl03Commitment(), None, pk, &a_bases, &[1, 2]);
+            assert!(matches!(
+                BlindSignature::<CL03<CS>>::blind_sign(
+                    pk,
+                    sk,
+                    &a_bases,
+                    &zkpok,
+                    commitment.cl03Commitment(),
+                    &[1, 2],
+                    CL03BlindSignInput {
+                        revealed: Some(CL03RevealedMessages { messages: &revealed, indexes: &[0] }),
+                        ..Default::default()
+                    },
+                ),
+                Err(Error::BlindSignError(_))
+            ));
+        }
+        // The largest valid message is still accepted.
+        let mut msgs = messages.clone();
+        msgs[0] = CL03Message::new((Integer::from(1) << CS::lm) - 1);
+        let sig = Signature::<CL03<CS>>::sign_multiattr(pk, sk, &a_bases, &msgs).unwrap();
+        assert!(sig.verify_multiattr(pk, &a_bases, &msgs));
     }
 
     // CL03-05..07: proofs, signatures and keys come from other parties. Malformed values found

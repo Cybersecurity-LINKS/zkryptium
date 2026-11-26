@@ -32,12 +32,23 @@ pub struct CL03Signature {
 }
 
 impl<CS: CLCiphersuite> Signature<CL03<CS>> {
+    /// Signs one message with the first base.
+    ///
+    /// # Errors
+    /// [`Error::SignatureGenerationError`] if the message is outside `[0, 2^lm)` (see
+    /// [`CL03Message::is_in_range`]) or `a_bases` is empty.
     pub fn sign(
         pk: &CL03PublicKey,
         sk: &CL03SecretKey,
         a_bases: &Bases,
         message: &CL03Message,
-    ) -> Self {
+    ) -> Result<Self, Error> {
+        if a_bases.0.is_empty() {
+            return Err(Error::SignatureGenerationError("no bases".to_owned()));
+        }
+        if !message.is_in_range::<CS>() {
+            return Err(Error::SignatureGenerationError("message outside [0, 2^lm)".to_owned()));
+        }
         let mut e = random_prime(CS::le);
         let phi_n = (&sk.p - Integer::from(1)) * (&sk.q - Integer::from(1));
 
@@ -57,15 +68,26 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
             .unwrap();
 
         let sig = CL03Signature { e, s, v };
-        Self::CL03(sig)
+        Ok(Self::CL03(sig))
     }
 
+    /// Signs `messages`, message `i` with base `i`.
+    ///
+    /// # Errors
+    /// [`Error::SignatureGenerationError`] if there are more messages than bases or a message
+    /// is outside `[0, 2^lm)` (see [`CL03Message::is_in_range`]).
     pub fn sign_multiattr(
         pk: &CL03PublicKey,
         sk: &CL03SecretKey,
         a_bases: &Bases,
         messages: &[CL03Message],
-    ) -> Self {
+    ) -> Result<Self, Error> {
+        if messages.len() > a_bases.0.len() {
+            return Err(Error::SignatureGenerationError("more messages than bases".to_owned()));
+        }
+        if !messages.iter().all(|m| m.is_in_range::<CS>()) {
+            return Err(Error::SignatureGenerationError("message outside [0, 2^lm)".to_owned()));
+        }
         let mut e = random_prime(CS::le);
         let phi_n = (&sk.p - Integer::from(1)) * (&sk.q - Integer::from(1));
 
@@ -87,15 +109,16 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
             .unwrap();
 
         let sig = CL03Signature { e, s, v };
-        Self::CL03(sig)
+        Ok(Self::CL03(sig))
     }
 
     //TODO: tenere solo verify_multiattr visto che funziona anche con un solo messaggio?
     pub fn verify(&self, pk: &CL03PublicKey, a_bases: &Bases, message: &CL03Message) -> bool {
         let sign = self.cl03Signature();
 
-        // Check e and v before using them: the signature may come from an untrusted party.
-        if !Self::valid_e_v(sign, pk) || a_bases.0.is_empty() {
+        // Check e, v and the message before using them: the signature may come from an
+        // untrusted party, and an out-of-range message makes forgeries verify (m + k*e).
+        if !Self::valid_e_v(sign, pk) || a_bases.0.is_empty() || !message.is_in_range::<CS>() {
             return false;
         }
 
@@ -126,7 +149,8 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
         a_bases: &Bases,
         messages: &[CL03Message],
     ) -> bool {
-        if messages.len() > a_bases.0.len() {
+        // Out-of-range messages make forgeries verify: (e, s, v * a_i^k) is valid on m_i + k*e.
+        if messages.len() > a_bases.0.len() || !messages.iter().all(|m| m.is_in_range::<CS>()) {
             return false;
         }
 
@@ -292,7 +316,8 @@ mod tests {
             cl03_keypair.private_key(),
             &a_bases,
             &message,
-        );
+        )
+        .unwrap();
 
         let valid = signature.verify(cl03_keypair.public_key(), &a_bases, &message);
 

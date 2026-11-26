@@ -67,6 +67,9 @@ fn extend_with_revealed<CS: CLCiphersuite>(
         if revealed.indexes.iter().any(|&i| i >= a_bases.0.len()) {
             return Err("revealed message index out of range of the bases".to_owned());
         }
+        if !revealed.messages.iter().all(|m| m.is_in_range::<CS>()) {
+            return Err("revealed message outside [0, 2^lm)".to_owned());
+        }
         extended_commitment.extend_commitment_with_pk(
             revealed.messages,
             pk,

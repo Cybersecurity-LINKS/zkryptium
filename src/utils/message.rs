@@ -236,6 +236,15 @@ pub mod cl03_message {
             self.value.clone()
         }
 
+        /// `true` if the value is in the CL03 message space `[0, 2^lm)`.
+        ///
+        /// Signing and verification reject messages outside it: from a signature `(e, s, v)` on
+        /// `m`, `(e, s, v * a^k)` is a valid signature on `m + k * e`, and only the range check
+        /// (with `e > 2^(lm+1)`) makes those values invalid messages.
+        pub fn is_in_range<C: CLCiphersuite>(&self) -> bool {
+            self.value >= 0 && self.value.significant_bits() <= C::lm
+        }
+
         /// Create a new `CL03Message` from the hash of byte array.
         pub fn map_message_to_integer_as_hash<C: CLCiphersuite>(data: &[u8]) -> Self
         where
