@@ -1014,6 +1014,13 @@ where
             "number of undisclosed messages mismatch".to_owned(),
         ));
     }
+    // draft-irtf-cfrg-bbs-blind-signatures-05 octets_to_proof: no C_j is Identity_G1 and no
+    // s^_j is zero. Repeated here for proofs that do not come from `from_bytes` (serde).
+    if proof.commitments.iter().any(|C| bool::from(C.is_identity()))
+        || proof.commitments_proof.contains(&Scalar::ZERO)
+    {
+        return Err(Error::InvalidProofOfKnowledgeSignature);
+    }
 
     let (Y_0, Y_1) = committed_disclosure_generators::<CS>(api_id);
     let cp = proof.bbs_proof.challenge;
@@ -1899,6 +1906,22 @@ pub(super) fn proof_verify_init<CS>(
 where
     CS: BbsCiphersuite,
 {
+    // draft-irtf-cfrg-bbs-signatures-15 §4.2.5.5 octets_to_proof step 7 and §4.2.5.6
+    // octets_to_pubkey step 4. `from_bytes` already enforces them, but a proof or a key can
+    // also come from serde (whose point decoding accepts the identity): repeat them here so
+    // every verification path (BBS, Blind BBS, pseudonyms) applies them. With
+    // Abar = Bbar = Identity_G1 the pairing check is trivially satisfied and the rest of the
+    // proof can be forged for any disclosed messages without a signature.
+    if bool::from(proof.Abar.is_identity())
+        || bool::from(proof.Bbar.is_identity())
+        || bool::from(proof.D.is_identity())
+    {
+        return Err(Error::InvalidProofOfKnowledgeSignature);
+    }
+    if bool::from(pk.0.is_identity()) {
+        return Err(Error::KeyDeserializationError);
+    }
+
     let U = proof.m_cap.len();
     let R = disclosed_indexes.len();
     if disclosed_messages.len() != R {
@@ -2112,6 +2135,139 @@ mod tests {
         assert!(matches!(verify(&[m0.clone(), m2.clone()], &[0]), Err(Error::PoKSVerificationError(_))));
         // Repeated index.
         assert!(matches!(verify(&[m0.clone(), m0], &[0, 0]), Err(Error::PoKSVerificationError(_))));
+    }
+
+    // Forgery with Abar = Bbar = Identity_G1: the pairing check becomes trivial and the
+    // Fiat-Shamir part is a Schnorr proof on D alone, which anyone can produce for any
+    // disclosed messages. Such a proof must be rejected however it is obtained (here via serde).
+    #[test]
+    fn proof_verify_rejects_identity_abar_bbar_forgery() {
+        use crate::bbsplus::proof::{proof_challenge_calculate, ProofInitRes};
+        use crate::utils::message::bbsplus_message::BBSplusMessage;
+        use crate::{bbsplus::generators::Generators, keys::pair::KeyPair,
+                    utils::util::bbsplus_utils::calculate_domain};
+        use crate::errors::Error;
+        use bls12_381_plus::{G1Projective, Scalar};
+        use ff::Field;
+        type S = BbsBls12381Sha256;
+        type CS = <S as Scheme>::Ciphersuite;
+
+        // Honest issuer key: the forger never sees sk nor any signature.
+        let keypair = KeyPair::<S>::generate(&[9u8; 32], None, None).unwrap();
+        let pk = keypair.public_key();
+        let L = 3;
+        let disclosed_indexes = vec![0usize, 2];
+        let disclosed_messages: Vec<Vec<u8>> = vec![b"admin".to_vec(), b"forged".to_vec()];
+        let msg_scalars =
+            BBSplusMessage::messages_to_scalar::<CS>(&disclosed_messages, CS::API_ID).unwrap();
+
+        let generators = Generators::create::<CS>(L + 1, Some(CS::API_ID));
+        let domain = calculate_domain::<CS>(pk, &generators, None, Some(CS::API_ID)).unwrap();
+        let mut Bv = generators.g1_base_point + generators.values[0] * domain;
+        for (i, m) in disclosed_indexes.iter().zip(&msg_scalars) {
+            Bv += generators.values[i + 1] * m.value;
+        }
+
+        let mut rng = rand::rng();
+        let (delta, alpha, tau, gamma) = (
+            Scalar::random(&mut rng), Scalar::random(&mut rng), Scalar::random(&mut rng),
+            Scalar::random(&mut rng),
+        );
+        let D = Bv * delta;
+        let T1 = D * alpha;
+        let T2 = Bv * tau + generators.values[2] * gamma; // undisclosed index 1
+        let init_res = ProofInitRes {
+            Abar: G1Projective::IDENTITY,
+            Bbar: G1Projective::IDENTITY,
+            D,
+            T1,
+            T2,
+            domain,
+            L,
+            disclosed_indexes: disclosed_indexes.clone(),
+            disclosed_messages: msg_scalars,
+            undisclosed_messages: None,
+            e: None,
+            random_scalars: None,
+        };
+        let c = proof_challenge_calculate::<CS>(&init_res, None, Some(CS::API_ID)).unwrap();
+        let forged = BBSplusPoKSignature {
+            Abar: G1Projective::IDENTITY,
+            Bbar: G1Projective::IDENTITY,
+            D,
+            e_cap: Scalar::random(&mut rng),
+            r1_cap: alpha,
+            r3_cap: (tau - c) * delta.invert().unwrap(),
+            m_cap: vec![gamma],
+            challenge: c,
+        };
+
+        // The byte parser rejects it (identity check of octets_to_proof)...
+        assert!(BBSplusPoKSignature::from_bytes(&forged.to_bytes()).is_err());
+        // ...but serde decoding accepts the identity, so verification must reject it.
+        let json = serde_json::to_string(&PoKSignature::<S>::BBSplus(forged)).unwrap();
+        let proof = serde_json::from_str::<PoKSignature<S>>(&json).unwrap();
+        let res = proof.proof_verify(
+            pk, Some(&disclosed_messages), Some(&disclosed_indexes), None, None,
+        );
+        assert!(matches!(res, Err(Error::InvalidProofOfKnowledgeSignature)), "{res:?}");
+    }
+
+    // Identity public key or signature point decoded via serde must be rejected by the
+    // verification, as octets_to_pubkey / octets_to_signature do.
+    #[test]
+    fn verify_rejects_identity_pk_and_signature_from_serde() {
+        use crate::{bbsplus::keys::BBSplusPublicKey, keys::pair::KeyPair};
+        use bls12_381_plus::G2Projective;
+        type S = BbsBls12381Sha256;
+
+        let keypair = KeyPair::<S>::generate(&[11u8; 32], None, None).unwrap();
+        let (sk, pk) = (keypair.private_key(), keypair.public_key());
+        let messages: Vec<Vec<u8>> = vec![b"m0".to_vec(), b"m1".to_vec()];
+        let signature = Signature::<S>::sign(Some(&messages), sk, pk, None).unwrap();
+        let proof = PoKSignature::<S>::proof_gen(
+            pk, &signature.to_bytes(), None, None, Some(&messages), Some(&[0]),
+        ).unwrap();
+
+        let identity_pk: BBSplusPublicKey = serde_json::from_str(
+            &serde_json::to_string(&BBSplusPublicKey(G2Projective::IDENTITY)).unwrap(),
+        ).unwrap();
+        assert!(matches!(
+            signature.verify(&identity_pk, Some(&messages), None),
+            Err(Error::KeyDeserializationError)
+        ));
+        assert!(matches!(
+            proof.proof_verify(&identity_pk, Some(&messages[..1]), Some(&[0]), None, None),
+            Err(Error::KeyDeserializationError)
+        ));
+
+        let mut json: serde_json::Value = serde_json::to_value(&signature).unwrap();
+        json["BBSplus"]["A"] = serde_json::to_value(G1Projective::IDENTITY).unwrap();
+        let identity_sig: Signature<S> = serde_json::from_value(json).unwrap();
+        assert!(matches!(
+            identity_sig.verify(pk, Some(&messages), None),
+            Err(Error::InvalidSignature)
+        ));
+    }
+
+    // The `_Unreachable` variant of the generic enums must not be decodable: the accessors
+    // (`to_bbsplus_proof`, ...) panic on it, so `{"_Unreachable":null}` made any verification
+    // panic (found by the `serde` fuzz target).
+    #[test]
+    fn unreachable_variant_is_not_deserializable() {
+        use crate::schemes::generics::ZKPoK;
+        type S = BbsBls12381Sha256;
+        let json = r#"{"_Unreachable":null}"#;
+        assert!(serde_json::from_str::<PoKSignature<S>>(json).is_err());
+        assert!(serde_json::from_str::<Signature<S>>(json).is_err());
+        assert!(serde_json::from_str::<ZKPoK<S>>(json).is_err());
+        #[cfg(feature = "bbsplus_blind")]
+        {
+            use crate::schemes::generics::{BlindPoKSignature, BlindSignature, Commitment};
+            assert!(serde_json::from_str::<BlindPoKSignature<S>>(json).is_err());
+            assert!(serde_json::from_str::<BlindSignature<S>>(json).is_err());
+            assert!(serde_json::from_str::<Commitment<S>>(json).is_err());
+        }
     }
 
     //mocked_rng - SHA256 - UPDATED

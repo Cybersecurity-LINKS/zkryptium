@@ -346,6 +346,16 @@ pub(super) fn core_verify<CS>(
 where
     CS: BbsCiphersuite,
 {
+    // draft-irtf-cfrg-bbs-signatures-15 §4.2.5.3 octets_to_signature step 6 and §4.2.5.6
+    // octets_to_pubkey step 4, repeated here because serde decoding accepts the identity.
+    // Under W = Identity_G2 anyone can compute a valid signature (A = B * e^-1).
+    if bool::from(signature.A.is_identity()) {
+        return Err(Error::InvalidSignature);
+    }
+    if bool::from(pk.0.is_identity()) {
+        return Err(Error::KeyDeserializationError);
+    }
+
     let L = messages.len();
 
     if generators.values.len() != L + 1 {

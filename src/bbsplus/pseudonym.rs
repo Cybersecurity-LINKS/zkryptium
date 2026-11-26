@@ -984,7 +984,8 @@ where
 
     // Deserialization (steps 1-7: pk and proof are already deserialized)
     // A pseudonym is a point of G1 different from the identity (§4.3, input of §8.2).
-    if bool::from(pseudonym.pseudonym.is_identity()) {
+    // Same checks as `BBSplusPseudonym::from_bytes` (§4.3), for pseudonyms decoded via serde.
+    if bool::from(pseudonym.pseudonym.is_identity()) || pseudonym.pseudonym == G1Projective::GENERATOR {
         return Err(Error::InvalidPseudonym);
     }
     // 8-10.
