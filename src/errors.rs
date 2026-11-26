@@ -32,7 +32,7 @@ pub enum Error {
     ///Not a valid Signature
     #[error("Not a valid Signature")]
     InvalidSignature,
-    ///Error during hash to scalar computation
+    ///Error during hash-to-scalar computation
     #[error("Error during hash to scalar computation")]
     HashToScalarError,
     ///Error mapping a message to scalar
@@ -41,7 +41,7 @@ pub enum Error {
     ///Not enough Generators
     #[error("Not enough Generators")]
     NotEnoughGenerators,
-    /// [More Info](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-coresign) in the `Note` at the end
+    /// [More Info](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15#name-coresign) in the `Note` at the end
     #[error("Error, B value is Identity_G1")]
     G1IdentityError,
     ///Error during deserialization
@@ -65,7 +65,7 @@ pub enum Error {
     ///Invalid Proof of Knowledge of a Signature
     #[error("Invalid Proof of Knowledge of a Signature")]
     InvalidProofOfKnowledgeSignature,
-    ///Proof of Knowledge of a Signature verification failed
+    ///Proof of Knowledge of Signature verification failed
     #[error("Proof of Knowledge of a Signature verification failed")]
     PoKSVerificationError(String),
     ///UnespectedError This should NOT happen!
@@ -83,7 +83,16 @@ pub enum Error {
     ///Invalid number of Generators
     #[error("Invalid number of Generators")]
     InvalidNumberOfGenerators,
+    ///Invalid number of Blind Generators
+    #[error("Invalid number of Blind Generators")]
+    InvalidNumberOfBlindGenerators,
     ///Invalid pseudonym
     #[error("Invalid pseudonym")]
     InvalidPseudonym,
+    ///Invalid message flag
+    #[error("Invalid message flag, should be HASH or RAW")]
+    InvalidMessageFlag,
+    ///Invalid length of the nym secrets vector
+    #[error("Invalid length of the nym secrets vector")]
+    InvalidNymSecretsLength,
 }

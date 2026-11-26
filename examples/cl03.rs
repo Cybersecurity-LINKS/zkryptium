@@ -16,7 +16,12 @@
 mod cl03_example {
     use digest::Digest;
     use zkryptium::{
-        cl03::{bases::Bases, ciphersuites::CLCiphersuite, keys::CL03CommitmentPublicKey},
+        cl03::{
+            bases::Bases,
+            blind::{CL03BlindSignInput, CL03RevealedMessages},
+            ciphersuites::CLCiphersuite,
+            keys::CL03CommitmentPublicKey,
+        },
         keys::pair::KeyPair,
         schemes::algorithms::{Ciphersuite, Scheme, CL03},
         schemes::generics::{BlindSignature, Commitment, PoKSignature, ZKPoK},
@@ -75,7 +80,6 @@ mod cl03_example {
             None,
             issuer_keypair.public_key(),
             &a_bases,
-            None,
             &unrevealed_message_indexes,
         );
 
@@ -85,13 +89,17 @@ mod cl03_example {
             issuer_keypair.private_key(),
             &a_bases,
             &zkpok,
-            Some(&revealed_messages),
             commitment.cl03Commitment(),
-            None,
-            None,
             &unrevealed_message_indexes,
-            Some(&revealed_message_indexes),
-        );
+            CL03BlindSignInput {
+                revealed: Some(CL03RevealedMessages {
+                    messages: &revealed_messages,
+                    indexes: &revealed_message_indexes,
+                }),
+                ..Default::default()
+            },
+        )
+        .expect("blind signature failed");
 
         log::info!("Signature unblinding and verification...");
         let unblinded_signature = blind_signature.unblind_sign(&commitment);
@@ -151,8 +159,8 @@ mod cl03_example {
 }
 
 #[cfg(feature = "cl03")]
-fn main() {
-    use std::env;
+fn main() -> std::process::ExitCode {
+    use std::{env, process::ExitCode};
     use zkryptium::schemes::algorithms::{CL03_CL1024_SHA256, CL03_CL2048_SHA256, CL03_CL3072_SHA256};
 
     dotenvy::dotenv().ok();
@@ -161,7 +169,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
 
     if args.len() != 2 {
-        println!(
+        eprintln!(
             "Usage: {} <cipher_suite>
                 Ciphersuites:
                     - CL1024-SHA-256
@@ -169,11 +177,13 @@ fn main() {
                     - CL3072-SHA-256",
             args[0]
         );
-        return;
+        return ExitCode::FAILURE;
     }
 
     let cipher_suite = &args[1];
 
+    // CL03 verification results are booleans checked with assert! and the few fallible calls
+    // use expect, so a failure inside cl03_main panics; here only usage errors need a non-zero status.
     match cipher_suite.as_str() {
         "CL1024-SHA-256" => {
             println!("\n");
@@ -191,10 +201,12 @@ fn main() {
             cl03_example::cl03_main::<CL03_CL3072_SHA256>();
         }
         _ => {
-            println!("Unknown cipher suite: {}", cipher_suite);
-            // Handle other cipher suites or raise an error if necessary
+            eprintln!("Unknown cipher suite: {}", cipher_suite);
+            return ExitCode::FAILURE;
         }
     }
+
+    ExitCode::SUCCESS
 }
 
 #[cfg(not(feature = "cl03"))]

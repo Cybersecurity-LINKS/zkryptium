@@ -12,9 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Clippy compares the real variant with the zero-sized `_Unreachable` marker, or
+// BBS+ with CL03 when both features are on. Boxing would add an allocation to every
+// value and change the public enum for no benefit.
+#![allow(clippy::large_enum_variant)]
+
 use super::algorithms::Scheme;
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
+use std::{convert::Infallible, marker::PhantomData};
 
 #[cfg(feature = "cl03")]
 use crate::cl03::{
@@ -31,7 +36,7 @@ use crate::bbsplus::{
 };
 
 #[cfg(feature = "bbsplus_blind")]
-use crate::bbsplus::commitment::BBSplusCommitment;
+use crate::bbsplus::{commitment::BBSplusCommitment, proof::BBSplusBlindPoKSignature};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 /// An enum representing a blind signature scheme.
@@ -42,8 +47,11 @@ pub enum BlindSignature<S: Scheme> {
     #[cfg(feature = "cl03")]
     /// CL03 signature variant
     CL03(CL03BlindSignature),
-    /// Unreachable variant to satisfy the type system
-    _Unreachable(std::marker::PhantomData<S>),
+    /// Carries the scheme type parameter. It cannot be constructed (`Infallible`) and is never
+    /// (de)serialized: decoding it from untrusted input would reach the `panic!` in the accessors.
+    #[doc(hidden)]
+    #[serde(skip)]
+    _Unreachable(PhantomData<S>, Infallible),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -55,8 +63,11 @@ pub enum Commitment<S: Scheme> {
     #[cfg(feature = "cl03")]
     /// CL03 commitment variant
     CL03(CL03Commitment),
-    /// Unreachable variant to satisfy the type system
-    _Unreachable(std::marker::PhantomData<S>),
+    /// Carries the scheme type parameter. It cannot be constructed (`Infallible`) and is never
+    /// (de)serialized: decoding it from untrusted input would reach the `panic!` in the accessors.
+    #[doc(hidden)]
+    #[serde(skip)]
+    _Unreachable(PhantomData<S>, Infallible),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -68,8 +79,25 @@ pub enum PoKSignature<S: Scheme> {
     #[cfg(feature = "cl03")]
     /// CL03 proof of knowledge signature variant
     CL03(CL03PoKSignature),
-    /// Unreachable variant to satisfy the type system
-    _Unreachable(PhantomData<S>),
+    /// Carries the scheme type parameter. It cannot be constructed (`Infallible`) and is never
+    /// (de)serialized: decoding it from untrusted input would reach the `panic!` in the accessors.
+    #[doc(hidden)]
+    #[serde(skip)]
+    _Unreachable(PhantomData<S>, Infallible),
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+/// An enum representing a proof of knowledge of a blind signature, with optional
+/// committed disclosure of undisclosed messages.
+pub enum BlindPoKSignature<S: Scheme> {
+    #[cfg(feature = "bbsplus_blind")]
+    /// BBS+ blind proof of knowledge signature variant
+    BBSplus(BBSplusBlindPoKSignature),
+    /// Carries the scheme type parameter. It cannot be constructed (`Infallible`) and is never
+    /// (de)serialized: decoding it from untrusted input would reach the `panic!` in the accessors.
+    #[doc(hidden)]
+    #[serde(skip)]
+    _Unreachable(PhantomData<S>, Infallible),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -81,8 +109,11 @@ pub enum ZKPoK<S: Scheme> {
     ///CL03 zero-knowledge proof of knowledge variant
     #[cfg(feature = "cl03")]
     CL03(CL03ZKPoK),
-    /// Unreachable variant to satisfy the type system
-    _Unreachable(PhantomData<S>),
+    /// Carries the scheme type parameter. It cannot be constructed (`Infallible`) and is never
+    /// (de)serialized: decoding it from untrusted input would reach the `panic!` in the accessors.
+    #[doc(hidden)]
+    #[serde(skip)]
+    _Unreachable(PhantomData<S>, Infallible),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -94,6 +125,9 @@ pub enum Signature<S: Scheme> {
     #[cfg(feature = "cl03")]
     /// CL03 signature variant
     CL03(CL03Signature),
-    /// Unreachable variant to satisfy the type system
-    _Unreachable(PhantomData<S>),
+    /// Carries the scheme type parameter. It cannot be constructed (`Infallible`) and is never
+    /// (de)serialized: decoding it from untrusted input would reach the `panic!` in the accessors.
+    #[doc(hidden)]
+    #[serde(skip)]
+    _Unreachable(PhantomData<S>, Infallible),
 }

@@ -20,7 +20,6 @@ pub mod bbsplus_message {
     use crate::errors::Error;
     use crate::utils::util::bbsplus_utils::hash_to_scalar;
     use bls12_381_plus::Scalar;
-    use elliptic_curve::hash2curve::ExpandMsg;
     use serde::{Deserialize, Serialize};
 
     #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -36,7 +35,7 @@ pub mod bbsplus_message {
             Self { value: msg }
         }
 
-        /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-messages-to-scalars>
+        /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15#name-messages-to-scalars>
         ///
         /// # Description
         /// The messages_to_scalars operation is used to map a list of messages to their respective scalar values
@@ -51,10 +50,7 @@ pub mod bbsplus_message {
         pub fn messages_to_scalar<CS: BbsCiphersuite>(
             messages: &[Vec<u8>],
             api_id: &[u8],
-        ) -> Result<Vec<Self>, Error>
-        where
-            CS::Expander: for<'a> ExpandMsg<'a>,
-        {
+        ) -> Result<Vec<Self>, Error> {
             let map_dst = [api_id, CS::MAP_MSG_SCALAR].concat();
             let mut msg_scalars: Vec<Self> = Vec::new();
             for m in messages {
@@ -79,10 +75,7 @@ pub mod bbsplus_message {
         pub fn map_message_to_scalar_as_hash<CS: BbsCiphersuite>(
             data: &[u8],
             api_id: &[u8],
-        ) -> Result<Self, Error>
-        where
-            CS::Expander: for<'a> ExpandMsg<'a>,
-        {
+        ) -> Result<Self, Error> {
             let map_dst = [api_id, CS::MAP_MSG_SCALAR].concat();
             let scalar = hash_to_scalar::<CS>(data, &map_dst)?;
 
@@ -109,114 +102,7 @@ pub mod bbsplus_message {
     }
 
     #[cfg(test)]
-    mod tests {
-
-        use crate::bbsplus::ciphersuites::BbsCiphersuite;
-        use crate::schemes::algorithms::Scheme;
-        use crate::schemes::algorithms::{BbsBls12381Sha256, BbsBls12381Shake256};
-        use crate::utils::message::bbsplus_message::BBSplusMessage;
-        use elliptic_curve::hash2curve::ExpandMsg;
-        use std::fs;
-
-        //MAP MESSAGE TO SCALAR - SHA256
-
-        #[test]
-        fn map_message_to_scalar_as_hash_sha256() {
-            map_message_to_scalar_as_hash::<BbsBls12381Sha256>(
-                "./fixture_data/fixture_data/bls12-381-sha-256/MapMessageToScalarAsHash.json",
-            );
-        }
-
-        //MESSAGES TO SCALAR - SHAKE256
-
-        #[test]
-        fn map_message_to_scalar_as_hash_shake256() {
-            map_message_to_scalar_as_hash::<BbsBls12381Shake256>(
-                "./fixture_data/fixture_data/bls12-381-shake-256/MapMessageToScalarAsHash.json",
-            );
-        }
-
-        #[test]
-        fn messages_to_scalars_sha256() {
-            messages_to_scalars::<BbsBls12381Sha256>(
-                "./fixture_data/fixture_data/bls12-381-sha-256/MapMessageToScalarAsHash.json",
-            );
-        }
-
-        //MESSAGES TO SCALAR - SHAKE256
-
-        #[test]
-        fn messages_to_scalars_shake256() {
-            messages_to_scalars::<BbsBls12381Shake256>(
-                "./fixture_data/fixture_data/bls12-381-shake-256/MapMessageToScalarAsHash.json",
-            );
-        }
-
-        fn map_message_to_scalar_as_hash<S: Scheme>(filename: &str)
-        where
-            S::Ciphersuite: BbsCiphersuite,
-            <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
-        {
-            let data = fs::read_to_string(filename).expect("Unable to read file");
-            let json: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
-            eprintln!("{}", json["caseName"]);
-            let cases = json["cases"].as_array().unwrap();
-
-            let mut boolean = true;
-            for c in cases {
-                let msg = &c["message"];
-
-                let msg_hex = hex::decode(msg.as_str().unwrap()).unwrap();
-
-                let out = hex::encode(
-                    BBSplusMessage::map_message_to_scalar_as_hash::<S::Ciphersuite>(
-                        &msg_hex,
-                        <S::Ciphersuite as BbsCiphersuite>::API_ID,
-                    )
-                    .unwrap()
-                    .to_bytes_be(),
-                );
-                let out_expected = c["scalar"].as_str().unwrap();
-
-                if out != out_expected {
-                    boolean = false;
-                };
-            }
-
-            assert_eq!(boolean, true);
-        }
-
-        fn messages_to_scalars<S: Scheme>(filename: &str)
-        where
-            S::Ciphersuite: BbsCiphersuite,
-            <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
-        {
-            let data = fs::read_to_string(filename).expect("Unable to read file");
-            let json: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
-            eprintln!("{}", json["caseName"]);
-            let mut messages = Vec::new();
-            let mut scalars = Vec::new();
-            json["cases"].as_array().unwrap().iter().for_each(|v| {
-                let msg = v["message"].as_str().unwrap();
-                messages.push(hex::decode(msg).unwrap());
-                let s = v["scalar"].as_str().unwrap();
-                scalars.push(s.to_string());
-            });
-
-            let message_scalars = BBSplusMessage::messages_to_scalar::<S::Ciphersuite>(
-                &messages,
-                <S::Ciphersuite as BbsCiphersuite>::API_ID,
-            )
-            .unwrap();
-
-            let message_scalars_hex: Vec<String> = message_scalars
-                .iter()
-                .map(|s| hex::encode(s.to_bytes_be()))
-                .collect();
-
-            assert_eq!(scalars, message_scalars_hex);
-        }
-    }
+    mod tests;
 }
 
 #[cfg(feature = "cl03")]
@@ -244,6 +130,15 @@ pub mod cl03_message {
         ///Gets the integer value of the CL03 message.
         pub fn get_value(&self) -> Integer {
             self.value.clone()
+        }
+
+        /// `true` if the value is in the CL03 message space `[0, 2^lm)`.
+        ///
+        /// Signing and verification reject messages outside it: from a signature `(e, s, v)` on
+        /// `m`, `(e, s, v * a^k)` is a valid signature on `m + k * e`, and only the range check
+        /// (with `e > 2^(lm+1)`) makes those values invalid messages.
+        pub fn is_in_range<C: CLCiphersuite>(&self) -> bool {
+            self.value >= 0 && self.value.significant_bits() <= C::lm
         }
 
         /// Create a new `CL03Message` from the hash of byte array.

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The [BBS (Boneh-Boyen-Shacham) Signature Scheme](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14)
+//! The [BBS (Boneh-Boyen-Shacham) Signature Scheme](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15)
 //! is a cryptographic protocol optimized for efficient, privacy-preserving, multi-message signatures. 
 //! The scheme is based on pairing-based cryptography, allowing a user to compactly sign multiple messages, with the possibility of
 //! verifying each individual message in a set without revealing the actual content. This makes BBS signatures well-suited for privacy-sensitive
@@ -30,7 +30,7 @@
 //! # Usage
 //! To use the BBS Signature Scheme, enable the `bbsplus` feature in the `Cargo.toml` file
 //! ```toml
-//! zkryptium = { version = "0.8", default-features = false, features = ["bbsplus"] }
+//! zkryptium = { version = "0.9.0", default-features = false, features = ["bbsplus"] }
 //! ```    
 
 
@@ -54,29 +54,5 @@ pub mod signature;
 #[cfg(feature = "bbsplus_nym")]
 /// Module for Pseudonyms
 pub mod pseudonym;
-/// Test helper: decodes the hex value under `key` from every fixture in `dir`
-/// whose `result.valid` is `true`.
 #[cfg(test)]
-pub(crate) fn valid_fixture_bytes(dir: &str, key: &str) -> Vec<Vec<u8>> {
-    let mut paths: Vec<_> = std::fs::read_dir(dir)
-        .expect("Unable to read fixture directory")
-        .map(|e| e.expect("Unable to read fixture entry").path())
-        .collect();
-    paths.sort();
-
-    let values: Vec<Vec<u8>> = paths
-        .iter()
-        .filter_map(|path| {
-            let data = std::fs::read_to_string(path).expect("Unable to read file");
-            let json: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
-            if json["result"]["valid"].as_bool() == Some(true) {
-                Some(hex::decode(json[key].as_str().expect("Missing fixture key")).unwrap())
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    assert!(!values.is_empty(), "no valid fixtures found in {dir}");
-    values
-}
+pub(crate) mod test_utils;

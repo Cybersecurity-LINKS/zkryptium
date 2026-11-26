@@ -63,12 +63,9 @@ impl<CS: CLCiphersuite> Commitment<CL03<CS>> {
             let ai = a_bases
                 .0
                 .get(i)
-                .and_then(|a| {
-                    return Some(a);
-                })
                 .expect("Invalid unrevealed message index!");
             let mi = &messages[i];
-            Cx = Cx * Integer::from(ai.pow_mod_ref(&mi.get_value(), &pk.N).unwrap());
+            Cx *= Integer::from(ai.pow_mod_ref(&mi.get_value(), &pk.N).unwrap());
         }
 
         Cx = (Cx * Integer::from(pk.b.pow_mod_ref(&r, &pk.N).unwrap())) % &pk.N;
@@ -96,12 +93,9 @@ impl<CS: CLCiphersuite> Commitment<CL03<CS>> {
             let ai = commitment_pk
                 .g_bases
                 .get(i)
-                .and_then(|a| {
-                    return Some(a);
-                })
                 .expect("Invalid unrevealed message index!");
             let mi = &messages[i];
-            Cx = Cx * Integer::from(ai.pow_mod_ref(&mi.get_value(), &commitment_pk.N).unwrap());
+            Cx *= Integer::from(ai.pow_mod_ref(&mi.get_value(), &commitment_pk.N).unwrap());
         }
 
         Cx = (Cx * Integer::from(commitment_pk.h.pow_mod_ref(&r, &commitment_pk.N).unwrap()))
@@ -132,20 +126,15 @@ impl<CS: CLCiphersuite> Commitment<CL03<CS>> {
 
         let extended_Cx = self.cl03Commitment_mut();
         let mut extended_Cx_value = extended_Cx.value.clone();
-        let mut index = 0usize;
-        for i in revealed_message_indexes {
+        for (index, i) in revealed_message_indexes.into_iter().enumerate() {
             let ai = a_bases
                 .0
                 .get(i)
-                .and_then(|a| {
-                    return Some(a);
-                })
                 .expect("Invalid revealed message index!");
             let mi = &revealed_messages.get(index).expect("Index overflow");
             extended_Cx_value = (extended_Cx_value
                 * Integer::from(ai.pow_mod_ref(&mi.get_value(), &pk.N).unwrap()))
                 % &pk.N;
-            index += 1;
         }
 
         extended_Cx.value = extended_Cx_value;
@@ -170,9 +159,6 @@ impl<CS: CLCiphersuite> Commitment<CL03<CS>> {
             let ai = commitment_pk
                 .g_bases
                 .get(i)
-                .and_then(|a| {
-                    return Some(a);
-                })
                 .expect("Invalid revealed message index!");
             let mi = &messages[i];
             extended_Cx_value = (extended_Cx_value

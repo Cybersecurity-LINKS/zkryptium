@@ -14,6 +14,7 @@
 
 use crate::{
     cl03::ciphersuites::CLCiphersuite,
+    errors::Error,
     keys::{
         pair::KeyPair,
         traits::{PrivateKey, PublicKey},
@@ -39,7 +40,7 @@ impl CL03PublicKey {
         Self { N, b, c }
     }
 
-    pub fn to_bytes<S: Scheme>(&self) -> Vec<u8>
+    pub fn to_bytes<S>(&self) -> Vec<u8>
     where
         S: Scheme,
         S::Ciphersuite: CLCiphersuite,
@@ -58,7 +59,12 @@ impl CL03PublicKey {
         bytes
     }
 
-    pub fn from_bytes<S: Scheme>(bytes: &[u8]) -> Self
+    /// Parses the output of [`Self::to_bytes`].
+    ///
+    /// # Errors
+    /// [`Error::KeyDeserializationError`] if `bytes` is shorter than `3 * ln` or its length is
+    /// not a multiple of `ln`.
+    pub fn from_bytes<S>(bytes: &[u8]) -> Result<Self, Error>
     where
         S: Scheme,
         S::Ciphersuite: CLCiphersuite,
@@ -67,22 +73,31 @@ impl CL03PublicKey {
         let N_len = <S as Scheme>::Ciphersuite::ln as usize;
 
         let len = bytes.len();
-        if len < 3 * N_len || (len - (3 * N_len)) % (N_len) != 0 {
-            panic!("Invalid number of bytes submitted!");
+        if len < 3 * N_len || !(len - (3 * N_len)).is_multiple_of(N_len) {
+            return Err(Error::KeyDeserializationError);
         }
 
         let N = Integer::from_digits(&bytes[0usize..N_len], Order::MsfBe);
         let b = Integer::from_digits(&bytes[N_len..2 * N_len], Order::MsfBe);
         let c = Integer::from_digits(&bytes[2 * N_len..3 * N_len], Order::MsfBe);
 
-        Self { N, b, c }
+        Ok(Self { N, b, c })
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+/// CL03 secret key: the factors `p`, `q` of the modulus. Its [`Debug`](std::fmt::Debug) output
+/// is redacted. The values live in GMP-managed memory, which `zeroize` cannot clear: they are
+/// not wiped on drop.
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CL03SecretKey {
     pub p: Integer,
     pub q: Integer,
+}
+
+impl std::fmt::Debug for CL03SecretKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("CL03SecretKey(<redacted>)")
+    }
 }
 
 impl CL03SecretKey {
@@ -107,16 +122,23 @@ impl CL03SecretKey {
         bytes
     }
 
-    pub fn from_bytes<S: Scheme>(bytes: &[u8]) -> Self
+    /// Parses the output of [`Self::to_bytes`].
+    ///
+    /// # Errors
+    /// [`Error::KeyDeserializationError`] if `bytes` is not exactly two values long.
+    pub fn from_bytes<S>(bytes: &[u8]) -> Result<Self, Error>
     where
         S: Scheme,
         S::Ciphersuite: CLCiphersuite,
     {
         let delta = (<S as Scheme>::Ciphersuite::SECPARAM as usize) / 8usize + 1usize;
+        if bytes.len() != 2 * delta {
+            return Err(Error::KeyDeserializationError);
+        }
         let p = Integer::from_digits(&bytes[0usize..delta], Order::MsfBe);
         let q = Integer::from_digits(&bytes[delta..(2 * delta)], Order::MsfBe);
 
-        Self { p, q }
+        Ok(Self { p, q })
     }
 }
 
@@ -218,10 +240,6 @@ impl CL03CommitmentPublicKey {
             let mut pprime;
             let mut p;
             loop {
-                // println!("{} INT", p);
-                // let digits = p.to_digits::<u8>(Order::MsfBe);
-                // let bignum = BigUint::from_bytes_be(&digits);
-                // println!("{} BIGNUM", bignum);
                 pprime = random_prime(n);
                 p = Integer::from(2) * pprime + Integer::from(1);
 
@@ -233,10 +251,6 @@ impl CL03CommitmentPublicKey {
             let mut qprime;
             let mut q;
             loop {
-                // println!("{} INT", p);
-                // let digits = p.to_digits::<u8>(Order::MsfBe);
-                // let bignum = BigUint::from_bytes_be(&digits);
-                // println!("{} BIGNUM", bignum);
                 qprime = random_prime(n);
                 q = Integer::from(2) * qprime + Integer::from(1);
                 if p != q && q.is_probably_prime(qreps) != IsPrime::No {
@@ -244,8 +258,8 @@ impl CL03CommitmentPublicKey {
                 }
             }
 
-            let N = p.clone() * q.clone();
-            N
+            
+            p.clone() * q.clone()
         });
 
         let h = random_qr(&N);
@@ -257,9 +271,7 @@ impl CL03CommitmentPublicKey {
             let mut g_i = Integer::from(h.pow_mod_ref(&f, &N).unwrap());
 
             loop {
-                if ((g_i > Integer::from(1))
-                    && (Integer::from(g_i.gcd_ref(&N)) == Integer::from(1)))
-                    == false
+                if !((g_i > 1) && (Integer::from(g_i.gcd_ref(&N)) == 1))
                 {
                     f = random_number(N.clone());
                     g_i = Integer::from(h.pow_mod_ref(&f, &N).unwrap());
@@ -271,9 +283,12 @@ impl CL03CommitmentPublicKey {
         }
 
         CL03CommitmentPublicKey {
-            N: N,
-            h: h,
-            g_bases: g_bases,
+            N,
+            h,
+            g_bases,
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

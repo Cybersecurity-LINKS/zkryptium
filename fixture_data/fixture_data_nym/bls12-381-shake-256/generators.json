@@ -28,5 +28,10 @@
       "9319ad949d6c5a368ed996732f0a665551604ee4a57cbadcbdd3f538ef2391f44ceef6f3509ead912cf64623da7e12ad",
       "b755da890d37cb97fc623b228dec163a6138489ff382292f608ac7adabe15856b74a5bed22364744d076b39cfda85faa"
     ]
+  },
+  "commitmentGenerators": {
+    "api_id": "COM_DIS_BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_H2G_HM2S_PSEUDONYM_",
+    "Y_0": "af34a46b0928a27f5bbb8211a46b58739db8ce458bdf6cc995b7a1289004e26f6dca1a3471e61ba437e9a435a859bae9",
+    "Y_1": "817926c21e70f7186ceffedecf9426fa211eab96a48ada9aeec6fbc47ecaf778de924731ff3af3f6336ad71ea2dafed7"
   }
 }

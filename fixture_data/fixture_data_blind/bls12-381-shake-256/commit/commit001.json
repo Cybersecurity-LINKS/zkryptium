@@ -1,5 +1,5 @@
 {
-  "caseName": "valid no committed messages commitment with proof",
+  "caseName": "Valid Zero Blind Messages Commitment with Proof",
   "mockRngParameters": {
     "SEED": "3.141592653589793238462643383279",
     "commit": {
@@ -7,7 +7,7 @@
       "count": 2
     }
   },
-  "committedMessages": [],
+  "blindMessages": [],
   "proverBlind": "30bd5c9bd2b61c44dd169c92cf28bb607830c56073f10e7a800c857cb05ec249",
   "commitmentWithProof": "b6389b0fdf04b9c35165acb11685e02193c53c3c1bb8ef3a9404dcee1727a365a3ac6ba7fc32654101cc72cc0ee7d32b23d2018bd6dc2f932c71d4401e763d4ed9999ee6c98837aa7dbe823050697dd744b05920ad0b6393e94f9b86e92d419406945f1e79d4be58dbaf9dc95237c951",
   "result": {

@@ -26,7 +26,7 @@ use crate::{
     },
 };
 use bls12_381_plus::{G2Affine, G2Projective, Scalar};
-use elliptic_curve::{group::Curve, hash2curve::ExpandMsg};
+use elliptic_curve::group::Curve;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -43,7 +43,7 @@ impl BBSplusPublicKey {
         let mut x = [0u8; G2Affine::UNCOMPRESSED_BYTES / 2];
         let mut y = [0u8; G2Affine::UNCOMPRESSED_BYTES / 2];
         let mid_index = G2Affine::UNCOMPRESSED_BYTES / 2;
-        let (first, second) = uncompressed.split_at(mid_index).try_into().unwrap();
+        let (first, second) = uncompressed.split_at(mid_index);
         x.copy_from_slice(first);
         y.copy_from_slice(second);
         (x, y)
@@ -76,7 +76,7 @@ impl BBSplusPublicKey {
     fn from_bytes_uncompressed(bytes: &[u8; G2Affine::UNCOMPRESSED_BYTES]) -> Result<Self, Error> {
         let g2 =
             parse_g2_projective_uncompressed(bytes).map_err(|_| Error::KeyDeserializationError)?;
-        // draft-irtf-cfrg-bbs-signatures-14 §4.2.5.6 octets_to_pubkey step 4:
+        // draft-irtf-cfrg-bbs-signatures-15 §4.2.5.6 octets_to_pubkey step 4:
         // if W == Identity_G2, return INVALID. The subgroup check already ran
         // inside parse_g2_projective_uncompressed, and identity passes it.
         if g2 == G2Projective::IDENTITY {
@@ -112,7 +112,7 @@ impl BBSplusPublicKey {
 
         let g2 = parse_g2_projective_compressed(&bytes[0..G2Affine::COMPRESSED_BYTES])
             .map_err(|_| Error::KeyDeserializationError)?;
-        // draft-irtf-cfrg-bbs-signatures-14 §4.2.5.6 octets_to_pubkey step 4:
+        // draft-irtf-cfrg-bbs-signatures-15 §4.2.5.6 octets_to_pubkey step 4:
         // if W == Identity_G2, return INVALID. The subgroup check already ran
         // inside parse_g2_projective_compressed, and identity passes it.
         if g2 == G2Projective::IDENTITY {
@@ -122,15 +122,39 @@ impl BBSplusPublicKey {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// Represents a BBS+ secret key.
+///
+/// Its [`Debug`](std::fmt::Debug) output is redacted and its memory is zeroized on drop.
 pub struct BBSplusSecretKey(pub Scalar);
+
+impl std::fmt::Debug for BBSplusSecretKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("BBSplusSecretKey(<redacted>)")
+    }
+}
+
+impl zeroize::Zeroize for BBSplusSecretKey {
+    fn zeroize(&mut self) {
+        self.0.zeroize();
+    }
+}
+
+/// Overwrites the secret with zero when the value is dropped (best effort: copies made
+/// before, e.g. by `Clone` or by moves, are not erased).
+impl Drop for BBSplusSecretKey {
+    fn drop(&mut self) {
+        zeroize::Zeroize::zeroize(self);
+    }
+}
+
+impl zeroize::ZeroizeOnDrop for BBSplusSecretKey {}
 
 impl BBSplusSecretKey {
     /// In Big Endian order
     pub fn to_bytes(&self) -> [u8; Scalar::BYTES] {
-        let bytes = self.0.to_be_bytes();
-        bytes
+        
+        self.0.to_be_bytes()
     }
 
     /// Encodes the secret key to a hexadecimal string.
@@ -200,8 +224,8 @@ impl<CS: BbsCiphersuite> KeyPair<BBSplus<CS>> {
     /// * `key_material` (REQUIRED), a secret octet string.
     /// * `key_info` (OPTIONAL), an octet string. Defaults to an empty string if not supplied.
     /// * `key_dst` (OPTIONAL), an octet string representing the domain separation tag.
-    ///                         Defaults to the octet string
-    ///                          [`BbsCiphersuite::API_ID`] || "KEYGEN_DST_"
+    ///   Defaults to the octet string
+    ///   [`BbsCiphersuite::API_ID`] || "KEYGEN_DST_"
     /// # Output:
     /// * a keypair [`KeyPair`]
     ///  
@@ -209,10 +233,7 @@ impl<CS: BbsCiphersuite> KeyPair<BBSplus<CS>> {
         key_material: &[u8],
         key_info: Option<&[u8]>,
         key_dst: Option<&[u8]>,
-    ) -> Result<Self, Error>
-    where
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
+    ) -> Result<Self, Error> {
         let sk = key_gen::<CS>(key_material, key_info, key_dst)?;
 
         let pk = sk_to_pk(sk);
@@ -228,10 +249,7 @@ impl<CS: BbsCiphersuite> KeyPair<BBSplus<CS>> {
     ///
     /// # Output:
     /// * a keypair [`KeyPair`]
-    pub fn random() -> Result<Self, Error>
-    where
-        CS::Expander: for<'a> ExpandMsg<'a>,
-    {
+    pub fn random() -> Result<Self, Error> {
         let key_material = generate_random_secret(64);
         let sk = key_gen::<CS>(&key_material, None, None)?;
 
@@ -244,7 +262,7 @@ impl<CS: BbsCiphersuite> KeyPair<BBSplus<CS>> {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-secret-key
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15#name-secret-key
 ///
 /// # Description
 /// This operation generates a secret key (SK) deterministically from a secret octet string (key_material)
@@ -252,10 +270,10 @@ impl<CS: BbsCiphersuite> KeyPair<BBSplus<CS>> {
 /// # Inputs:
 /// * `key_material` (REQUIRED), a secret octet string. MUST be at least 32 Bytes.
 /// * `key_info` (OPTIONAL), an octet string. Defaults to an empty string if
-///                          not supplied.
+///   not supplied.
 /// * `key_dst` (OPTIONAL), an octet string representing the domain separation
-///                         tag. Defaults to the octet string ciphersuite_id || "KEYGEN_DST_"
-///                         if not supplied.
+///   tag. Defaults to the octet string ciphersuite_id || "KEYGEN_DST_"
+///   if not supplied.
 /// # Output:
 /// * SK, a [`Scalar`]
 ///  
@@ -266,7 +284,6 @@ fn key_gen<CS>(
 ) -> Result<Scalar, Error>
 where
     CS: BbsCiphersuite,
-    CS::Expander: for<'a> ExpandMsg<'a>,
 {
     // if length(key_material) < 32, return INVALID
     if key_material.len() < CS::IKM_LEN {
@@ -291,7 +308,7 @@ where
     Ok(sk)
 }
 
-/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-14#name-public-key
+/// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-15#name-public-key
 ///
 /// # Description
 /// This operation takes a secret key (SK) and outputs a corresponding public key (PK).
@@ -303,136 +320,9 @@ where
 ///
 fn sk_to_pk(sk: Scalar) -> G2Projective {
     // W = SK * BP2
-    let pk = G2Affine::generator() * sk;
-    pk
+    
+    G2Affine::generator() * sk
 }
 
 #[cfg(test)]
-mod tests {
-
-    use crate::bbsplus::ciphersuites::BbsCiphersuite;
-    use crate::schemes::algorithms::Scheme;
-    use crate::schemes::algorithms::{BbsBls12381Sha256, BbsBls12381Shake256};
-    use crate::{keys::pair::KeyPair, schemes::algorithms::BBSplus};
-    use std::fs;
-
-    // FROM_BYTES LENGTH VALIDATION
-
-    use crate::{bbsplus::{keys::BBSplusPublicKey, valid_fixture_bytes}, errors::Error};
-    use bls12_381_plus::G2Projective;
-    use elliptic_curve::group::Curve;
-
-    const PK_FIXTURE_DIRS: [&str; 2] = [
-        "./fixture_data/fixture_data/bls12-381-sha-256/proof/",
-        "./fixture_data/fixture_data/bls12-381-shake-256/proof/",
-    ];
-
-    fn assert_pk_rejected(bytes: &[u8]) {
-        assert!(
-            matches!(BBSplusPublicKey::from_bytes(bytes), Err(Error::KeyDeserializationError)),
-            "public key of {} bytes should be rejected",
-            bytes.len()
-        );
-    }
-
-    #[test]
-    fn public_key_from_bytes_rejects_identity() {
-        let identity = G2Projective::IDENTITY.to_affine().to_compressed();
-        assert_pk_rejected(&identity);
-    }
-
-    #[test]
-    fn public_key_from_coordinates_rejects_identity() {
-        let uncompressed = G2Projective::IDENTITY.to_affine().to_uncompressed();
-        let (x, y) = uncompressed.split_at(BBSplusPublicKey::COORDINATE_LEN);
-        let x: [u8; BBSplusPublicKey::COORDINATE_LEN] = x.try_into().unwrap();
-        let y: [u8; BBSplusPublicKey::COORDINATE_LEN] = y.try_into().unwrap();
-        assert!(matches!(
-            BBSplusPublicKey::from_coordinates(&x, &y),
-            Err(Error::KeyDeserializationError)
-        ));
-    }
-
-    #[test]
-    fn public_key_from_bytes_round_trip() {
-        for dir in PK_FIXTURE_DIRS {
-            for pk in valid_fixture_bytes(dir, "signerPublicKey") {
-                assert_eq!(BBSplusPublicKey::from_bytes(&pk).unwrap().to_bytes().to_vec(), pk);
-            }
-        }
-    }
-
-    #[test]
-    fn public_key_from_bytes_rejects_invalid_lengths() {
-        for len in [0usize, 1, 48, 95, 97, 192] {
-            assert_pk_rejected(&vec![0u8; len]);
-        }
-        for dir in PK_FIXTURE_DIRS {
-            for pk in valid_fixture_bytes(dir, "signerPublicKey") {
-                assert_pk_rejected(&pk[..95]);
-                for extra in [1usize, 32] {
-                    let mut bytes = pk.clone();
-                    bytes.extend(std::iter::repeat(0u8).take(extra));
-                    assert_pk_rejected(&bytes);
-                }
-            }
-        }
-    }
-
-    //KEYPAIR - SHA256
-
-    #[test]
-    fn keypair_sha256() {
-        key_pair_gen::<BbsBls12381Sha256>("./fixture_data/fixture_data/bls12-381-sha-256/keypair.json");
-    }
-
-    //KEYPAIR - SHAKE256
-
-    #[test]
-    fn keypair_shake256() {
-        key_pair_gen::<BbsBls12381Shake256>("./fixture_data/fixture_data/bls12-381-shake-256/keypair.json");
-    }
-
-    fn key_pair_gen<S: Scheme>(filename: &str)
-    where
-        S::Ciphersuite: BbsCiphersuite,
-    {
-        eprintln!("Key Pair");
-        let data = fs::read_to_string(filename).expect("Unable to read file");
-        let data_json: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
-        let IKM = data_json["keyMaterial"].as_str().unwrap();
-        let KEY_INFO = data_json["keyInfo"].as_str().unwrap();
-        let KEY_DST = data_json["keyDst"].as_str().unwrap();
-        let SK_expected = data_json["keyPair"]["secretKey"].as_str().unwrap();
-        let PK_expected = data_json["keyPair"]["publicKey"].as_str().unwrap();
-
-        let keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
-            &hex::decode(IKM).unwrap(),
-            Some(&hex::decode(KEY_INFO).unwrap()),
-            Some(&hex::decode(KEY_DST).unwrap()),
-        )
-        .unwrap();
-
-        let sk = keypair.private_key().encode();
-        let pk = keypair.public_key().encode();
-
-        let result1 = sk == SK_expected;
-
-        if result1 == false {
-            println!("      keyGen:        {}", result1);
-            println!("      Expected key:  {}", SK_expected);
-            println!("      Generated key: {}", sk);
-        }
-
-        let result2 = pk == PK_expected;
-
-        if result2 == false {
-            println!("      skToPk:        {}", result2);
-            println!("      Expected key:  {}", PK_expected);
-            println!("      Generated key: {}", pk);
-        }
-        let result = result1 && result2;
-
-        assert!(result, "Failed");
-    }
-}
+mod tests;

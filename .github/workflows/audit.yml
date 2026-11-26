@@ -1,0 +1,34 @@
+name: Security audit
+
+on:
+  push:
+    branches: [ "main" ]
+    paths: [ "**/Cargo.toml", ".github/workflows/audit.yml" ]
+  pull_request:
+    branches: [ "main" ]
+    paths: [ "**/Cargo.toml", ".github/workflows/audit.yml" ]
+  # New RustSec advisories appear without any change to the repository.
+  # Every Monday at 09:00 UTC (10:00 in Italy with CET, 11:00 with CEST).
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  audit:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-audit
+    # Cargo.lock is not committed (library crate): resolve it here, i.e. audit the latest
+    # versions allowed by Cargo.toml, which are the ones users of the crate get.
+    - name: Generate Cargo.lock
+      run: cargo generate-lockfile
+    - name: Audit (fails on vulnerabilities and on unmaintained, unsound or yanked crates)
+      run: cargo audit --deny warnings

@@ -2,9 +2,9 @@ name: Rust
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "dev" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "dev" ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -20,3 +20,39 @@ jobs:
       run: cargo build --verbose -F default
     - name: Run tests
       run: cargo test --verbose -F default
+
+  msrv:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@1.88
+    - name: Check MSRV (default features, no CL03)
+      run: cargo check --verbose --all-targets -F default
+
+  clippy:
+    # Every BBS+ feature combination, so that cfg-specific warnings (e.g. dead code with only
+    # `bbsplus`) are caught. CL03 is not checked.
+    # The toolchain is pinned so that new clippy lints do not break CI without code changes:
+    # bump it deliberately and fix the new warnings in the same PR.
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        features:
+          - bbsplus
+          - bbsplus,bbsplus_blind
+          - bbsplus,bbsplus_nym
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: "1.100"
+        components: clippy
+    - uses: Swatinem/rust-cache@v2
+      with:
+        key: ${{ matrix.features }}
+    - name: Clippy (${{ matrix.features }})
+      run: cargo clippy --no-default-features --features ${{ matrix.features }} --all-targets -- -D warnings
