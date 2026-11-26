@@ -19,7 +19,7 @@
 
 use super::algorithms::Scheme;
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
+use std::{convert::Infallible, marker::PhantomData};
 
 #[cfg(feature = "cl03")]
 use crate::cl03::{
@@ -47,10 +47,11 @@ pub enum BlindSignature<S: Scheme> {
     #[cfg(feature = "cl03")]
     /// CL03 signature variant
     CL03(CL03BlindSignature),
-    /// Unreachable variant to satisfy the type system. Never (de)serialized: decoding it from
-    /// untrusted input would reach the `panic!` in the accessors.
+    /// Carries the scheme type parameter. It cannot be constructed (`Infallible`) and is never
+    /// (de)serialized: decoding it from untrusted input would reach the `panic!` in the accessors.
+    #[doc(hidden)]
     #[serde(skip)]
-    _Unreachable(std::marker::PhantomData<S>),
+    _Unreachable(PhantomData<S>, Infallible),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -62,10 +63,11 @@ pub enum Commitment<S: Scheme> {
     #[cfg(feature = "cl03")]
     /// CL03 commitment variant
     CL03(CL03Commitment),
-    /// Unreachable variant to satisfy the type system. Never (de)serialized: decoding it from
-    /// untrusted input would reach the `panic!` in the accessors.
+    /// Carries the scheme type parameter. It cannot be constructed (`Infallible`) and is never
+    /// (de)serialized: decoding it from untrusted input would reach the `panic!` in the accessors.
+    #[doc(hidden)]
     #[serde(skip)]
-    _Unreachable(std::marker::PhantomData<S>),
+    _Unreachable(PhantomData<S>, Infallible),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -77,10 +79,11 @@ pub enum PoKSignature<S: Scheme> {
     #[cfg(feature = "cl03")]
     /// CL03 proof of knowledge signature variant
     CL03(CL03PoKSignature),
-    /// Unreachable variant to satisfy the type system. Never (de)serialized: decoding it from
-    /// untrusted input would reach the `panic!` in the accessors.
+    /// Carries the scheme type parameter. It cannot be constructed (`Infallible`) and is never
+    /// (de)serialized: decoding it from untrusted input would reach the `panic!` in the accessors.
+    #[doc(hidden)]
     #[serde(skip)]
-    _Unreachable(PhantomData<S>),
+    _Unreachable(PhantomData<S>, Infallible),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -90,10 +93,11 @@ pub enum BlindPoKSignature<S: Scheme> {
     #[cfg(feature = "bbsplus_blind")]
     /// BBS+ blind proof of knowledge signature variant
     BBSplus(BBSplusBlindPoKSignature),
-    /// Unreachable variant to satisfy the type system. Never (de)serialized: decoding it from
-    /// untrusted input would reach the `panic!` in the accessors.
+    /// Carries the scheme type parameter. It cannot be constructed (`Infallible`) and is never
+    /// (de)serialized: decoding it from untrusted input would reach the `panic!` in the accessors.
+    #[doc(hidden)]
     #[serde(skip)]
-    _Unreachable(PhantomData<S>),
+    _Unreachable(PhantomData<S>, Infallible),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -105,10 +109,11 @@ pub enum ZKPoK<S: Scheme> {
     ///CL03 zero-knowledge proof of knowledge variant
     #[cfg(feature = "cl03")]
     CL03(CL03ZKPoK),
-    /// Unreachable variant to satisfy the type system. Never (de)serialized: decoding it from
-    /// untrusted input would reach the `panic!` in the accessors.
+    /// Carries the scheme type parameter. It cannot be constructed (`Infallible`) and is never
+    /// (de)serialized: decoding it from untrusted input would reach the `panic!` in the accessors.
+    #[doc(hidden)]
     #[serde(skip)]
-    _Unreachable(PhantomData<S>),
+    _Unreachable(PhantomData<S>, Infallible),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -120,8 +125,9 @@ pub enum Signature<S: Scheme> {
     #[cfg(feature = "cl03")]
     /// CL03 signature variant
     CL03(CL03Signature),
-    /// Unreachable variant to satisfy the type system. Never (de)serialized: decoding it from
-    /// untrusted input would reach the `panic!` in the accessors.
+    /// Carries the scheme type parameter. It cannot be constructed (`Infallible`) and is never
+    /// (de)serialized: decoding it from untrusted input would reach the `panic!` in the accessors.
+    #[doc(hidden)]
     #[serde(skip)]
-    _Unreachable(PhantomData<S>),
+    _Unreachable(PhantomData<S>, Infallible),
 }
