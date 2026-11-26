@@ -22,7 +22,7 @@ use super::{
 use crate::{
     schemes::algorithms::CL03,
     schemes::generics::Commitment,
-    utils::{message::cl03_message::CL03Message, random::random_bits, util::cl03_utils::divm},
+    utils::{message::cl03_message::CL03Message, random::random_bits, util::cl03_utils::{divm, is_unit}},
 };
 use digest::Digest;
 use rug::{integer::Order, Complete, Integer};
@@ -73,28 +73,24 @@ impl NISP2Commitments {
 
         let mut w_1 = Integer::from(1);
         let mut w_2 = Integer::from(1);
-        let mut idx = 0usize;
 
-        for i in unrevealed_message_indexes {
-            w_1 = w_1
-                * (Integer::from(
+        for (idx, i) in unrevealed_message_indexes.iter().enumerate() {
+            w_1 *= Integer::from(
                     a_bases
                         .0
                         .get(*i)
                         .expect("unrevealed_message_indexes not valid (overflow)")
                         .pow_mod_ref(&omega[idx], n1)
                         .unwrap(),
-                ));
-            w_2 = w_2
-                * (Integer::from(
+                );
+            w_2 *= Integer::from(
                     commitment_pk
                         .g_bases
                         .get(*i)
                         .expect("unrevealed_message_indexes not valid (overflow)")
                         .pow_mod_ref(&omega[idx], n2)
                         .unwrap(),
-                ));
-            idx = idx + 1;
+                );
         }
         w_1 = (w_1 * Integer::from(h1.pow_mod_ref(&mu_1, n1).unwrap())) % n1;
         w_2 = (w_2 * Integer::from(h2.pow_mod_ref(&mu_2, n2).unwrap())) % n2;
@@ -104,9 +100,8 @@ impl NISP2Commitments {
         let challenge = Integer::from_digits(hash.as_slice(), Order::MsfBe);
 
         let mut d: Vec<Integer> = Vec::new();
-        let mut idx = 0usize;
 
-        for i in unrevealed_message_indexes {
+        for (idx, i) in unrevealed_message_indexes.iter().enumerate() {
             d.push(
                 (&omega[idx]
                     + &challenge
@@ -116,7 +111,6 @@ impl NISP2Commitments {
                             .value)
                     .complete(),
             );
-            idx = idx + 1;
         }
 
         let d_1 = mu_1 + &challenge * &c1.randomness;
@@ -156,6 +150,17 @@ impl NISP2Commitments {
             d_2,
         } = self;
 
+        // Input checks: c1 comes from the Prover and is raised to -challenge.
+        if d.len() != unrevealed_message_indexes.len()
+            || unrevealed_message_indexes
+                .iter()
+                .any(|&i| i >= a_bases.0.len() || i >= commitment_pk.g_bases.len())
+            || !is_unit(&c1.value, n1)
+            || !is_unit(&c2.value, n2)
+        {
+            return false;
+        }
+
         let inv_C1 = Integer::from(
             c1.value
                 .pow_mod_ref(&(-Integer::from(1) * challenge), n1)
@@ -169,11 +174,9 @@ impl NISP2Commitments {
 
         let mut lhs = Integer::from(1);
         let mut rhs = Integer::from(1);
-        let mut idx = 0usize;
 
-        for i in unrevealed_message_indexes {
-            lhs = lhs
-                * Integer::from(
+        for (idx, i) in unrevealed_message_indexes.iter().enumerate() {
+            lhs *= Integer::from(
                     a_bases
                         .0
                         .get(*i)
@@ -181,8 +184,7 @@ impl NISP2Commitments {
                         .pow_mod_ref(&d[idx], n1)
                         .unwrap(),
                 );
-            rhs = rhs
-                * Integer::from(
+            rhs *= Integer::from(
                     commitment_pk
                         .g_bases
                         .get(*i)
@@ -190,7 +192,6 @@ impl NISP2Commitments {
                         .pow_mod_ref(&d[idx], n2)
                         .unwrap(),
                 );
-            idx += 1;
         }
         // lhs = ((lhs * powmod(h1, d_1, n1)) * inv_C1) % n1
         // rhs = ((rhs * powmod(h2, d_2, n2)) * inv_C2) % n2
@@ -227,8 +228,8 @@ impl NISPSecrets {
         let r1 = random_bits(CS::lm);
         let r2 = random_bits(CS::ln);
 
-        let t = (Integer::from(g1.pow_mod_ref(&r1, &n1).unwrap())
-            * Integer::from(h1.pow_mod_ref(&r2, &n1).unwrap()))
+        let t = (Integer::from(g1.pow_mod_ref(&r1, n1).unwrap())
+            * Integer::from(h1.pow_mod_ref(&r2, n1).unwrap()))
             % n1;
         let str_input =
             g1.to_string() + &h1.to_string() + &commitment.value.to_string() + &t.to_string();
@@ -253,15 +254,15 @@ impl NISPSecrets {
         CS::HashAlg: Digest,
     {
         let Self { t, s1, s2 } = self;
-        let lhs = (Integer::from(g1.pow_mod_ref(s1, &n1).unwrap())
-            * Integer::from(h1.pow_mod_ref(s2, &n1).unwrap()))
+        let lhs = (Integer::from(g1.pow_mod_ref(s1, n1).unwrap())
+            * Integer::from(h1.pow_mod_ref(s2, n1).unwrap()))
             % n1;
         let str_input =
             g1.to_string() + &h1.to_string() + &commitment.value.to_string() + &t.to_string();
         let hash = <CS::HashAlg as Digest>::digest(str_input);
         let challenge = Integer::from_digits(hash.as_slice(), Order::MsfBe);
 
-        let rhs = (t * Integer::from(commitment.value.pow_mod_ref(&challenge, &n1).unwrap())) % n1;
+        let rhs = (t * Integer::from(commitment.value.pow_mod_ref(&challenge, n1).unwrap())) % n1;
 
         lhs == rhs
     }
@@ -308,7 +309,7 @@ impl NISPMultiSecrets {
         let mut str_input = String::from("");
         let mut idx = 0usize;
         for i in unrevealed_message_indexes {
-            t = t * Integer::from(
+            t *= Integer::from(
                 a_bases
                     .0
                     .get(*i)
@@ -364,28 +365,24 @@ impl NISPMultiSecrets {
         let n1 = &signer_pk.N;
         let Self { t, s1, s2 } = self;
 
-        if unrevealed_message_indexes.len() != s1.len() {
-            panic!("unrevealed_message_indexes not valid");
+        if unrevealed_message_indexes.len() != s1.len()
+            || unrevealed_message_indexes.iter().any(|&i| i >= a_bases.0.len())
+        {
+            return false;
         }
 
         let mut lhs = Integer::from(1);
         let mut str_input = String::from("");
-        let mut idx = 0usize;
 
-        for i in unrevealed_message_indexes {
-            lhs = lhs
-                * Integer::from(
-                    a_bases
-                        .0
-                        .get(*i)
-                        .expect("unrevealed_message_indexes not valid (overflow)")
+        for (idx, i) in unrevealed_message_indexes.iter().enumerate() {
+            lhs *= Integer::from(
+                    a_bases.0[*i]
                         .pow_mod_ref(&s1[idx], n1)
                         .unwrap(),
                 );
             str_input = str_input + &a_bases.0[*i].to_string();
-            idx += 1;
         }
-        lhs = (lhs * Integer::from(h1.pow_mod_ref(&s2, n1).unwrap())) % n1;
+        lhs = (lhs * Integer::from(h1.pow_mod_ref(s2, n1).unwrap())) % n1;
         str_input = str_input + &h1.to_string() + &commitment.value.to_string() + &t.to_string();
         let hash = <CS::HashAlg as Digest>::digest(str_input);
         let challenge = Integer::from_digits(hash.as_slice(), Order::MsfBe);
@@ -476,11 +473,12 @@ impl NISPSignaturePoK {
         let N = &signer_pk.N;
 
         let mut t_Cx = Integer::from(1);
-        for i in 0..n_attr {
-            t_Cx = t_Cx * Integer::from(a_bases.0[i].pow_mod_ref(&r_5[i], N).unwrap())
+        // r_5 has exactly n_attr elements.
+        for (i, r5i) in r_5.iter().enumerate() {
+            t_Cx *= Integer::from(a_bases.0[i].pow_mod_ref(r5i, N).unwrap())
         }
 
-        t_Cx = t_Cx % N;
+        t_Cx %= N;
 
         let t_1 = (Integer::from(Cv.pow_mod_ref(&r_4, N).unwrap())
             * divm(&Integer::from(1), &t_Cx, N)
@@ -512,8 +510,8 @@ impl NISPSignaturePoK {
             % N;
 
         let mut t_4 = Integer::from(1);
-        for i in 0..n_attr {
-            t_4 = t_4 * Integer::from(commitment_pk.g_bases[i].pow_mod_ref(&r_5[i], N).unwrap());
+        for (i, r5i) in r_5.iter().enumerate() {
+            t_4 *= Integer::from(commitment_pk.g_bases[i].pow_mod_ref(r5i, N).unwrap());
         }
         t_4 = (t_4 * Integer::from(commitment_pk.h.pow_mod_ref(&r_3, N).unwrap())) % N;
 
@@ -581,18 +579,30 @@ impl NISPSignaturePoK {
     where
         CS::HashAlg: Digest,
     {
-        if a_bases.0.len() < n_signed_messages && commitment_pk.g_bases.len() < n_signed_messages {
-            panic!("Not enough a_bases OR g_bases for the number of attributes");
+        // Input checks: the commitments come from the Prover and are raised to possibly
+        // negative exponents; the vector lengths must match the number of signed messages.
+        let N = &signer_pk.N;
+        let U = (0..n_signed_messages)
+            .filter(|i| unrevealed_message_indexes.contains(i))
+            .count();
+        if a_bases.0.len() < n_signed_messages
+            || commitment_pk.g_bases.len() < n_signed_messages.max(1)
+            || self.s_5.len() != U
+            || messages.len() != n_signed_messages - U
+            || ![&self.Cx, &self.Cv, &self.Cw, &self.Ce]
+                .iter()
+                .all(|C| is_unit(&C.value, N))
+        {
+            return false;
         }
 
         let mut t_Cx = Integer::from(1);
-        let N = &signer_pk.N;
         let mut idx: usize = 0;
         let mut idx_revealed_msgs: usize = 0;
 
-        for i in 0..n_signed_messages {
+        for (i, ai) in a_bases.0.iter().enumerate().take(n_signed_messages) {
             if unrevealed_message_indexes.contains(&i) {
-                t_Cx = t_Cx * Integer::from(a_bases.0[i].pow_mod_ref(&self.s_5[idx], N).unwrap());
+                t_Cx *= Integer::from(ai.pow_mod_ref(&self.s_5[idx], N).unwrap());
                 idx += 1;
             } else {
                 let mi = &messages
@@ -600,11 +610,11 @@ impl NISPSignaturePoK {
                     .expect("index overflow!")
                     .value;
                 let val = mi + (mi * &self.challenge).complete();
-                t_Cx = t_Cx * Integer::from(a_bases.0[i].pow_mod_ref(&val, N).unwrap());
+                t_Cx *= Integer::from(ai.pow_mod_ref(&val, N).unwrap());
                 idx_revealed_msgs += 1;
             }
         }
-        t_Cx = t_Cx % N;
+        t_Cx %= N;
 
         let input1 = (Integer::from(self.Cv.value.pow_mod_ref(&self.s_4, N).unwrap())
             * divm(&Integer::from(1), &t_Cx, N)
@@ -651,11 +661,10 @@ impl NISPSignaturePoK {
         let mut idx: usize = 0;
         let mut idx_revealed_msgs: usize = 0;
 
-        for i in 0..n_signed_messages {
+        for (i, gi) in commitment_pk.g_bases.iter().enumerate().take(n_signed_messages) {
             if unrevealed_message_indexes.contains(&i) {
-                input4 = input4
-                    * Integer::from(
-                        commitment_pk.g_bases[i]
+                input4 *= Integer::from(
+                        gi
                             .pow_mod_ref(&self.s_5[idx], N)
                             .unwrap(),
                     );
@@ -666,8 +675,7 @@ impl NISPSignaturePoK {
                     .expect("index overflow")
                     .value;
                 let val = mi + (mi * &self.challenge).complete();
-                input4 =
-                    input4 * Integer::from(commitment_pk.g_bases[i].pow_mod_ref(&val, N).unwrap());
+                input4 *= Integer::from(gi.pow_mod_ref(&val, N).unwrap());
                 idx_revealed_msgs += 1;
             }
         }

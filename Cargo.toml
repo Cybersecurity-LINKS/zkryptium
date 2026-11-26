@@ -1,6 +1,6 @@
 [package]
 name = "zkryptium"
-version = "0.8.3"
+version = "0.9.0"
 edition = "2021"
 license = "Apache-2.0"
 authors = ["LINKS Foundation"]
@@ -14,27 +14,27 @@ categories = [ "cryptography", "authentication" ]
 
 [dependencies]
 rand = "0.10.4"
-serde = { version = "1.0.229", default-features = false, features = ["derive", "serde_derive"] }
-serde_json = "1.0.154"
+serde = { version = "1.0.229", default-features = false, features = ["derive"] }
 hex = "0.4.3"
 thiserror = "2.0.21"
+sha2 = "0.11.2"
+digest = "0.11.3"
 
 # cl03
 rug = { version = "1.30.0", features = ["serde"], optional = true }
 rand_chacha = { version = "0.10.0", optional = true }
 
-shake = "0.1.0"
-sha2 = "0.11.2"
-digest = "0.11.3"
-
 # bbsplus
 bls12_381_plus = { version = "0.10.0", optional = true }
-ff = "0.14.0"
-group = "0.14.0"
-elliptic-curve = "0.14.3"
-hash2curve = "0.14.0"
+ff = { version = "0.14.0", optional = true }
+group = { version = "0.14.0", optional = true }
+elliptic-curve = { version = "0.14.3", optional = true }
+hash2curve = { version = "0.14.0", optional = true }
+shake = { version = "0.1.0", optional = true }
+zeroize = { version = "1.9.2", optional = true }
 
 [dev-dependencies]
+serde_json = "1.0.154"
 log = "0.4.35"
 env_logger = "0.11.12"
 dotenvy = "0.15.7"
@@ -46,7 +46,15 @@ path = "src/lib.rs"
 [features]
 default = ["bbsplus", "bbsplus_blind", "bbsplus_nym"]
 cl03 = ["dep:rug", "dep:rand_chacha"]
-bbsplus = ["dep:bls12_381_plus"]
+bbsplus = [
+    "dep:bls12_381_plus",
+    "dep:ff",
+    "dep:group",
+    "dep:elliptic-curve",
+    "dep:hash2curve",
+    "dep:shake",
+    "dep:zeroize",
+]
 bbsplus_blind = ["bbsplus"]
 bbsplus_nym = ["bbsplus", "bbsplus_blind"]
 
@@ -68,4 +76,9 @@ required-features = ["bbsplus"]
 [[example]]
 name = "cl03"
 path = "examples/cl03.rs"
+required-features = ["cl03"]
+
+[[example]]
+name = "cl03_multiattr"
+path = "examples/cl03_multiattr.rs"
 required-features = ["cl03"]

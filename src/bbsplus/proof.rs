@@ -93,7 +93,7 @@ impl BBSplusPoKSignature {
         const MIN_LEN: usize = POINTS_LEN + 4 * SCALAR_LEN;
 
         // octets_to_proof requires exactly 3 * octet_point_length + (4 + U) * octet_scalar_length bytes
-        if bytes.len() < MIN_LEN || (bytes.len() - POINTS_LEN) % SCALAR_LEN != 0 {
+        if bytes.len() < MIN_LEN || !(bytes.len() - POINTS_LEN).is_multiple_of(SCALAR_LEN) {
             return Err(Error::InvalidProofOfKnowledgeSignature);
         }
 
@@ -124,7 +124,7 @@ impl BBSplusPoKSignature {
 
         let mut m_cap: Vec<Scalar> = Vec::new();
 
-        for chunk in bytes[240..].chunks_exact(32) {
+        for chunk in bytes[240..].as_chunks::<32>().0 {
             m_cap.push(
                 Scalar::from_bytes_be(chunk)
                     .map_err(|_| Error::InvalidProofOfKnowledgeSignature)?,
@@ -220,6 +220,73 @@ pub struct AddZkpInfo {
 }
 
 #[cfg(feature = "bbsplus_blind")]
+impl zeroize::Zeroize for AddZkpInfo {
+    fn zeroize(&mut self) {
+        self.committed_message_scalars.zeroize();
+        self.commitment_rands.zeroize();
+    }
+}
+
+#[cfg(feature = "bbsplus_blind")]
+/// Overwrites the secret scalars with zero when the value is dropped (best effort).
+impl Drop for AddZkpInfo {
+    fn drop(&mut self) {
+        zeroize::Zeroize::zeroize(self);
+    }
+}
+
+#[cfg(feature = "bbsplus_blind")]
+impl zeroize::ZeroizeOnDrop for AddZkpInfo {}
+
+#[cfg(feature = "bbsplus_blind")]
+/// Optional inputs of [`BlindPoKSignature::blind_proof_gen`] and
+/// [`BlindPoKSignature::proof_gen_with_nym`]. Every field defaults to empty (or none), so
+/// only the needed ones have to be set:
+///
+/// ```ignore
+/// BlindProofGenInput {
+///     header: Some(header),
+///     issuer_messages: &issuer_messages,
+///     issuer_message_disclosures: &issuer_message_disclosures,
+///     ..Default::default()
+/// }
+/// ```
+#[derive(Clone, Copy, Debug, Default)]
+pub struct BlindProofGenInput<'a> {
+    /// An octet string containing context and application specific information.
+    pub header: Option<&'a [u8]>,
+    /// The presentation header.
+    pub ph: Option<&'a [u8]>,
+    /// The messages supplied by the Signer.
+    pub issuer_messages: &'a [Message],
+    /// The messages committed by the Prover.
+    pub blind_messages: &'a [Message],
+    /// One [`Disclosure`] per issuer message.
+    pub issuer_message_disclosures: &'a [Disclosure],
+    /// One [`Disclosure`] per blind message.
+    pub blind_message_disclosures: &'a [Disclosure],
+    /// The Prover blind factor returned by the commitment. Defaults to zero.
+    pub secret_prover_blind: Option<&'a BlindFactor>,
+}
+
+#[cfg(feature = "bbsplus_blind")]
+/// Optional inputs of [`BlindPoKSignature::blind_proof_verify`] and
+/// [`BlindPoKSignature::proof_verify_with_nym`]. Every field defaults to empty, none or zero.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct BlindProofVerifyInput<'a> {
+    /// An octet string containing context and application specific information.
+    pub header: Option<&'a [u8]>,
+    /// The presentation header.
+    pub ph: Option<&'a [u8]>,
+    /// The number of messages known by the Signer.
+    pub issuer_known_messages_no: usize,
+    /// The disclosed issuer messages followed by the disclosed blind messages, in index order.
+    pub disclosed_messages: &'a [Message],
+    /// One [`Disclosure`] per signed message (issuer messages followed by blind messages).
+    pub message_disclosures: &'a [Disclosure],
+}
+
+#[cfg(feature = "bbsplus_blind")]
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 /// A BBS proof extended with commitments to some of the undisclosed messages, together with
 /// the proof of correctness of those commitments
@@ -295,7 +362,9 @@ impl BBSplusBlindPoKSignature {
         let points_end = bbs_end + N * G1_LEN;
 
         let commitments = bytes[bbs_end..points_end]
-            .chunks_exact(G1_LEN)
+            .as_chunks::<G1_LEN>()
+            .0
+            .iter()
             .map(|c| {
                 let C = parse_g1_projective(c)
                     .map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
@@ -307,7 +376,9 @@ impl BBSplusBlindPoKSignature {
             .collect::<Result<Vec<_>, Error>>()?;
 
         let commitments_proof = bytes[points_end..]
-            .chunks_exact(SCALAR_LEN)
+            .as_chunks::<SCALAR_LEN>()
+            .0
+            .iter()
             .map(|c| {
                 let s = Scalar::from_bytes_be(c)
                     .map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
@@ -353,18 +424,19 @@ impl<CS: BbsCiphersuite> BlindPoKSignature<BBSplus<CS>> {
     /// # Inputs:
     /// * `pk` (REQUIRED), the Signer public key.
     /// * `signature` (REQUIRED), an octet string.
+    /// * `input`, a [`BlindProofGenInput`] holding the OPTIONAL inputs below.
     /// * `header` (OPTIONAL), an octet string containing context and application.
     /// * `ph` (OPTIONAL), an octet string containing the presentation header.
     /// * `issuer_messages` (OPTIONAL), a vector of [`Message`]. If not supplied,
-    ///                                 it defaults to the empty array.
+    ///   it defaults to the empty array.
     /// * `blind_messages` (OPTIONAL), a vector of [`Message`] committed by the Prover.
-    ///                                If not supplied, it defaults to the empty array.
+    ///   If not supplied, it defaults to the empty array.
     /// * `issuer_message_disclosures` (OPTIONAL), vector of [`Disclosure`], one per issuer
-    ///                                            message. If not supplied, it defaults to
-    ///                                            the empty vector.
+    ///   message. If not supplied, it defaults to
+    ///   the empty vector.
     /// * `blind_message_disclosures` (OPTIONAL), vector of [`Disclosure`], one per blind
-    ///                                           message. If not supplied, it defaults to
-    ///                                           the empty vector.
+    ///   message. If not supplied, it defaults to
+    ///   the empty vector.
     /// * `secret_prover_blind` (OPTIONAL), a [`BlindFactor`]. If not supplied it defaults to zero.
     ///
     /// # Output:
@@ -374,25 +446,24 @@ impl<CS: BbsCiphersuite> BlindPoKSignature<BBSplus<CS>> {
     pub fn blind_proof_gen(
         pk: &BBSplusPublicKey,
         signature: &[u8],
-        header: Option<&[u8]>,
-        ph: Option<&[u8]>,
-        issuer_messages: Option<&[Message]>,
-        blind_messages: Option<&[Message]>,
-        issuer_message_disclosures: Option<&[Disclosure]>,
-        blind_message_disclosures: Option<&[Disclosure]>,
-        secret_prover_blind: Option<&BlindFactor>,
+        input: BlindProofGenInput<'_>,
     ) -> Result<(Self, AddZkpInfo), Error> {
+        let BlindProofGenInput {
+            header,
+            ph,
+            issuer_messages,
+            blind_messages,
+            issuer_message_disclosures,
+            blind_message_disclosures,
+            secret_prover_blind,
+        } = input;
         let signature = BBSplusSignature::from_bytes(
             signature.try_into().map_err(|_| Error::InvalidSignature)?,
         )?;
         let api_id = CS::API_ID_BLIND;
-        let issuer_messages = issuer_messages.unwrap_or(&[]);
-        let blind_messages = blind_messages.unwrap_or(&[]);
         let secret_prover_blind = secret_prover_blind
             .map(|b| b.0)
             .unwrap_or(Scalar::ZERO);
-        let issuer_message_disclosures = issuer_message_disclosures.unwrap_or(&[]);
-        let blind_message_disclosures = blind_message_disclosures.unwrap_or(&[]);
 
         // Deserialization
         let L = issuer_messages.len();
@@ -472,15 +543,16 @@ impl<CS: BbsCiphersuite> BlindPoKSignature<BBSplus<CS>> {
     /// # Inputs:
     /// * `self`, a proof.
     /// * `pk` (REQUIRED), the Signer public key.
+    /// * `input`, a [`BlindProofVerifyInput`] holding the OPTIONAL inputs below.
     /// * `header` (OPTIONAL), an octet string containing context and application.
     /// * `ph` (OPTIONAL), an octet string containing the presentation header.
     /// * `issuer_known_messages_no` (OPTIONAL), the number of messages known by the Signer.
-    ///                                          If not supplied it defaults to 0.
+    ///   If not supplied it defaults to 0.
     /// * `disclosed_messages` (OPTIONAL), a vector of [`Message`]: the disclosed issuer messages
-    ///                                    followed by the disclosed blind messages, in index order.
+    ///   followed by the disclosed blind messages, in index order.
     /// * `message_disclosures` (OPTIONAL), a vector of [`Disclosure`], one per signed message
-    ///                                     (issuer messages followed by blind messages,
-    ///                                     the `secret_prover_blind` excluded).
+    ///   (issuer messages followed by blind messages,
+    ///   the `secret_prover_blind` excluded).
     ///
     /// # Output:
     /// a result: [`Ok`] or [`Error`].
@@ -488,17 +560,17 @@ impl<CS: BbsCiphersuite> BlindPoKSignature<BBSplus<CS>> {
     pub fn blind_proof_verify(
         &self,
         pk: &BBSplusPublicKey,
-        header: Option<&[u8]>,
-        ph: Option<&[u8]>,
-        issuer_known_messages_no: Option<usize>,
-        disclosed_messages: Option<&[Message]>,
-        message_disclosures: Option<&[Disclosure]>,
+        input: BlindProofVerifyInput<'_>,
     ) -> Result<(), Error> {
+        let BlindProofVerifyInput {
+            header,
+            ph,
+            issuer_known_messages_no: L,
+            disclosed_messages,
+            message_disclosures,
+        } = input;
         let proof = self.to_bbsplus_blind_proof();
         let api_id = CS::API_ID_BLIND;
-        let L = issuer_known_messages_no.unwrap_or(0);
-        let disclosed_messages = disclosed_messages.unwrap_or(&[]);
-        let message_disclosures = message_disclosures.unwrap_or(&[]);
 
         // Deserialization
         let undisclosed_msgs_no = proof.bbs_proof.m_cap.len();
@@ -675,7 +747,7 @@ pub(super) struct CommitmentInitRes {
 #[cfg(feature = "bbsplus_blind")]
 /// Checks that `indexes` is a strictly ascending list of integers in `0..L`.
 fn is_strictly_ascending_in_range(indexes: &[usize], L: usize) -> bool {
-    indexes.windows(2).all(|w| w[0] < w[1]) && indexes.last().map_or(true, |&i| i < L)
+    indexes.windows(2).all(|w| w[0] < w[1]) && indexes.last().is_none_or(|&i| i < L)
 }
 
 #[cfg(feature = "bbsplus_blind")]
@@ -730,6 +802,8 @@ where
 /// # Output:
 /// ([`BBSplusBlindPoKSignature`], [`AddZkpInfo`]) or [`Error`].
 ///
+// Same inputs, in the same order, as the draft procedure it implements.
+#[allow(clippy::too_many_arguments)]
 fn core_blind_proof_gen<CS>(
     pk: &BBSplusPublicKey,
     signature: &BBSplusSignature,
@@ -940,6 +1014,13 @@ where
             "number of undisclosed messages mismatch".to_owned(),
         ));
     }
+    // draft-irtf-cfrg-bbs-blind-signatures-05 octets_to_proof: no C_j is Identity_G1 and no
+    // s^_j is zero. Repeated here for proofs that do not come from `from_bytes` (serde).
+    if proof.commitments.iter().any(|C| bool::from(C.is_identity()))
+        || proof.commitments_proof.contains(&Scalar::ZERO)
+    {
+        return Err(Error::InvalidProofOfKnowledgeSignature);
+    }
 
     let (Y_0, Y_1) = committed_disclosure_generators::<CS>(api_id);
     let cp = proof.bbs_proof.challenge;
@@ -986,6 +1067,8 @@ where
 /// # Output:
 /// a result: [`Ok`] or [`Error`].
 ///
+// Same inputs, in the same order, as the draft procedure it implements.
+#[allow(clippy::too_many_arguments)]
 fn core_blind_proof_verify<CS>(
     pk: &BBSplusPublicKey,
     proof: &BBSplusBlindPoKSignature,
@@ -1147,10 +1230,10 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     /// * `header` (OPTIONAL), an octet string containing context and application.
     /// * `ph` (OPTIONAL), an octet string containing the presentation header.
     /// * `messages` (OPTIONAL), a vector of octet strings representing the signed messages. 
-    ///                            If not supplied, it defaults to the empty array ("()").
+    ///   If not supplied, it defaults to the empty array ("()").
     /// * `disclosed_indexes` (OPTIONAL), vector of unsigned integers in ascending order. 
-    ///                                   Indexes of disclosed messages.
-    ///                            If not supplied, it defaults to the empty array ("()").
+    ///   Indexes of disclosed messages.
+    ///   If not supplied, it defaults to the empty array ("()").
     ///
     /// # Output:
     /// a PoK of a Signature [`PoKSignature::BBSplus`] or [`Error`].
@@ -1181,8 +1264,8 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
             header,
             ph,
             Some(CS::API_ID),
-            &CS::SEED_MOCKED_SCALAR,
-            &CS::MOCKED_SCALAR_DST,
+            CS::SEED_MOCKED_SCALAR,
+            CS::MOCKED_SCALAR_DST,
         )?;
 
         Ok(Self::BBSplus(proof))
@@ -1199,9 +1282,13 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     /// * `self`, a proof.
     /// * `pk` (REQUIRED), the Signer public key.
     /// * `disclosed_messages` (OPTIONAL), a vector of octet string representing the messages 
-    ///                                    disclosed to the Verifier.
-    /// * `disclosed_indexes` (OPTIONAL), vector of usize in ascending order. 
-    ///                                   Indexes of disclosed messages.
+    ///   disclosed to the Verifier.
+    /// * `disclosed_indexes` (OPTIONAL), vector of usize, one per disclosed message: the index
+    ///   that message had in the vector of signed messages. Indexes must be unique; if they are
+    ///   not in ascending order, indexes and messages are sorted together.
+    ///
+    /// Returns [`Error::PoKSVerificationError`] if the numbers of disclosed messages and indexes
+    /// differ or an index is repeated.
     /// * `header` (OPTIONAL), an octet string containing context and application.
     /// * `ph` (OPTIONAL), an octet string containing the presentation header.
     ///
@@ -1218,19 +1305,39 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     ) -> Result<(), Error> {
         let proof = self.to_bbsplus_proof();
         let disclosed_messages = disclosed_messages.unwrap_or(&[]);
-        let mut disclosed_indexes = disclosed_indexes.unwrap_or(&[]).to_vec();
-        disclosed_indexes.sort();
-        disclosed_indexes.dedup();
-
-        let U = proof.m_cap.len();
-        let R = disclosed_indexes.len();
+        let disclosed_indexes = disclosed_indexes.unwrap_or(&[]);
+        // Messages and indexes come from the Prover presentation: a different count must be an
+        // error, not a panic in the multi-exponentiation.
+        if disclosed_messages.len() != disclosed_indexes.len() {
+            return Err(Error::PoKSVerificationError(
+                "number of disclosed messages different from number of disclosed indexes".to_owned(),
+            ));
+        }
 
         let disclosed_message_scalars =
             BBSplusMessage::messages_to_scalar::<CS>(disclosed_messages, CS::API_ID)?;
 
+        // Sort the (index, message) pairs by index, so that each message keeps its index.
+        let mut disclosed: Vec<(usize, BBSplusMessage)> = disclosed_indexes
+            .iter()
+            .copied()
+            .zip(disclosed_message_scalars)
+            .collect();
+        disclosed.sort_by_key(|&(i, _)| i);
+        if disclosed.windows(2).any(|w| w[0].0 == w[1].0) {
+            return Err(Error::PoKSVerificationError("repeated disclosed index".to_owned()));
+        }
+        let (disclosed_indexes, disclosed_message_scalars): (Vec<usize>, Vec<BBSplusMessage>) =
+            disclosed.into_iter().unzip();
+
+        let U = proof.m_cap.len();
+        let R = disclosed_indexes.len();
+
         let generators = Generators::create::<CS>(U + R + 1, Some(CS::API_ID));
 
-        let result = core_proof_verify::<CS>(
+        
+
+        core_proof_verify::<CS>(
             pk,
             proof,
             &generators,
@@ -1239,9 +1346,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
             &disclosed_message_scalars,
             &disclosed_indexes,
             Some(CS::API_ID),
-        );
-
-        result
+        )
     }
 
     /// Converts the `PoKSignature` to a byte vector.
@@ -1283,6 +1388,8 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
 /// # Output:
 /// a PoK of a Signature [`BBSplusPoKSignature`] or [`Error`].
 ///
+// Same inputs, in the same order, as the draft procedure it implements.
+#[allow(clippy::too_many_arguments)]
 fn core_proof_gen<CS>(
     pk: &BBSplusPublicKey,
     signature: &BBSplusSignature,
@@ -1309,7 +1416,7 @@ where
         generators,
         header,
         messages,
-        &disclosed_indexes,
+        disclosed_indexes,
         api_id,
         _seed,
         _dst,
@@ -1392,12 +1499,14 @@ pub(super) fn validate_init_res(init_res: &ProofInitRes) -> Result<(), Error> {
 /// * `header` (OPTIONAL), an octet string containing context and application.
 /// * `messages` (OPTIONAL), a vector of scalars ([`BBSplusMessage`]).
 /// * `disclosed_indexes` (OPTIONAL), vector of usize in ascending order. 
-///                                   Indexes of undisclosed messages.
+///   Indexes of undisclosed messages.
 /// * `api_id` (OPTIONAL), an octet string.
 ///
 /// # Output:
 /// a [`ProofInitRes`] or [`Error`].
 ///
+// Same inputs, in the same order, as the draft procedure it implements.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn proof_init<CS>(
     pk: &BBSplusPublicKey,
     signature: &BBSplusSignature,
@@ -1445,6 +1554,8 @@ where
 /// Needed when the random scalars must be drawn together with other values in a
 /// single `calculate_random_scalars` call (e.g. the committed disclosure extension of
 /// draft-irtf-cfrg-bbs-blind-signatures-05 §4.3.4, which draws `5 + U + 2*N` scalars).
+// Same inputs, in the same order, as the draft procedure it implements.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn proof_init_with_scalars<CS>(
     pk: &BBSplusPublicKey,
     signature: &BBSplusSignature,
@@ -1512,8 +1623,8 @@ where
     let D = B * r2;
     let Abar = signature.A * (r1 * r2);
 
-    let Bbar = multi_exponentiation_g1(&[D, Abar].to_vec(), &[r1,-signature.e].to_vec());
-    let T1 = multi_exponentiation_g1(&[Abar, D].to_vec(), &[e_tilde, r1_tilde].to_vec());
+    let Bbar = multi_exponentiation_g1([D, Abar].as_ref(), [r1,-signature.e].as_ref());
+    let T1 = multi_exponentiation_g1([Abar, D].as_ref(), [e_tilde, r1_tilde].as_ref());
 
     let mut t2gens = Vec::with_capacity(undisclosed_generators.len() + 1);
     t2gens.push(D);
@@ -1551,7 +1662,7 @@ where
 ///
 /// # Inputs:
 /// * `init_res` (REQUIRED), [`ProofInitRes`] returned after initializing the proof generation
-///                          or verification operations.
+///   or verification operations.
 /// * `ph` (OPTIONAL), an octet string containing the presentation header.
 /// * `api_id` (OPTIONAL), an octet string.
 ///
@@ -1626,8 +1737,8 @@ fn proof_challenge_octets(
 ///
 /// # Inputs:
 /// * `init_res` (REQUIRED), [`ProofInitRes`] returned after initializing object representing
-///                          the value returned after initializing the proof generation
-///                          or verification operations
+///   the value returned after initializing the proof generation
+///   or verification operations
 /// * `challenge` (REQUIRED), a scalar value.
 ///
 /// # Output:
@@ -1699,14 +1810,16 @@ pub(super) fn proof_finalize(
 /// * `header` (OPTIONAL), an octet string containing context and application.
 /// * `ph` (OPTIONAL), an octet string containing the presentation header.
 /// * `disclosed_messages` (OPTIONAL), a vector of scalars ([`BBSplusMessage`])
-///                                    representing the messages disclosed to the Verifier.
+///   representing the messages disclosed to the Verifier.
 /// * `disclosed_indexes` (OPTIONAL), vector of unsigned integers in ascending order.
-///                                   Indexes of disclosed messages.
+///   Indexes of disclosed messages.
 /// * `api_id` (OPTIONAL), an octet string.
 ///
 /// # Output:
 /// a result: [`Ok`] or [`Error`].
 ///
+// Same inputs, in the same order, as the draft procedure it implements.
+#[allow(clippy::too_many_arguments)]
 fn core_proof_verify<CS>(
     pk: &BBSplusPublicKey,
     proof: &BBSplusPoKSignature,
@@ -1772,10 +1885,10 @@ pub(super) fn verify_proof_pairing(pk: &BBSplusPublicKey, proof: &BBSplusPoKSign
 /// * `generators` (REQUIRED), vector of pseudo-random points in G1.
 /// * `header` (OPTIONAL), an octet string containing context and application.
 /// * `disclosed_messages` (REQUIRED), a vector of scalars ([`BBSplusMessage`])
-///                                    representing the messages disclosed to the Verifier.
-///                                    It could be empty.
+///   representing the messages disclosed to the Verifier.
+///   It could be empty.
 /// * `disclosed_indexes` (REQUIRED), vector of unsigned integers in ascending order.
-///                                   Indexes of disclosed messages. It could be empty.
+///   Indexes of disclosed messages. It could be empty.
 /// * `api_id` (OPTIONAL), an octet string.
 ///
 /// # Output:
@@ -1793,8 +1906,29 @@ pub(super) fn proof_verify_init<CS>(
 where
     CS: BbsCiphersuite,
 {
+    // draft-irtf-cfrg-bbs-signatures-15 §4.2.5.5 octets_to_proof step 7 and §4.2.5.6
+    // octets_to_pubkey step 4. `from_bytes` already enforces them, but a proof or a key can
+    // also come from serde (whose point decoding accepts the identity): repeat them here so
+    // every verification path (BBS, Blind BBS, pseudonyms) applies them. With
+    // Abar = Bbar = Identity_G1 the pairing check is trivially satisfied and the rest of the
+    // proof can be forged for any disclosed messages without a signature.
+    if bool::from(proof.Abar.is_identity())
+        || bool::from(proof.Bbar.is_identity())
+        || bool::from(proof.D.is_identity())
+    {
+        return Err(Error::InvalidProofOfKnowledgeSignature);
+    }
+    if bool::from(pk.0.is_identity()) {
+        return Err(Error::KeyDeserializationError);
+    }
+
     let U = proof.m_cap.len();
     let R = disclosed_indexes.len();
+    if disclosed_messages.len() != R {
+        return Err(Error::PoKSVerificationError(
+            "number of disclosed messages different from number of disclosed indexes".to_owned(),
+        ));
+    }
 
     let L = U + R;
 
@@ -1815,11 +1949,11 @@ where
     let domain = calculate_domain::<CS>(pk, generators, header, api_id)?;
 
     let T1 = multi_exponentiation_g1(
-        &[proof.Bbar, proof.Abar, proof.D].to_vec(),
-        &[proof.challenge,proof.e_cap, proof.r1_cap].to_vec()
+        [proof.Bbar, proof.Abar, proof.D].as_ref(),
+        [proof.challenge,proof.e_cap, proof.r1_cap].as_ref()
     );
 
-    let disclosed_generators = get_generators_from_indexes(generators, &disclosed_indexes);
+    let disclosed_generators = get_generators_from_indexes(generators, disclosed_indexes);
 
     let mut Bvgens = Vec::with_capacity(disclosed_generators.len() + 1);
     Bvgens.push(generators.g1_base_point);
@@ -1912,7 +2046,7 @@ impl BBSplusZKPoK {
     /// * A Result containing the `BBSplusZKPoK` or an Error.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         // s^ and challenge are always present, followed by one m^ per committed message
-        if bytes.len() < 2 * Scalar::BYTES || bytes.len() % Scalar::BYTES != 0 {
+        if bytes.len() < 2 * Scalar::BYTES || !bytes.len().is_multiple_of(Scalar::BYTES) {
             return Err(Error::InvalidCommitmentProof);
         }
 
@@ -1930,7 +2064,7 @@ impl BBSplusZKPoK {
 
         let mut m_cap: Vec<Scalar> = Vec::new();
 
-        for chunk in bytes[Scalar::BYTES..].chunks_exact(Scalar::BYTES) {
+        for chunk in bytes[Scalar::BYTES..].as_chunks::<{ Scalar::BYTES }>().0 {
             m_cap.push(parse_scalar(chunk)?);
         }
 
@@ -1946,987 +2080,4 @@ impl BBSplusZKPoK {
 }
 
 #[cfg(test)]
-mod tests {
-    use crate::{
-        bbsplus::{
-            ciphersuites::BbsCiphersuite, keys::BBSplusPublicKey,
-            proof::seeded_random_scalars
-        },
-        schemes::{
-            algorithms::{BBSplus, BbsBls12381Sha256, BbsBls12381Shake256, Scheme},
-            generics::{PoKSignature, Signature},
-        },
-        utils::util::bbsplus_utils::{get_messages_vec, ScalarExt},
-    };
-
-    #[cfg(feature = "bbsplus_blind")]
-    use crate::{
-        bbsplus::{
-            commitment::{BlindFactor, Message},
-            generators::Generators,
-            proof::{core_blind_proof_gen, AddZkpInfo, BBSplusBlindPoKSignature, Disclosure},
-            signature::BBSplusSignature,
-        },
-        schemes::generics::BlindPoKSignature,
-        utils::message::bbsplus_message::BBSplusMessage,
-    };
-    #[cfg(feature = "bbsplus_blind")]
-    use crate::bbsplus::test_utils::{parse_disclosures, parse_messages};
-
-    //mocked_rng - SHA256 - UPDATED
-    #[test]
-    fn mocked_rng_sha256() {
-        mocked_rng::<BbsBls12381Sha256>(
-            "./fixture_data/fixture_data/bls12-381-sha-256/",
-            "mockedRng.json"
-        );
-    }
-
-    //mocked_rng - SHAKE256 - UPDATED
-    #[test]
-    fn mocked_rng_shake256() {
-        mocked_rng::<BbsBls12381Shake256>(
-            "./fixture_data/fixture_data/bls12-381-shake-256/",
-            "mockedRng.json"
-        );
-    }
-
-    // FROM_BYTES LENGTH VALIDATION
-    use crate::{bbsplus::{proof::{BBSplusPoKSignature, BBSplusZKPoK}, test_utils::valid_fixture_bytes},
-                errors::Error};
-    use bls12_381_plus::{G1Projective, Scalar};
-    use elliptic_curve::group::Curve;
-
-    const POK_FIXTURE_DIRS: [&str; 2] = [
-        "./fixture_data/fixture_data/bls12-381-sha-256/proof/",
-        "./fixture_data/fixture_data/bls12-381-shake-256/proof/",
-    ];
-
-    fn assert_pok_rejected(bytes: &[u8]) {
-        assert!(
-            matches!(
-                BBSplusPoKSignature::from_bytes(bytes),
-                Err(Error::InvalidProofOfKnowledgeSignature)
-            ),
-            "proof of {} bytes should be rejected",
-            bytes.len()
-        );
-    }
-
-    #[test]
-    fn pok_from_bytes_rejects_identity_points() {
-        let identity = G1Projective::IDENTITY.to_affine().to_compressed();
-        for dir in POK_FIXTURE_DIRS {
-            for proof in valid_fixture_bytes(dir, "proof") {
-                for offset in [0usize, 48, 96] {
-                    let mut bytes = proof.clone();
-                    bytes[offset..offset + 48].copy_from_slice(&identity);
-                    assert_pok_rejected(&bytes);
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn pok_from_bytes_round_trip() {
-        for dir in POK_FIXTURE_DIRS {
-            for proof in valid_fixture_bytes(dir, "proof") {
-                let parsed = BBSplusPoKSignature::from_bytes(&proof).unwrap();
-                assert_eq!(parsed.to_bytes(), proof);
-            }
-        }
-    }
-
-    #[test]
-    fn pok_from_bytes_rejects_trailing_bytes() {
-        for dir in POK_FIXTURE_DIRS {
-            for proof in valid_fixture_bytes(dir, "proof") {
-                for extra in [1usize, 16, 31] {
-                    let mut bytes = proof.clone();
-                    bytes.extend(std::iter::repeat(0u8).take(extra));
-                    assert_pok_rejected(&bytes);
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn pok_from_bytes_rejects_truncated_input() {
-        for dir in POK_FIXTURE_DIRS {
-            for proof in valid_fixture_bytes(dir, "proof") {
-                for cut in [1usize, 31] {
-                    assert_pok_rejected(&proof[..proof.len() - cut]);
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn pok_from_bytes_rejects_invalid_lengths() {
-        for len in [0usize, 10, 48, 144, 239, 240, 271, 272 + 16, 304 + 1] {
-            assert_pok_rejected(&vec![0u8; len]);
-        }
-    }
-
-    #[test]
-    fn pok_from_bytes_extra_scalar_is_parsed_as_message() {
-        // Appending a whole scalar is a well-formed encoding with one more
-        // undisclosed message; it is rejected at verification time, not parsing.
-        let proof = &valid_fixture_bytes(POK_FIXTURE_DIRS[0], "proof")[0];
-        let parsed = BBSplusPoKSignature::from_bytes(proof).unwrap();
-        let mut bytes = proof.clone();
-        bytes.extend([0u8; 32]);
-        let extended = BBSplusPoKSignature::from_bytes(&bytes).unwrap();
-        assert_eq!(extended.m_cap.len(), parsed.m_cap.len() + 1);
-    }
-
-    fn assert_zkpok_rejected(bytes: &[u8]) {
-        assert!(
-            matches!(
-                BBSplusZKPoK::from_bytes(bytes),
-                Err(Error::InvalidCommitmentProof)
-            ),
-            "ZKPoK of {} bytes should be rejected",
-            bytes.len()
-        );
-    }
-
-    #[test]
-    fn zkpok_from_bytes_round_trip() {
-        for m in 0..3u64 {
-            let zkpok = BBSplusZKPoK::new(
-                Scalar::from(7u64),
-                (0..m).map(|i| Scalar::from(100 + i)).collect(),
-                Scalar::from(42u64),
-            );
-            let bytes = zkpok.to_bytes();
-            assert_eq!(bytes.len(), 64 + 32 * m as usize);
-            assert_eq!(BBSplusZKPoK::from_bytes(&bytes).unwrap(), zkpok);
-        }
-    }
-
-    #[test]
-    fn zkpok_from_bytes_rejects_zero_scalars() {
-        // s^, each m^_i and the challenge must all be non-zero (octets_to_commitment_with_proof step 13).
-        let zkpok = BBSplusZKPoK::new(
-            Scalar::from(7u64),
-            vec![Scalar::from(100u64), Scalar::from(101u64)],
-            Scalar::from(42u64),
-        );
-        let bytes = zkpok.to_bytes();
-        for k in 0..bytes.len() / 32 {
-            let mut tampered = bytes.clone();
-            tampered[k * 32..(k + 1) * 32].fill(0);
-            assert_zkpok_rejected(&tampered);
-        }
-    }
-
-    #[test]
-    fn zkpok_from_bytes_rejects_invalid_lengths() {
-        for len in [0usize, 1, 31, 32, 63, 65, 95, 96 + 31] {
-            assert_zkpok_rejected(&vec![0u8; len]);
-        }
-
-        let valid = BBSplusZKPoK::new(
-            Scalar::from(7u64),
-            vec![Scalar::from(9u64)],
-            Scalar::from(42u64)
-        ).to_bytes();
-        for extra in [1usize, 31] {
-            let mut bytes = valid.clone();
-            bytes.extend(std::iter::repeat(0u8).take(extra));
-            assert_zkpok_rejected(&bytes);
-        }
-    }
-
-    #[test]
-    fn zkpok_from_bytes_rejects_non_canonical_scalars() {
-        let valid = BBSplusZKPoK::new(Scalar::from(7u64), vec![Scalar::from(9u64)], Scalar::from(42u64))
-            .to_bytes();
-        // 0xff..ff is larger than the group order, so it is not a valid scalar encoding.
-        for start in (0..valid.len()).step_by(Scalar::BYTES) {
-            let mut bytes = valid.clone();
-            bytes[start..start + Scalar::BYTES].fill(0xff);
-            assert_zkpok_rejected(&bytes);
-        }
-    }
-
-    //SIGNATURE POK
-
-    macro_rules! proof_tests {
-        ( $( ($t:ident, $p:literal): { $( ($n:ident, $f:literal), )+ },)+ ) => { $($(
-            #[test] fn $n() { proof_check::<$t>($p, $f); }
-        )+)+ }
-    }
-
-    proof_tests! {
-        (BbsBls12381Sha256, "./fixture_data/fixture_data/bls12-381-sha-256/"): {
-            (proof_check_sha256_1, "proof/proof001.json"),
-            (proof_check_sha256_2, "proof/proof002.json"),
-            (proof_check_sha256_3, "proof/proof003.json"),
-            (proof_check_sha256_4, "proof/proof004.json"),
-            (proof_check_sha256_5, "proof/proof005.json"),
-            (proof_check_sha256_6, "proof/proof006.json"),
-            (proof_check_sha256_7, "proof/proof007.json"),
-            (proof_check_sha256_8, "proof/proof008.json"),
-            (proof_check_sha256_9, "proof/proof009.json"),
-            (proof_check_sha256_10, "proof/proof010.json"),
-            (proof_check_sha256_11, "proof/proof011.json"),
-            (proof_check_sha256_12, "proof/proof012.json"),
-            (proof_check_sha256_13, "proof/proof013.json"),
-            (proof_check_sha256_14, "proof/proof014.json"),
-            (proof_check_sha256_15, "proof/proof015.json"),
-        },
-        (BbsBls12381Shake256, "./fixture_data/fixture_data/bls12-381-shake-256/"): {
-            (proof_check_shake256_1, "proof/proof001.json"),
-            (proof_check_shake256_2, "proof/proof002.json"),
-            (proof_check_shake256_3, "proof/proof003.json"),
-            (proof_check_shake256_4, "proof/proof004.json"),
-            (proof_check_shake256_5, "proof/proof005.json"),
-            (proof_check_shake256_6, "proof/proof006.json"),
-            (proof_check_shake256_7, "proof/proof007.json"),
-            (proof_check_shake256_8, "proof/proof008.json"),
-            (proof_check_shake256_9, "proof/proof009.json"),
-            (proof_check_shake256_10, "proof/proof010.json"),
-            (proof_check_shake256_11, "proof/proof011.json"),
-            (proof_check_shake256_12, "proof/proof012.json"),
-            (proof_check_shake256_13, "proof/proof013.json"),
-            (proof_check_shake256_14, "proof/proof014.json"),
-            (proof_check_shake256_15, "proof/proof015.json"),
-        },
-    }
-
-    // BLIND PROOF OF KNOWLEDGE OF A SIGNATURE
-    #[cfg(feature = "bbsplus_blind")]
-    macro_rules! blind_proof_tests {
-        ( $( ($t:ident, $p:literal): { $( ($n:ident, $f:literal), )+ },)+ ) => { $($(
-            #[test] fn $n() { blind_proof_check::<$t>($p, $f); }
-        )+)+ }
-    }
-
-    #[cfg(feature = "bbsplus_blind")]
-    blind_proof_tests! {
-        (BbsBls12381Sha256, "./fixture_data/fixture_data_blind/bls12-381-sha-256/"): {
-            (blind_proof_check_sha256_1, "proof/proof001.json"),
-            (blind_proof_check_sha256_2, "proof/proof002.json"),
-            (blind_proof_check_sha256_3, "proof/proof003.json"),
-            (blind_proof_check_sha256_4, "proof/proof004.json"),
-            (blind_proof_check_sha256_5, "proof/proof005.json"),
-            (blind_proof_check_sha256_6, "proof/proof006.json"),
-            (blind_proof_check_sha256_7, "proof/proof007.json"),
-            (blind_proof_check_sha256_8, "proof/proof008.json"),
-            (blind_proof_check_sha256_9, "proof/proof009.json"),
-            (blind_proof_check_sha256_10, "proof/proof010.json"),
-            (blind_proof_check_sha256_11, "proof/proof011.json"),
-        },
-        (BbsBls12381Shake256, "./fixture_data/fixture_data_blind/bls12-381-shake-256/"): {
-            (blind_proof_check_shake256_1, "proof/proof001.json"),
-            (blind_proof_check_shake256_2, "proof/proof002.json"),
-            (blind_proof_check_shake256_3, "proof/proof003.json"),
-            (blind_proof_check_shake256_4, "proof/proof004.json"),
-            (blind_proof_check_shake256_5, "proof/proof005.json"),
-            (blind_proof_check_shake256_6, "proof/proof006.json"),
-            (blind_proof_check_shake256_7, "proof/proof007.json"),
-            (blind_proof_check_shake256_8, "proof/proof008.json"),
-            (blind_proof_check_shake256_9, "proof/proof009.json"),
-            (blind_proof_check_shake256_10, "proof/proof010.json"),
-            (blind_proof_check_shake256_11, "proof/proof011.json"),
-        },
-    }
-
-    fn mocked_rng<S: Scheme>(pathname: &str, filename: &str)
-    where
-        S::Ciphersuite: BbsCiphersuite,
-    {
-        let data =
-            std::fs::read_to_string([pathname, filename].concat()).expect("Unable to read file");
-        let res: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
-        eprintln!("Mocked Random Scalars");
-
-        let seed_ = hex::decode(res["seed"].as_str().unwrap()).unwrap();
-        let dst = hex::decode(res["dst"].as_str().unwrap()).unwrap();
-        let count: usize = res["count"].as_u64().unwrap().try_into().unwrap();
-
-        let mocked_scalars_hex: Vec<&str> = res["mockedScalars"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|s| s.as_str().unwrap())
-            .collect();
-
-        let r = seeded_random_scalars::<S::Ciphersuite>(count, &seed_, &dst);
-
-        let mut results = true;
-
-        for i in 0..count {
-            let scalar_hex = hex::encode(r[i].to_bytes_be());
-
-            let scalar_expected = mocked_scalars_hex[i];
-
-            if scalar_hex != scalar_expected {
-                if results == true {
-                    results = false
-                }
-                eprintln!(" count: {}", i);
-                eprintln!(" Expected scalar: {}", scalar_expected);
-                eprintln!(" Computed scalar: {}", scalar_hex);
-            }
-        }
-
-        assert!(results, "Failed");
-    }
-
-    fn proof_check<S: Scheme>(pathname: &str, proof_filename: &str)
-    where
-        S::Ciphersuite: BbsCiphersuite,
-    {
-        let data = std::fs::read_to_string([pathname, proof_filename].concat())
-            .expect("Unable to read file");
-        let proof_json: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
-
-        let signerPK_hex = proof_json["signerPublicKey"].as_str().unwrap();
-        let header_hex = proof_json["header"].as_str().unwrap();
-        let ph_hex = proof_json["presentationHeader"].as_str().unwrap();
-        let input_messages: Vec<String> = proof_json["messages"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|m| serde_json::from_value(m.clone()).unwrap())
-            .collect();
-
-        let proof_expected = proof_json["proof"].as_str().unwrap();
-        let result_expected = proof_json["result"]["valid"].as_bool().unwrap();
-
-        let ph = hex::decode(ph_hex).unwrap();
-
-        let revealed_message_indexes: Vec<usize> = proof_json["disclosedIndexes"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|m| serde_json::from_value(m.clone()).unwrap())
-            .collect();
-
-        //Get Message Signature
-        let signature_expected = proof_json["signature"].as_str().unwrap();
-
-        let signature = Signature::<BBSplus<S::Ciphersuite>>::
-        from_bytes(
-            hex::decode(signature_expected)
-                .unwrap()
-                .as_slice()
-                .try_into()
-                .unwrap(),
-        )
-        .unwrap();
-
-        let header = hex::decode(header_hex).unwrap();
-        let PK = BBSplusPublicKey::from_bytes(&hex::decode(signerPK_hex).unwrap()).unwrap();
-
-        let msgs: Vec<Vec<u8>> = input_messages
-            .iter()
-            .map(|m| hex::decode(m).unwrap())
-            .collect();
-
-        let proof = PoKSignature::<BBSplus<S::Ciphersuite>>::
-        proof_gen(
-            &PK,
-            &signature.to_bytes(),
-            Some(&header),
-            Some(&ph),
-            Some(&msgs),
-            Some(&revealed_message_indexes),
-        )
-        .unwrap();
-        let my_encoded_proof = hex::encode(&proof.to_bytes());
-        let result0 = proof_expected == my_encoded_proof;
-        let result1 = result0 == result_expected;
-        if result1 == false {
-            println!("  proofGen: {}", result1);
-            println!("  Expected: {}", proof_expected);
-            println!("  Computed: {}", my_encoded_proof);
-            assert!(result1, "Failed");
-        }
-
-        // Verify the Proof
-        let disclosed_messages = get_messages_vec(&msgs, &revealed_message_indexes);
-
-        let PROOF = PoKSignature::<BBSplus<S::Ciphersuite>>::
-        from_bytes(
-            &hex::decode(proof_expected).unwrap(),
-        )
-        .unwrap();
-
-        let result2 = PROOF
-            .proof_verify(
-                &PK,
-                Some(&disclosed_messages),
-                Some(&revealed_message_indexes),
-                Some(&header),
-                Some(&ph),
-            )
-            .is_ok();
-        let result3 = result2 == result_expected;
-        if !result3 {
-            eprintln!("  proofVerify: {}", result3);
-            eprintln!("  Expected: {}", result_expected);
-            eprintln!("  Computed: {}", result2);
-            assert!(result3, "failed");
-        } else {
-            eprintln!("  Expected: {}", signature_expected);
-            eprintln!("  Computed: {}", hex::encode(signature.to_bytes()));
-
-            eprintln!("  proofVerify: {}", result3);
-            eprintln!("  Expected: {}", result_expected);
-            eprintln!("  Computed: {}", result2);
-            if result_expected == false {
-                eprintln!(
-                    "{} ({})",
-                    result3,
-                    proof_json["result"]["reason"].as_str().unwrap()
-                );
-            }
-        }
-    }
-
-    #[cfg(feature = "bbsplus_blind")]
-    fn blind_proof_check<S: Scheme>(pathname: &str, proof_filename: &str)
-    where
-        S::Ciphersuite: BbsCiphersuite,
-    {
-        let data = std::fs::read_to_string([pathname, proof_filename].concat())
-            .expect("Unable to read file");
-        let proof_json: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
-        println!("{}", proof_json["caseName"]);
-
-        let signature_file = proof_json["signatureFile"].as_str().unwrap();
-        let sig_data = std::fs::read_to_string([pathname, "signature/", signature_file].concat())
-            .expect("Unable to read signature file");
-        let sig_json: serde_json::Value =
-            serde_json::from_str(&sig_data).expect("Unable to parse");
-
-        let pk = BBSplusPublicKey::from_bytes(
-            &hex::decode(proof_json["signerPublicKey"].as_str().unwrap()).unwrap(),
-        )
-        .unwrap();
-        let signature = BBSplusSignature::from_bytes(
-            &hex::decode(sig_json["signature"].as_str().unwrap())
-                .unwrap()
-                .try_into()
-                .unwrap(),
-        )
-        .unwrap();
-
-        let issuer_messages = parse_messages(&sig_json["messages"]);
-        let blind_messages = parse_messages(&sig_json["blindMessages"]);
-        let secret_prover_blind = sig_json["proverBlind"].as_str().map(|b| {
-            BlindFactor::from_bytes(&hex::decode(b).unwrap().try_into().unwrap()).unwrap()
-        });
-
-        let header = hex::decode(proof_json["header"].as_str().unwrap()).unwrap();
-        let ph = hex::decode(proof_json["presentationHeader"].as_str().unwrap()).unwrap();
-
-        let issuer_disclosures = parse_disclosures(&proof_json["messageDisclosures"]);
-        let blind_disclosures = parse_disclosures(&proof_json["blindMessageDisclosures"]);
-        let L = proof_json["L"].as_u64().unwrap() as usize;
-        assert_eq!(L, issuer_messages.len());
-
-        let expected_count = proof_json["mockRngParameters"]["proof"]["count"]
-            .as_u64()
-            .unwrap() as usize;
-        let N = issuer_disclosures
-            .iter()
-            .chain(&blind_disclosures)
-            .filter(|d| **d == Disclosure::Commit)
-            .count();
-        let R = issuer_disclosures
-            .iter()
-            .chain(&blind_disclosures)
-            .filter(|d| **d == Disclosure::Disclose)
-            .count();
-        let U = issuer_messages.len() + 1 + blind_messages.len() - R;
-        assert_eq!(5 + U + 2 * N, expected_count, "random scalars count");
-
-        let (proof, add_zkp_info) = BlindPoKSignature::<BBSplus<S::Ciphersuite>>::blind_proof_gen(
-            &pk,
-            &signature.to_bytes(),
-            Some(&header),
-            Some(&ph),
-            Some(&issuer_messages),
-            Some(&blind_messages),
-            Some(&issuer_disclosures),
-            Some(&blind_disclosures),
-            secret_prover_blind.as_ref(),
-        )
-        .unwrap();
-
-        let trace = &proof_json["trace"];
-        let C_i = proof
-            .to_bbsplus_blind_proof()
-            .commitments()
-            .iter()
-            .map(|c| hex::encode(c.to_affine().to_compressed()))
-            .collect::<Vec<_>>();
-        let expected_C_i = trace["C_i"]
-            .as_array()
-            .map(|a| a.iter().map(|c| c.as_str().unwrap().to_owned()).collect::<Vec<_>>())
-            .unwrap_or_default();
-        assert_eq!(C_i, expected_C_i, "commitments C_i");
-
-        let s_i = add_zkp_info
-            .commitment_rands
-            .iter()
-            .map(|s| hex::encode(s.to_bytes_be()))
-            .collect::<Vec<_>>();
-        let expected_s_i = trace["randomScalars"]["s_i"]
-            .as_array()
-            .map(|a| a.iter().map(|c| c.as_str().unwrap().to_owned()).collect::<Vec<_>>())
-            .unwrap_or_default();
-        assert_eq!(s_i, expected_s_i, "commitment rands s_i");
-        assert_eq!(add_zkp_info.committed_message_scalars.len(), N);
-
-        // the openings in add_zkp_info must reproduce exactly the commitments in the proof
-        let recomputed =
-            BlindPoKSignature::<BBSplus<S::Ciphersuite>>::recompute_commitments(&add_zkp_info)
-                .unwrap();
-        assert_eq!(recomputed, proof.to_bbsplus_blind_proof().commitments());
-
-        if let Some(challenge) = trace["challenge"].as_str() {
-            assert_eq!(
-                hex::encode(proof.to_bbsplus_blind_proof().bbs_proof.challenge.to_bytes_be()),
-                challenge,
-                "challenge"
-            );
-        }
-
-        let expected_proof = proof_json["proof"].as_str().unwrap();
-        let proof_bytes = proof.to_bytes();
-        assert_eq!(hex::encode(&proof_bytes), expected_proof);
-
-        // octets_to_proof round trip
-        let parsed =
-            BlindPoKSignature::<BBSplus<S::Ciphersuite>>::from_bytes(&proof_bytes, N).unwrap();
-        assert_eq!(parsed.to_bbsplus_blind_proof(), proof.to_bbsplus_blind_proof());
-
-        // Verifier side: disclosed issuer messages followed by disclosed blind messages
-        let disclosed_messages = issuer_messages
-            .iter()
-            .zip(&issuer_disclosures)
-            .chain(blind_messages.iter().zip(&blind_disclosures))
-            .filter(|(_, d)| **d == Disclosure::Disclose)
-            .map(|(m, _)| m.clone())
-            .collect::<Vec<_>>();
-        let message_disclosures = issuer_disclosures
-            .iter()
-            .chain(&blind_disclosures)
-            .copied()
-            .collect::<Vec<_>>();
-
-        let result = parsed
-            .blind_proof_verify(
-                &pk,
-                Some(&header),
-                Some(&ph),
-                Some(L),
-                Some(&disclosed_messages),
-                Some(&message_disclosures),
-            )
-            .is_ok();
-
-        let expected_result = proof_json["result"]["valid"].as_bool().unwrap();
-        assert_eq!(result, expected_result);
-    }
-
-    // ---------------------------------------------------------------------------------------
-    // Negative tests for BlindProofGen / BlindProofVerify / octets_to_proof (draft 05).
-    // They start from the valid fixture proof009 (2 issuer COMMIT + blind DISCLOSE/HIDE) and
-    // alter one input at a time.
-    // ---------------------------------------------------------------------------------------
-
-    #[cfg(feature = "bbsplus_blind")]
-    struct BlindProofCase {
-        pk: BBSplusPublicKey,
-        signature: Vec<u8>,
-        header: Vec<u8>,
-        ph: Vec<u8>,
-        issuer_messages: Vec<Message>,
-        blind_messages: Vec<Message>,
-        issuer_disclosures: Vec<Disclosure>,
-        blind_disclosures: Vec<Disclosure>,
-        secret_prover_blind: Option<BlindFactor>,
-        proof: BlindPoKSignature<BBSplus<<BbsBls12381Sha256 as Scheme>::Ciphersuite>>,
-        add_zkp_info: AddZkpInfo,
-    }
-
-    #[cfg(feature = "bbsplus_blind")]
-    type BlindSha256 = BlindPoKSignature<BBSplus<<BbsBls12381Sha256 as Scheme>::Ciphersuite>>;
-
-    #[cfg(feature = "bbsplus_blind")]
-    impl BlindProofCase {
-        fn load() -> Self {
-            let pathname = "./fixture_data/fixture_data_blind/bls12-381-sha-256/";
-            let proof_json: serde_json::Value = serde_json::from_str(
-                &std::fs::read_to_string([pathname, "proof/proof009.json"].concat()).unwrap(),
-            )
-            .unwrap();
-            let sig_json: serde_json::Value = serde_json::from_str(
-                &std::fs::read_to_string(
-                    [pathname, "signature/", proof_json["signatureFile"].as_str().unwrap()]
-                        .concat(),
-                )
-                .unwrap(),
-            )
-            .unwrap();
-
-            let pk = BBSplusPublicKey::from_bytes(
-                &hex::decode(proof_json["signerPublicKey"].as_str().unwrap()).unwrap(),
-            )
-            .unwrap();
-            let signature = hex::decode(sig_json["signature"].as_str().unwrap()).unwrap();
-            let issuer_messages = parse_messages(&sig_json["messages"]);
-            let blind_messages = parse_messages(&sig_json["blindMessages"]);
-            let secret_prover_blind = sig_json["proverBlind"].as_str().map(|b| {
-                BlindFactor::from_bytes(&hex::decode(b).unwrap().try_into().unwrap()).unwrap()
-            });
-            let header = hex::decode(proof_json["header"].as_str().unwrap()).unwrap();
-            let ph = hex::decode(proof_json["presentationHeader"].as_str().unwrap()).unwrap();
-            let issuer_disclosures = parse_disclosures(&proof_json["messageDisclosures"]);
-            let blind_disclosures = parse_disclosures(&proof_json["blindMessageDisclosures"]);
-
-            let (proof, add_zkp_info) = BlindSha256::blind_proof_gen(
-                &pk,
-                &signature,
-                Some(&header),
-                Some(&ph),
-                Some(&issuer_messages),
-                Some(&blind_messages),
-                Some(&issuer_disclosures),
-                Some(&blind_disclosures),
-                secret_prover_blind.as_ref(),
-            )
-            .unwrap();
-
-            Self {
-                pk,
-                signature,
-                header,
-                ph,
-                issuer_messages,
-                blind_messages,
-                issuer_disclosures,
-                blind_disclosures,
-                secret_prover_blind,
-                proof,
-                add_zkp_info,
-            }
-        }
-
-        fn message_disclosures(&self) -> Vec<Disclosure> {
-            self.issuer_disclosures
-                .iter()
-                .chain(&self.blind_disclosures)
-                .copied()
-                .collect()
-        }
-
-        fn disclosed_messages(&self) -> Vec<Message> {
-            self.issuer_messages
-                .iter()
-                .chain(&self.blind_messages)
-                .zip(self.message_disclosures())
-                .filter(|(_, d)| *d == Disclosure::Disclose)
-                .map(|(m, _)| m.clone())
-                .collect()
-        }
-
-        fn commitments_count(&self) -> usize {
-            self.add_zkp_info.commitment_rands.len()
-        }
-
-        fn gen(
-            &self,
-            issuer_disclosures: &[Disclosure],
-            blind_disclosures: &[Disclosure],
-        ) -> Result<(BlindSha256, AddZkpInfo), Error> {
-            BlindSha256::blind_proof_gen(
-                &self.pk,
-                &self.signature,
-                Some(&self.header),
-                Some(&self.ph),
-                Some(&self.issuer_messages),
-                Some(&self.blind_messages),
-                Some(issuer_disclosures),
-                Some(blind_disclosures),
-                self.secret_prover_blind.as_ref(),
-            )
-        }
-
-        fn verify_with(
-            &self,
-            proof: &BlindSha256,
-            ph: &[u8],
-            L: usize,
-            disclosed_messages: &[Message],
-            message_disclosures: &[Disclosure],
-        ) -> Result<(), Error> {
-            proof.blind_proof_verify(
-                &self.pk,
-                Some(&self.header),
-                Some(ph),
-                Some(L),
-                Some(disclosed_messages),
-                Some(message_disclosures),
-            )
-        }
-
-        fn verify(&self, proof: &BlindSha256) -> Result<(), Error> {
-            self.verify_with(
-                proof,
-                &self.ph,
-                self.issuer_messages.len(),
-                &self.disclosed_messages(),
-                &self.message_disclosures(),
-            )
-        }
-
-        /// proof with the inner fields replaced by `f`
-        fn tampered(&self, f: impl FnOnce(&mut BBSplusBlindPoKSignature)) -> BlindSha256 {
-            let mut inner = self.proof.to_bbsplus_blind_proof().clone();
-            f(&mut inner);
-            BlindPoKSignature::BBSplus(inner)
-        }
-    }
-
-    #[cfg(feature = "bbsplus_blind")]
-    #[test]
-    fn blind_proof_case_is_valid() {
-        // sanity check: the unaltered case must verify, so the failures below are meaningful
-        let case = BlindProofCase::load();
-        assert_eq!(case.commitments_count(), 2);
-        case.verify(&case.proof).unwrap();
-    }
-
-    #[cfg(feature = "bbsplus_blind")]
-    #[test]
-    fn blind_proof_gen_rejects_wrong_disclosures_length() {
-        let case = BlindProofCase::load();
-        let mut short_issuer = case.issuer_disclosures.clone();
-        short_issuer.pop();
-        assert!(case.gen(&short_issuer, &case.blind_disclosures).is_err());
-
-        let mut long_blind = case.blind_disclosures.clone();
-        long_blind.push(Disclosure::Hide);
-        assert!(case.gen(&case.issuer_disclosures, &long_blind).is_err());
-
-        // disclosures omitted while messages are present: defaults to [] -> length mismatch
-        assert!(BlindSha256::blind_proof_gen(
-            &case.pk,
-            &case.signature,
-            Some(&case.header),
-            Some(&case.ph),
-            Some(&case.issuer_messages),
-            Some(&case.blind_messages),
-            None,
-            None,
-            case.secret_prover_blind.as_ref(),
-        )
-        .is_err());
-    }
-
-    #[cfg(feature = "bbsplus_blind")]
-    #[test]
-    fn core_blind_proof_gen_rejects_invalid_indexes() {
-        type CS = <BbsBls12381Sha256 as Scheme>::Ciphersuite;
-        let case = BlindProofCase::load();
-        let api_id = CS::API_ID_BLIND;
-        let L = case.issuer_messages.len();
-        let M = case.blind_messages.len();
-        let generators = Generators::create::<CS>(L + 1, Some(api_id))
-            .append(Generators::create::<CS>(M + 1, Some(&[b"BLIND_", api_id].concat())));
-        let messages: Vec<BBSplusMessage> = (0..L + 1 + M)
-            .map(|i| BBSplusMessage::new(Scalar::from(i as u64 + 1)))
-            .collect();
-        let signature = BBSplusSignature::from_bytes(
-            &case.signature.clone().try_into().unwrap(),
-        )
-        .unwrap();
-
-        let gen = |disclosed: &[usize], committed: &[usize]| {
-            core_blind_proof_gen::<CS>(
-                &case.pk,
-                &signature,
-                &generators,
-                None,
-                None,
-                &messages,
-                disclosed,
-                committed,
-                Some(api_id),
-                CS::SEED_MOCKED_SCALAR,
-                CS::BLIND_PROOF_DST,
-            )
-        };
-
-        // the same index both disclosed and committed
-        assert!(gen(&[0, 2], &[2]).is_err());
-        // not strictly ascending
-        assert!(gen(&[], &[3, 1]).is_err());
-        assert!(gen(&[4, 4], &[]).is_err());
-        // out of range
-        assert!(gen(&[], &[L + 1 + M]).is_err());
-        assert!(gen(&[L + 1 + M], &[]).is_err());
-    }
-
-    #[cfg(feature = "bbsplus_blind")]
-    #[test]
-    fn blind_proof_from_bytes_rejects_wrong_commitments_count() {
-        let case = BlindProofCase::load();
-        let bytes = case.proof.to_bytes();
-        let N = case.commitments_count();
-        assert!(BlindSha256::from_bytes(&bytes, N).is_ok());
-        assert!(BlindSha256::from_bytes(&bytes, N - 1).is_err());
-        assert!(BlindSha256::from_bytes(&bytes, N + 1).is_err());
-        assert!(BlindSha256::from_bytes(&bytes, usize::MAX).is_err());
-    }
-
-    #[cfg(feature = "bbsplus_blind")]
-    #[test]
-    fn blind_proof_from_bytes_rejects_malformed_input() {
-        let case = BlindProofCase::load();
-        let bytes = case.proof.to_bytes();
-        let N = case.commitments_count();
-
-        // shorter than the 8-byte length prefix
-        assert!(BlindSha256::from_bytes(&bytes[..7], N).is_err());
-        // truncated / extended
-        assert!(BlindSha256::from_bytes(&bytes[..bytes.len() - 1], N).is_err());
-        let mut extended = bytes.clone();
-        extended.push(0);
-        assert!(BlindSha256::from_bytes(&extended, N).is_err());
-
-        // bbs_proof_len pointing past the end of the buffer
-        let mut huge_len = bytes.clone();
-        huge_len[..8].copy_from_slice(&u64::MAX.to_be_bytes());
-        assert!(BlindSha256::from_bytes(&huge_len, N).is_err());
-
-        let bbs_len = u64::from_be_bytes(bytes[..8].try_into().unwrap()) as usize;
-        let C_start = 8 + bbs_len;
-        let s_start = C_start + N * G1Projective::COMPRESSED_BYTES;
-
-        // C_1 = Identity_G1
-        let mut identity_C = bytes.clone();
-        identity_C[C_start..C_start + G1Projective::COMPRESSED_BYTES]
-            .copy_from_slice(&G1Projective::IDENTITY.to_affine().to_compressed());
-        assert!(BlindSha256::from_bytes(&identity_C, N).is_err());
-
-        // C_1 not a valid point encoding
-        let mut invalid_C = bytes.clone();
-        invalid_C[C_start..C_start + G1Projective::COMPRESSED_BYTES].fill(0xff);
-        assert!(BlindSha256::from_bytes(&invalid_C, N).is_err());
-
-        // s^_1 = 0
-        let mut zero_s = bytes.clone();
-        zero_s[s_start..s_start + Scalar::BYTES].fill(0);
-        assert!(BlindSha256::from_bytes(&zero_s, N).is_err());
-
-        // s^_1 >= r
-        let mut big_s = bytes.clone();
-        big_s[s_start..s_start + Scalar::BYTES].fill(0xff);
-        assert!(BlindSha256::from_bytes(&big_s, N).is_err());
-    }
-
-    #[cfg(feature = "bbsplus_blind")]
-    #[test]
-    fn blind_proof_verify_rejects_tampered_commitment() {
-        let case = BlindProofCase::load();
-        let proof = case.tampered(|p| p.commitments[0] = G1Projective::GENERATOR);
-        assert!(case.verify(&proof).is_err());
-
-        // swapping the two commitments must also fail: each C_i is bound to its index
-        let proof = case.tampered(|p| p.commitments.swap(0, 1));
-        assert!(case.verify(&proof).is_err());
-    }
-
-    #[cfg(feature = "bbsplus_blind")]
-    #[test]
-    fn blind_proof_verify_rejects_tampered_commitment_proof() {
-        let case = BlindProofCase::load();
-        let proof = case.tampered(|p| p.commitments_proof[1] += Scalar::ONE);
-        assert!(case.verify(&proof).is_err());
-    }
-
-    #[cfg(feature = "bbsplus_blind")]
-    #[test]
-    fn blind_proof_verify_rejects_wrong_issuer_known_messages_no() {
-        let case = BlindProofCase::load();
-        let L = case.issuer_messages.len();
-        let disclosed = case.disclosed_messages();
-        let disclosures = case.message_disclosures();
-        assert!(case.verify_with(&case.proof, &case.ph, L - 1, &disclosed, &disclosures).is_err());
-        assert!(case.verify_with(&case.proof, &case.ph, L + 1, &disclosed, &disclosures).is_err());
-        // larger than the total number of messages
-        assert!(case
-            .verify_with(&case.proof, &case.ph, L + 100, &disclosed, &disclosures)
-            .is_err());
-    }
-
-    #[cfg(feature = "bbsplus_blind")]
-    #[test]
-    fn blind_proof_verify_rejects_wrong_message_disclosures() {
-        let case = BlindProofCase::load();
-        let L = case.issuer_messages.len();
-        let disclosed = case.disclosed_messages();
-        let disclosures = case.message_disclosures();
-
-        // a COMMIT turned into HIDE: the commitment count no longer matches the proof
-        let mut commit_to_hide = disclosures.clone();
-        let i = commit_to_hide.iter().position(|d| *d == Disclosure::Commit).unwrap();
-        commit_to_hide[i] = Disclosure::Hide;
-        assert!(case.verify_with(&case.proof, &case.ph, L, &disclosed, &commit_to_hide).is_err());
-
-        // a COMMIT moved to another hidden index: same count, wrong binding
-        let mut moved = disclosures.clone();
-        let j = moved.iter().position(|d| *d == Disclosure::Hide).unwrap();
-        moved.swap(i, j);
-        assert!(case.verify_with(&case.proof, &case.ph, L, &disclosed, &moved).is_err());
-
-        // wrong length
-        let mut short = disclosures.clone();
-        short.pop();
-        assert!(case.verify_with(&case.proof, &case.ph, L, &disclosed, &short).is_err());
-    }
-
-    #[cfg(feature = "bbsplus_blind")]
-    #[test]
-    fn blind_proof_verify_rejects_wrong_disclosed_messages_or_ph() {
-        let case = BlindProofCase::load();
-        let L = case.issuer_messages.len();
-        let disclosures = case.message_disclosures();
-
-        let mut wrong_msg = case.disclosed_messages();
-        wrong_msg[0] = Message::hash(b"not the signed message".to_vec());
-        assert!(case.verify_with(&case.proof, &case.ph, L, &wrong_msg, &disclosures).is_err());
-
-        let mut missing_msg = case.disclosed_messages();
-        missing_msg.pop();
-        assert!(case.verify_with(&case.proof, &case.ph, L, &missing_msg, &disclosures).is_err());
-
-        let disclosed = case.disclosed_messages();
-        assert!(case.verify_with(&case.proof, b"another ph", L, &disclosed, &disclosures).is_err());
-    }
-
-    #[cfg(feature = "bbsplus_blind")]
-    #[test]
-    fn recompute_commitments_rejects_inconsistent_add_zkp_info() {
-        let case = BlindProofCase::load();
-        let mut info = case.add_zkp_info.clone();
-        info.commitment_rands.pop();
-        assert!(BlindSha256::recompute_commitments(&info).is_err());
-
-        // a different opening gives a different commitment
-        let mut info = case.add_zkp_info.clone();
-        info.committed_message_scalars[0] += Scalar::ONE;
-        let recomputed = BlindSha256::recompute_commitments(&info).unwrap();
-        assert_ne!(recomputed[0], case.proof.to_bbsplus_blind_proof().commitments()[0]);
-        assert_eq!(recomputed[1], case.proof.to_bbsplus_blind_proof().commitments()[1]);
-    }
-}
+mod tests;

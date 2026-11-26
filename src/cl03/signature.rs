@@ -15,6 +15,7 @@
 use super::keys::{CL03PublicKey, CL03SecretKey};
 use crate::{
     cl03::{bases::Bases, ciphersuites::CLCiphersuite},
+    errors::Error,
     schemes::algorithms::CL03,
     schemes::generics::Signature,
     utils::message::cl03_message::CL03Message,
@@ -31,19 +32,28 @@ pub struct CL03Signature {
 }
 
 impl<CS: CLCiphersuite> Signature<CL03<CS>> {
+    /// Signs one message with the first base.
+    ///
+    /// # Errors
+    /// [`Error::SignatureGenerationError`] if the message is outside `[0, 2^lm)` (see
+    /// [`CL03Message::is_in_range`]) or `a_bases` is empty.
     pub fn sign(
         pk: &CL03PublicKey,
         sk: &CL03SecretKey,
         a_bases: &Bases,
         message: &CL03Message,
-    ) -> Self {
+    ) -> Result<Self, Error> {
+        if a_bases.0.is_empty() {
+            return Err(Error::SignatureGenerationError("no bases".to_owned()));
+        }
+        if !message.is_in_range::<CS>() {
+            return Err(Error::SignatureGenerationError("message outside [0, 2^lm)".to_owned()));
+        }
         let mut e = random_prime(CS::le);
         let phi_n = (&sk.p - Integer::from(1)) * (&sk.q - Integer::from(1));
 
-        while ((&e > &Integer::from(2).pow(CS::le - 1))
-            && (&e < &Integer::from(2).pow(CS::le))
-            && (Integer::from(e.gcd_ref(&phi_n)) == 1))
-            == false
+        while !((e > Integer::from(2).pow(CS::le - 1))
+            && (e < Integer::from(2).pow(CS::le)) && (Integer::from(e.gcd_ref(&phi_n)) == 1))
         {
             e = random_prime(CS::le);
         }
@@ -58,22 +68,31 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
             .unwrap();
 
         let sig = CL03Signature { e, s, v };
-        Self::CL03(sig)
+        Ok(Self::CL03(sig))
     }
 
+    /// Signs `messages`, message `i` with base `i`.
+    ///
+    /// # Errors
+    /// [`Error::SignatureGenerationError`] if there are more messages than bases or a message
+    /// is outside `[0, 2^lm)` (see [`CL03Message::is_in_range`]).
     pub fn sign_multiattr(
         pk: &CL03PublicKey,
         sk: &CL03SecretKey,
         a_bases: &Bases,
         messages: &[CL03Message],
-    ) -> Self {
+    ) -> Result<Self, Error> {
+        if messages.len() > a_bases.0.len() {
+            return Err(Error::SignatureGenerationError("more messages than bases".to_owned()));
+        }
+        if !messages.iter().all(|m| m.is_in_range::<CS>()) {
+            return Err(Error::SignatureGenerationError("message outside [0, 2^lm)".to_owned()));
+        }
         let mut e = random_prime(CS::le);
         let phi_n = (&sk.p - Integer::from(1)) * (&sk.q - Integer::from(1));
 
-        while ((&e > &Integer::from(2).pow(CS::le - 1))
-            && (&e < &Integer::from(2).pow(CS::le))
-            && (Integer::from(e.gcd_ref(&phi_n)) == 1))
-            == false
+        while !((e > Integer::from(2).pow(CS::le - 1))
+            && (e < Integer::from(2).pow(CS::le)) && (Integer::from(e.gcd_ref(&phi_n)) == 1))
         {
             e = random_prime(CS::le);
         }
@@ -83,19 +102,25 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
         // v = powmod((powmod(pk['a0'], m, pk['N']) * powmod(pk['b'], s, pk['N']) * pk['c']), (e2n), pk['N'])
         let mut v: Integer = Integer::from(1);
         for (index, message) in messages.iter().enumerate() {
-            v = v * Integer::from(a_bases.0[index].pow_mod_ref(&message.value, &pk.N).unwrap())
+            v *= Integer::from(a_bases.0[index].pow_mod_ref(&message.value, &pk.N).unwrap())
         }
         v = (v * Integer::from(pk.b.pow_mod_ref(&s, &pk.N).unwrap()) * &pk.c)
             .pow_mod(&e2n, &pk.N)
             .unwrap();
 
         let sig = CL03Signature { e, s, v };
-        Self::CL03(sig)
+        Ok(Self::CL03(sig))
     }
 
     //TODO: tenere solo verify_multiattr visto che funziona anche con un solo messaggio?
     pub fn verify(&self, pk: &CL03PublicKey, a_bases: &Bases, message: &CL03Message) -> bool {
         let sign = self.cl03Signature();
+
+        // Check e, v and the message before using them: the signature may come from an
+        // untrusted party, and an out-of-range message makes forgeries verify (m + k*e).
+        if !Self::valid_e_v(sign, pk) || a_bases.0.is_empty() || !message.is_in_range::<CS>() {
+            return false;
+        }
 
         let lhs = Integer::from(sign.v.pow_mod_ref(&sign.e, &pk.N).unwrap());
 
@@ -104,15 +129,14 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
             * &pk.c)
             % &pk.N;
 
-        if sign.e <= Integer::from(2).pow(CS::le - 1) || sign.e >= Integer::from(2).pow(CS::le) {
-            return false;
-        }
+        lhs == rhs
+    }
 
-        if lhs == rhs {
-            return true;
-        }
-
-        false
+    /// `2^(le-1) < e < 2^le` and `v` is a unit modulo N.
+    fn valid_e_v(sign: &CL03Signature, pk: &CL03PublicKey) -> bool {
+        sign.e > Integer::from(2).pow(CS::le - 1)
+            && sign.e < Integer::from(2).pow(CS::le)
+            && crate::utils::util::cl03_utils::is_unit(&sign.v, &pk.N)
     }
 
     pub fn verify_multiattr(
@@ -121,11 +145,16 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
         a_bases: &Bases,
         messages: &[CL03Message],
     ) -> bool {
-        if messages.len() > a_bases.0.len() {
-            panic!("Not enought a_bases!");
+        // Out-of-range messages make forgeries verify: (e, s, v * a_i^k) is valid on m_i + k*e.
+        if messages.len() > a_bases.0.len() || !messages.iter().all(|m| m.is_in_range::<CS>()) {
+            return false;
         }
 
         let sign = self.cl03Signature();
+        // Check e and v before using them: the signature may come from an untrusted party.
+        if !Self::valid_e_v(sign, pk) {
+            return false;
+        }
 
         let lhs = Integer::from(sign.v.pow_mod_ref(&sign.e, &pk.N).unwrap());
 
@@ -137,15 +166,7 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
 
         rhs = (&rhs * Integer::from(pk.b.pow_mod_ref(&sign.s, &pk.N).unwrap()) * &pk.c) % &pk.N;
 
-        if sign.e <= Integer::from(2).pow(CS::le - 1) {
-            return false;
-        }
-
-        if lhs == rhs {
-            return true;
-        }
-
-        false
+        lhs == rhs
     }
 
     pub fn disclose_selectively(&self, messages: &[CL03Message], a_bases: Bases, pk: &CL03PublicKey, unrevealed_indexes: &[usize]) -> (Vec<CL03Message>, Bases) {
@@ -156,7 +177,7 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
 
         let mut sd_messages: Vec<CL03Message> = Vec::from(messages);
 
-        if unrevealed_indexes.len() == 0 {
+        if unrevealed_indexes.is_empty() {
             return (sd_messages, a_bases)
         }
 
@@ -191,7 +212,14 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
         bytes
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> Self {
+    /// Parses the output of [`Self::to_bytes`].
+    ///
+    /// # Errors
+    /// [`Error::InvalidSignature`] if `bytes` is too short to contain `e`, `s` and `v`.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        if bytes.len() <= CS::le as usize + CS::ls as usize {
+            return Err(Error::InvalidSignature);
+        }
         let e = Integer::from_digits(&bytes[0usize..CS::le as usize], Order::MsfBe);
         let s = Integer::from_digits(
             &bytes[CS::le as usize..(CS::le as usize + CS::ls as usize)],
@@ -199,95 +227,9 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
         );
         let v = Integer::from_digits(&bytes[(CS::le as usize + CS::ls as usize)..], Order::MsfBe);
 
-        Self::CL03(CL03Signature { e, s, v })
+        Ok(Self::CL03(CL03Signature { e, s, v }))
     }
 }
 
 #[cfg(test)]
-mod tests {
-
-    use crate::cl03::ciphersuites::{CLCiphersuite};
-    use crate::schemes::algorithms::{CL03_CL1024_SHA256, CL03_CL2048_SHA256, CL03_CL3072_SHA256};
-    use crate::{
-        cl03::bases::Bases,
-        keys::pair::KeyPair,
-        schemes::algorithms::{Ciphersuite, Scheme, CL03},
-        schemes::generics::Signature,
-        utils::message::cl03_message::CL03Message,
-    };
-    use digest::Digest;
-
-    //Signature (sign) - CL1024-SHA256
-    #[test]
-    fn signature_cl1024_sha256() {
-        signature::<CL03_CL1024_SHA256>();
-    }
-
-    #[test]
-    fn signature_cl2048_sha256() {
-        signature::<CL03_CL2048_SHA256>();
-    }
-
-    #[test]
-    fn signature_cl3072_sha256() {
-        signature::<CL03_CL3072_SHA256>();
-    }
-
-    #[test]
-    fn keypair_cl1024_sha256() {
-        keypair::<CL03_CL1024_SHA256>();
-    }
-
-    #[test]
-    fn keypair_cl2048_sha256() {
-        keypair::<CL03_CL2048_SHA256>();
-    }
-
-    #[test]
-    fn keypair_cl3072_sha256() {
-        keypair::<CL03_CL3072_SHA256>();
-    }
-
-    fn keypair<S: Scheme>()
-    where
-        S::Ciphersuite: CLCiphersuite,
-        <S::Ciphersuite as Ciphersuite>::HashAlg: Digest,
-    {
-         KeyPair::<CL03<S::Ciphersuite>>::generate();
-    }
-
-    fn signature<S: Scheme>()
-    where
-        S::Ciphersuite: CLCiphersuite,
-        <S::Ciphersuite as Ciphersuite>::HashAlg: Digest,
-    {
-        const msg: &str = "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f02";
-        const wrong_msg: &str = "9872ad089e452c7b6e283dfac2a80d58e8d0ff71cc4d5e310a1debdda4a45f03";
-
-        let cl03_keypair = KeyPair::<CL03<S::Ciphersuite>>::generate();
-        let a_bases = Bases::generate(cl03_keypair.public_key(), 1);
-
-        let message = CL03Message::map_message_to_integer_as_hash::<S::Ciphersuite>(
-            &hex::decode(msg).unwrap(),
-        );
-
-        let wrong_message = CL03Message::map_message_to_integer_as_hash::<S::Ciphersuite>(
-            &hex::decode(wrong_msg).unwrap(),
-        );
-
-        let signature = Signature::<CL03<S::Ciphersuite>>::sign(
-            cl03_keypair.public_key(),
-            cl03_keypair.private_key(),
-            &a_bases,
-            &message,
-        );
-
-        let valid = signature.verify(cl03_keypair.public_key(), &a_bases, &message);
-
-        assert!(valid, "Error! Signature should be VALID");
-
-        let valid = signature.verify(cl03_keypair.public_key(), &a_bases, &wrong_message);
-
-        assert!(!valid, "Error! Signature should be INVALID");
-    }
-}
+mod tests;

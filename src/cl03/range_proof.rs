@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::commitment::CL03Commitment;
-use crate::utils::{random::rand_int, util::cl03_utils::divm};
+use crate::utils::{random::rand_int, util::cl03_utils::{divm, is_unit}};
 use digest::Digest;
 use rug::{integer::Order, ops::Pow, Complete, Integer};
 use serde::{Deserialize, Serialize};
@@ -81,6 +81,8 @@ impl Boudot2000RangeProof {
     const s2: u32 = 552;
 
     /* Algorithm 1 Proof of Same Secret */
+    // Private sub-protocol of [Boudot2000]: same inputs as in the paper.
+    #[allow(clippy::too_many_arguments)]
     fn proof_same_secret<H>(
         x: &Integer,
         r_1: &Integer,
@@ -136,6 +138,8 @@ impl Boudot2000RangeProof {
     }
 
     /* Algorithm 2 Verify Proof of Same Secret*/
+    // Private sub-protocol of [Boudot2000]: same inputs as in the paper.
+    #[allow(clippy::too_many_arguments)]
     fn verify_same_secret<H>(
         E: &Integer,
         F: &Integer,
@@ -176,6 +180,8 @@ impl Boudot2000RangeProof {
     }
 
     /* Algorithm 3 Proof of Square */
+    // Private sub-protocol of [Boudot2000]: same inputs as in the paper.
+    #[allow(clippy::too_many_arguments)]
     fn proof_of_square<H>(
         x: &Integer,
         r_1: &Integer,
@@ -229,6 +235,8 @@ impl Boudot2000RangeProof {
     }
 
     /* Algorithm 5 Proof of Larger Interval Specific factor 2 ** T */
+    // Private sub-protocol of [Boudot2000]: same inputs as in the paper.
+    #[allow(clippy::too_many_arguments)]
     fn proof_large_interval_specific<H>(
         x: &Integer,
         r: &Integer,
@@ -285,6 +293,8 @@ impl Boudot2000RangeProof {
     }
 
     /* Algorithm 6 Verify Proof of Larger Interval Specific factor 2 ** T */
+    // Private sub-protocol of [Boudot2000]: same inputs as in the paper.
+    #[allow(clippy::too_many_arguments)]
     fn verify_large_interval_specific<H>(
         proof_li: &ProofLi,
         E: &Integer,
@@ -311,18 +321,15 @@ impl Boudot2000RangeProof {
         let hash = <H as Digest>::digest(str);
         let output = Integer::from_digits(hash.as_slice(), Order::MsfBe);
 
-        if &(c * Integer::from(b)) <= D_1
+        &(c * Integer::from(b)) <= D_1
             && D_1
                 <= &(Integer::from(2).pow(T) * (Integer::from(2).pow(t + l) * b - Integer::from(1)))
             && C == &output
-        {
-            return true;
-        }
-
-        false
     }
 
     /* Algorithm 7 Proof with Tolerance Specific factor 2 ** T */
+    // Private sub-protocol of [Boudot2000]: same inputs as in the paper.
+    #[allow(clippy::too_many_arguments)]
     fn proof_of_tolerance_specific<H>(
         x: Integer,
         r: Integer,
@@ -441,6 +448,8 @@ impl Boudot2000RangeProof {
     }
 
     /* Algorithm 8 Verify Proof with Tolerance Specific factor 2 ** T */
+    // Private sub-protocol of [Boudot2000]: same inputs as in the paper.
+    #[allow(clippy::too_many_arguments)]
     fn verify_of_tolerance_specific<H>(
         proof_wt: &ProofWt,
         g: &Integer,
@@ -512,6 +521,8 @@ impl Boudot2000RangeProof {
     }
 
     /* Algorithm 9 Square Decomposition Range Proof (i.e. Proof without tolerance) from [Boudot2000] on section 3.1.2 */
+    // Private sub-protocol of [Boudot2000]: same inputs as in the paper.
+    #[allow(clippy::too_many_arguments)]
     fn proof_of_square_decomposition_range<H>(
         x: &Integer,
         r: &Integer,
@@ -548,6 +559,8 @@ impl Boudot2000RangeProof {
     }
 
     /* Algorithm 10 Verify Square Decomposition Range Proof (i.e. Proof without tolerance) from [Boudot2000] on section 3.1.2 */
+    // Private sub-protocol of [Boudot2000]: same inputs as in the paper.
+    #[allow(clippy::too_many_arguments)]
     fn verify_of_square_decomposition_range<H>(
         &self,
         g: &Integer,
@@ -577,7 +590,7 @@ impl Boudot2000RangeProof {
             );
             return res_verify_ts;
         }
-        return false;
+        false
     }
 
     pub fn prove<H>(
@@ -597,7 +610,8 @@ impl Boudot2000RangeProof {
         }
 
         let T = 2 * (Self::t + Self::l + 1) + ((rmax - rmin).complete().significant_bits());
-        let proof_of_sdr = Self::proof_of_square_decomposition_range::<H>(
+        
+        Self::proof_of_square_decomposition_range::<H>(
             value,
             &commitment.randomness,
             base1,
@@ -612,8 +626,7 @@ impl Boudot2000RangeProof {
             Self::s1,
             Self::s2,
             T,
-        );
-        proof_of_sdr
+        )
     }
 
     pub fn verify<H>(
@@ -628,12 +641,31 @@ impl Boudot2000RangeProof {
         H: Digest,
     {
         if rmax <= rmin {
-            panic!("rmin > rmax");
+            return false;
+        }
+
+        // Every group element of the proof comes from the Prover: it must be a unit modulo
+        // `module`, otherwise the verification equations fail with a panic.
+        let w = &self.proof_of_tolerance;
+        let elements = [
+            &self.E,
+            &self.E_prime,
+            &w.E_a_1,
+            &w.E_a_2,
+            &w.E_b_1,
+            &w.E_b_2,
+            &w.proof_of_square_a.E,
+            &w.proof_of_square_a.F,
+            &w.proof_of_square_b.E,
+            &w.proof_of_square_b.F,
+        ];
+        if !elements.iter().all(|x| is_unit(x, module)) {
+            return false;
         }
 
         let T = 2 * (Self::t + Self::l + 1) + ((rmax - rmin).complete().significant_bits());
 
-        let valid = Self::verify_of_square_decomposition_range::<H>(
+        Self::verify_of_square_decomposition_range::<H>(
             self,
             base1,
             base2,
@@ -643,7 +675,6 @@ impl Boudot2000RangeProof {
             Self::t,
             Self::l,
             T,
-        );
-        valid
+        )
     }
 }

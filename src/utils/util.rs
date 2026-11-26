@@ -23,7 +23,6 @@ pub mod bbsplus_utils {
     use elliptic_curve::{
         group::Curve,
     };
-    use ff::Field;
     use hash2curve::{ExpandMsg, Expander};
     use rand::Rng;
     use std::num::NonZeroU16;
@@ -228,8 +227,8 @@ pub mod bbsplus_utils {
 
     impl ScalarExt for Scalar {
         fn to_bytes_be(&self) -> [u8; 32] {
-            let bytes = self.to_be_bytes();
-            bytes
+            
+            self.to_be_bytes()
         }
 
         fn from_bytes_be(bytes: &[u8]) -> Result<Self, Error> {
@@ -280,16 +279,11 @@ pub mod bbsplus_utils {
     /// # Returns
     ///
     /// A vector of bytes representing the serialized elements.
-    pub fn serialize<T>(array: &[T]) -> Vec<u8>
+    pub(crate) fn serialize<T>(array: &[T]) -> Vec<u8>
     where
         T: Any,
     {
         let mut result: Vec<u8> = Vec::new();
-        if array.len() == 0 {
-            println!("Empty array");
-            return result;
-        }
-
         let first_type = TypeId::of::<T>();
 
         if first_type == TypeId::of::<Scalar>() {
@@ -322,8 +316,6 @@ pub mod bbsplus_utils {
                     result.extend_from_slice(&g2.to_affine().to_compressed());
                 }
             }
-        } else {
-            println!("Unknown struct type");
         }
 
         result
@@ -342,7 +334,9 @@ pub mod bbsplus_utils {
     /// # Returns
     ///
     /// * `P` - a point in G1
-    pub fn multi_exponentiation_g1(points: &Vec<G1Projective>, scalars: &Vec<Scalar>) -> G1Projective {
+    pub(crate) fn multi_exponentiation_g1(points: &[G1Projective], scalars: &[Scalar]) -> G1Projective {
+        // Every caller checks the lengths first (BBS-02); crate-private since QA-06.
+        debug_assert_eq!(points.len(), scalars.len());
         let mut P = G1Projective::IDENTITY;
 
         for i in 0..points.len() {
@@ -361,7 +355,7 @@ pub mod bbsplus_utils {
     /// # Returns
     ///
     /// A vector of `BBSplusMessage` containing the messages at the specified indexes.
-    pub fn get_messages(messages: &[BBSplusMessage], indexes: &[usize]) -> Vec<BBSplusMessage> {
+    pub(crate) fn get_messages(messages: &[BBSplusMessage], indexes: &[usize]) -> Vec<BBSplusMessage> {
         let mut out: Vec<BBSplusMessage> = Vec::new();
         for &i in indexes {
             out.push(messages[i]);
@@ -380,7 +374,7 @@ pub mod bbsplus_utils {
     /// # Returns
     ///
     /// A vector of `G1Projective` containing the generators at the specified indexes.
-    pub fn get_generators_from_indexes(generators: &Generators, indexes: &[usize]) -> Vec<G1Projective> {
+    pub(crate) fn get_generators_from_indexes(generators: &Generators, indexes: &[usize]) -> Vec<G1Projective> {
         let mut out: Vec<G1Projective> = Vec::new();
         for &i in indexes {
             out.push(generators.values[i + 1]);
@@ -399,6 +393,10 @@ pub mod bbsplus_utils {
     /// # Returns
     ///
     /// A vector of `Vec<u8>` containing the messages at the specified indexes.
+    ///
+    /// # Panics
+    ///
+    /// If an index is not smaller than `messages.len()`.
     pub fn get_messages_vec(messages: &[Vec<u8>], indexes: &[usize]) -> Vec<Vec<u8>> {
         let mut out: Vec<Vec<u8>> = Vec::new();
         for &i in indexes {
@@ -408,7 +406,10 @@ pub mod bbsplus_utils {
         out
     }
 
+    // Only the blind/nym code and the non-test `calculate_random_scalars` use it.
+    #[cfg(any(not(test), feature = "bbsplus_blind"))]
     pub(crate) fn get_random() -> Scalar {
+        use ff::Field;
         let mut rng = rand::rng();
         Scalar::random(&mut rng)
     }
@@ -426,7 +427,7 @@ pub mod bbsplus_utils {
     /// * a [`Vec<Scalar>`].
     ///
     #[cfg(not(test))]
-    pub fn calculate_random_scalars(count: usize) -> Vec<Scalar> {
+    pub(crate) fn calculate_random_scalars(count: usize) -> Vec<Scalar> {
         let mut random_scalars: Vec<Scalar> = Vec::new();
 
         for _i in 0..count {
@@ -452,7 +453,7 @@ pub mod bbsplus_utils {
     /// * a [`Vec<Scalar>`].
     ///
     #[cfg(test)]
-    pub fn seeded_random_scalars<CS>(count: usize, seed: &[u8], dst: &[u8]) -> Vec<Scalar>
+    pub(crate) fn seeded_random_scalars<CS>(count: usize, seed: &[u8], dst: &[u8]) -> Vec<Scalar>
     where
         CS: BbsCiphersuite,
     {
@@ -488,7 +489,8 @@ pub mod bbsplus_utils {
     /// # Output:
     /// * a [`Scalar`] or [`Error`].
     ///
-    pub fn calculate_blind_challenge<CS>(
+    #[cfg(feature = "bbsplus_blind")]
+    pub(crate) fn calculate_blind_challenge<CS>(
         C: G1Projective,
         Cbar: G1Projective,
         generators: &[G1Projective],
@@ -497,7 +499,7 @@ pub mod bbsplus_utils {
     where
         CS: BbsCiphersuite,
     {
-        if generators.len() == 0 {
+        if generators.is_empty() {
             return Err(Error::NotEnoughGenerators);
         }
 
@@ -517,67 +519,7 @@ pub mod bbsplus_utils {
     }
 
     #[cfg(test)]
-    mod tests {
-
-        use crate::bbsplus::ciphersuites::BbsCiphersuite;
-        use crate::schemes::algorithms::Scheme;
-        use crate::schemes::algorithms::{BbsBls12381Sha256, BbsBls12381Shake256};
-        use crate::utils::util::bbsplus_utils::{hash_to_scalar, ScalarExt};
-        use std::fs;
-
-        //h2s - SHA256
-        #[test]
-        fn h2s_sha256_1() {
-            h2s::<BbsBls12381Sha256>("./fixture_data/fixture_data/bls12-381-sha-256/", "h2s.json");
-        }
-        #[test]
-        fn h2s_sha256_2() {
-            h2s::<BbsBls12381Sha256>("./fixture_data/fixture_data/bls12-381-sha-256/", "h2s.json");
-        }
-
-        //h2s - SHAKE256
-        #[test]
-        fn h2s_shake256_1() {
-            h2s::<BbsBls12381Shake256>("./fixture_data/fixture_data/bls12-381-shake-256/", "h2s.json");
-        }
-        #[test]
-        fn h2s_shake256_2() {
-            h2s::<BbsBls12381Shake256>("./fixture_data/fixture_data/bls12-381-shake-256/", "h2s.json");
-        }
-
-        fn h2s<S: Scheme>(pathname: &str, filename: &str)
-        where
-            S::Ciphersuite: BbsCiphersuite,
-        {
-            let data =
-                fs::read_to_string([pathname, filename].concat()).expect("Unable to read file");
-            let res: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
-            println!("{}\n", res["caseName"]);
-
-            let msg_hex = res["message"].as_str().unwrap();
-            let dst_hex = res["dst"].as_str().unwrap();
-            let scalar_hex_expected = res["scalar"].as_str().unwrap();
-
-            let msg = hex::decode(msg_hex).unwrap();
-            let dst = hex::decode(dst_hex).unwrap();
-
-            let scalar = hash_to_scalar::<S::Ciphersuite>(&msg, &dst).unwrap();
-
-            let mut result = true;
-
-            let scalar_hex = hex::encode(scalar.to_bytes_be());
-
-            if scalar_hex != scalar_hex_expected {
-                result = false;
-                eprintln!("{}", result);
-
-                eprintln!(" Expected scalar: {}", scalar_hex_expected);
-                eprintln!(" Computed scalar: {}", scalar_hex);
-            }
-
-            assert!(result, "Failed");
-        }
-    }
+    mod tests;
 }
 
 #[cfg(feature = "cl03")]
@@ -585,17 +527,24 @@ pub mod bbsplus_utils {
 pub mod cl03_utils {
     use rug::{integer::Order, Integer};
 
+    /// `true` if `x` is in `(0, n)` and invertible modulo `n`. Group elements received from
+    /// another party must pass this check before being raised to a possibly negative exponent
+    /// or inverted, which otherwise fails (and used to panic) when `gcd(x, n) != 1`.
+    pub(crate) fn is_unit(x: &Integer, n: &Integer) -> bool {
+        *x > 0 && x < n && Integer::from(x.gcd_ref(n)) == 1
+    }
+
     /// Function for b * x = a mod m: returns x.
     pub fn divm(a: &Integer, b: &Integer, m: &Integer) -> Integer {
         let mut num = a.clone();
         let den;
         let mut module = m.clone();
         let r: Integer;
-        let mut result = b.invert_ref(&m);
+        let mut result = b.invert_ref(m);
         let mut ok = result.is_none();
         if ok {
-            let mut gcd = Integer::from(a.gcd_ref(&b));
-            gcd.gcd_mut(&m);
+            let mut gcd = Integer::from(a.gcd_ref(b));
+            gcd.gcd_mut(m);
             num = Integer::from(a.div_exact_ref(&gcd));
             den = Integer::from(b.div_exact_ref(&gcd));
             module = Integer::from(m.div_exact_ref(&gcd));
@@ -605,8 +554,8 @@ pub mod cl03_utils {
 
         if !ok {
             r = Integer::from(result.unwrap());
-            let z = (r * num) % module;
-            z
+            
+            (r * num) % module
         } else {
             panic!("No solution");
         }
@@ -628,11 +577,12 @@ pub mod cl03_utils {
     }
 }
 
+#[cfg(feature = "bbsplus")]
 pub(crate) fn get_remaining_indexes(length: usize, indexes: &[usize]) -> Vec<usize> {
     let mut remaining: Vec<usize> = Vec::new();
 
     for i in 0..length {
-        if indexes.contains(&i) == false {
+        if !indexes.contains(&i) {
             remaining.push(i);
         }
     }
@@ -640,28 +590,5 @@ pub(crate) fn get_remaining_indexes(length: usize, indexes: &[usize]) -> Vec<usi
     remaining
 }
 
-#[cfg(test)]
-mod tests {
-    use super::bbsplus_utils::i2osp;
-
-    #[test]
-    fn test_i2osp() {
-        assert_eq!([0, 0, 0, 0, 1, 2, 3, 4], i2osp::<8>(0x1020304));
-        assert_eq!([0xf0, 0x0f], i2osp::<2>(0xf00f));
-        assert_eq!([0, 0, 0, 0, 0, 0, 0x12, 0x34], i2osp::<8>(0x1234));
-        assert_eq!([0, 0, 0, 0, 0x12, 0x34, 0x56, 0x78], i2osp::<8>(0x12345678));
-        assert_eq!([0, 0, 0x12, 0x34, 0x56, 0x78], i2osp::<6>(0x12345678));
-        assert_eq!([0, 0x12, 0x34, 0x56, 0x78], i2osp::<5>(0x12345678));
-        assert_eq!([0x12, 0x34, 0x56, 0x78], i2osp::<4>(0x12345678));
-        assert_eq!(
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0x12, 0x34, 0x56, 0x78],
-            i2osp::<13>(0x12345678)
-        );
-    }
-
-    #[test]
-    #[should_panic(expected = "i2osp overflow")]
-    fn test_i2osp_over() {
-        let _x = i2osp::<3>(0x12345678);
-    }
-}
+#[cfg(all(test, feature = "bbsplus"))]
+mod tests;

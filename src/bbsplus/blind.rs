@@ -26,7 +26,7 @@
 //! 
 //! ```toml
 //! [dependencies]
-//! zkryptium = { version = "0.8.3", default-features = false, features = ["bbsplus", "bbsplus_blind"] }
+//! zkryptium = { version = "0.9.0", default-features = false, features = ["bbsplus", "bbsplus_blind"] }
 //! ```
 
 use super::{
@@ -64,7 +64,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     /// * `sk` (REQUIRED), a secret key
     /// * `pk` (REQUIRED), a public key
     /// * `commitment_with_proof` (OPTIONAL), an octet string, representing a serialized commitment and commitment_proof.
-    ///                                       If not supplied, it defaults to the empty string ("").
+    ///   If not supplied, it defaults to the empty string ("").
     /// * `header` (OPTIONAL), an octet string containing context and application specific information.
     /// * `messages` (OPTIONAL), a vector of [`Message`]. If not supplied, it defaults to the empty array.
     ///
@@ -173,7 +173,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         let api_id: &[u8] = CS::API_ID_BLIND;
         let messages = messages.unwrap_or(&[]);
         let blind_messages = blind_messages.unwrap_or(&[]);
-        let secret_prover_blind = secret_prover_blind.unwrap_or(&BlindFactor(Scalar::ZERO));
+        let secret_prover_blind = secret_prover_blind.map_or(Scalar::ZERO, |b| b.0);
 
         let L = messages.len();
         let M = blind_messages.len();
@@ -187,7 +187,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
 
         let mut proof_scalars = signer_scalars;
 
-        proof_scalars.push(secret_prover_blind.0);
+        proof_scalars.push(secret_prover_blind);
         proof_scalars.append(&mut committed_message_scalars);
 
         let proof_scalars  = proof_scalars.iter()
@@ -310,10 +310,7 @@ pub fn calculate_b<CS: BbsCiphersuite>(
         return Err(Error::G1IdentityError);
     }
 
-    let mut b_value:Vec<G1Projective> = Vec::<G1Projective>::new();
-    b_value.push(B);
-
-    Ok(b_value)
+    Ok(vec![B])
 
 }
 
@@ -322,13 +319,12 @@ pub fn calculate_b<CS: BbsCiphersuite>(
 /// # Description
 /// This operation computes a blind BBS signature from a secret key (SK) and the point to be signed (B).
 ///  The operation also accepts the identifier of the BBS Interface that calls this core operation.
-
 ///
 /// # Inputs:
 /// * `sk` (REQUIRED), a secret key
 /// * `B` (REQUIRED), a point of G1, different than Identity_G1.
 /// * `api_id` (OPTIONAL), an octet string ([`BbsCiphersuite::API_ID_BLIND`]).
-///                        If not supplied, it defaults to the empty octet string ("")
+///   If not supplied, it defaults to the empty octet string ("")
 ///
 /// # Output:
 /// a [`BBSplusSignature`] or [`Error`].
@@ -365,237 +361,4 @@ where
 }
 
 #[cfg(test)]
-mod tests {
-    use crate::{
-        bbsplus::{
-            ciphersuites::BbsCiphersuite,
-            commitment::{BlindFactor, Message},
-            keys::{BBSplusPublicKey, BBSplusSecretKey},
-            test_utils::{hex_value, parse_messages, read_fixture},
-        },
-        schemes::{
-            algorithms::{BBSplus, BbsBls12381Sha256, BbsBls12381Shake256, Scheme},
-            generics::BlindSignature,
-        },
-    };
-    use bls12_381_plus::Scalar;
-
-    /// A blind signature test vector (`signature/signatureXXX.json`).
-    struct SignCase {
-        sk: BBSplusSecretKey,
-        pk: BBSplusPublicKey,
-        header: Vec<u8>,
-        messages: Vec<Message>,
-        blind_messages: Vec<Message>,
-        commitment_with_proof: Option<Vec<u8>>,
-        prover_blind: Option<BlindFactor>,
-        signature: Vec<u8>,
-        valid: bool,
-    }
-
-    impl SignCase {
-        fn load(path: &str) -> Self {
-            let json = read_fixture(path);
-            println!("{}", json["caseName"]);
-            Self {
-                sk: BBSplusSecretKey::from_bytes(&hex_value(&json["signerKeyPair"]["secretKey"])).unwrap(),
-                pk: BBSplusPublicKey::from_bytes(&hex_value(&json["signerKeyPair"]["publicKey"])).unwrap(),
-                header: hex_value(&json["header"]),
-                messages: parse_messages(&json["messages"]),
-                blind_messages: parse_messages(&json["blindMessages"]),
-                commitment_with_proof: json["commitmentWithProof"].as_str().map(|_| hex_value(&json["commitmentWithProof"])),
-                prover_blind: json["proverBlind"].as_str().map(|_| {
-                    BlindFactor::from_bytes(&hex_value(&json["proverBlind"]).try_into().unwrap()).unwrap()
-                }),
-                signature: hex_value(&json["signature"]),
-                valid: json["result"]["valid"].as_bool().unwrap(),
-            }
-        }
-
-        fn sign<S: Scheme>(&self, commitment_with_proof: Option<&[u8]>) -> Result<BlindSignature<BBSplus<S::Ciphersuite>>, crate::errors::Error>
-        where
-            S::Ciphersuite: BbsCiphersuite,
-        {
-            BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(
-                &self.sk,
-                &self.pk,
-                commitment_with_proof,
-                Some(&self.header),
-                Some(&self.messages),
-            )
-        }
-
-        fn signature<S: Scheme>(&self) -> BlindSignature<BBSplus<S::Ciphersuite>>
-        where
-            S::Ciphersuite: BbsCiphersuite,
-        {
-            BlindSignature::<BBSplus<S::Ciphersuite>>::from_bytes(&self.signature.clone().try_into().unwrap()).unwrap()
-        }
-    }
-
-    macro_rules! sign_tests {
-        ( $( ($t:ident, $p:literal): { $( ($n:ident, $f:literal), )+ },)+ ) => { $($(
-            #[test] fn $n() { blind_sign::<$t>($p, $f); }
-        )+)+ }
-    }
-
-    sign_tests! {
-        (BbsBls12381Sha256, "./fixture_data/fixture_data_blind/bls12-381-sha-256/"): {
-            (blind_sign_sha256_1, "signature/signature001.json"),
-            (blind_sign_sha256_2, "signature/signature002.json"),
-            (blind_sign_sha256_3, "signature/signature003.json"),
-            (blind_sign_sha256_4, "signature/signature004.json"),
-            (blind_sign_sha256_5, "signature/signature005.json"),
-        },
-        (BbsBls12381Shake256, "./fixture_data/fixture_data_blind/bls12-381-shake-256/"): {
-            (blind_sign_shake256_1, "signature/signature001.json"),
-            (blind_sign_shake256_2, "signature/signature002.json"),
-            (blind_sign_shake256_3, "signature/signature003.json"),
-            (blind_sign_shake256_4, "signature/signature004.json"),
-            (blind_sign_shake256_5, "signature/signature005.json"),
-        },
-    }
-
-    fn blind_sign<S: Scheme>(pathname: &str, filename: &str)
-    where
-        S::Ciphersuite: BbsCiphersuite,
-    {
-        let case = SignCase::load(&[pathname, filename].concat());
-
-        let signature = case.sign::<S>(case.commitment_with_proof.as_deref()).unwrap();
-        assert_eq!(hex::encode(signature.to_bytes()), hex::encode(&case.signature));
-
-        let result = signature
-            .verify_blind_sign(
-                &case.pk,
-                Some(&case.header),
-                Some(&case.messages),
-                Some(&case.blind_messages),
-                case.prover_blind.as_ref(),
-            )
-            .is_ok();
-        assert_eq!(result, case.valid);
-    }
-
-    // NEGATIVE TESTS (BLIND-08)
-
-    const SHA256_SIGNATURES: &str = "./fixture_data/fixture_data_blind/bls12-381-sha-256/signature/";
-    const SHAKE256_SIGNATURES: &str = "./fixture_data/fixture_data_blind/bls12-381-shake-256/signature/";
-
-    fn check_rejects_malformed_commitment<S: Scheme>(dir: &str)
-    where
-        S::Ciphersuite: BbsCiphersuite,
-    {
-        // Multiple blind and signer messages, with a commitment.
-        let case = SignCase::load(&[dir, "signature004.json"].concat());
-        let commitment = case.commitment_with_proof.clone().unwrap();
-        assert!(case.sign::<S>(Some(&commitment)).is_ok());
-
-        let mut cases: Vec<(&str, Vec<u8>)> = vec![
-            ("point only", commitment[..48].to_vec()),
-            ("a single scalar", commitment[..48 + 32].to_vec()),
-            ("truncated", commitment[..commitment.len() - 1].to_vec()),
-        ];
-        let mut trailing = commitment.clone();
-        trailing.push(0);
-        cases.push(("trailing byte", trailing));
-        let mut zero_scalar = commitment.clone();
-        zero_scalar.extend([0u8; 32]);
-        cases.push(("extra zero scalar", zero_scalar));
-        let mut extra_m = commitment.clone();
-        extra_m.extend(&commitment[48..80]);
-        cases.push(("one m^ too many", extra_m));
-        let mut tampered = commitment.clone();
-        let last = tampered.len() - 1;
-        tampered[last] ^= 1;
-        cases.push(("tampered challenge", tampered));
-
-        for (name, c) in cases {
-            assert!(case.sign::<S>(Some(&c)).is_err(), "commitment '{name}' should be rejected");
-        }
-    }
-
-    #[test]
-    fn blind_sign_rejects_malformed_commitment() {
-        check_rejects_malformed_commitment::<BbsBls12381Sha256>(SHA256_SIGNATURES);
-        check_rejects_malformed_commitment::<BbsBls12381Shake256>(SHAKE256_SIGNATURES);
-    }
-
-    fn flip_flag(m: &Message) -> Message {
-        match m {
-            Message::Hash(v) => Message::Raw(v.clone()),
-            Message::Raw(v) => Message::Hash(v.clone()),
-        }
-    }
-
-    fn check_verify_rejects_wrong_inputs<S: Scheme>(dir: &str)
-    where
-        S::Ciphersuite: BbsCiphersuite,
-    {
-        let case = SignCase::load(&[dir, "signature004.json"].concat());
-        let signature = case.signature::<S>();
-        let prover_blind = case.prover_blind.as_ref().unwrap();
-
-        let verify = |header: &[u8], messages: &[Message], blind_messages: &[Message], blind: Option<&BlindFactor>| {
-            signature
-                .verify_blind_sign(&case.pk, Some(header), Some(messages), Some(blind_messages), blind)
-                .is_ok()
-        };
-
-        assert!(verify(&case.header, &case.messages, &case.blind_messages, Some(prover_blind)));
-
-        // secret_prover_blind
-        let wrong_blind = BlindFactor(prover_blind.0 + Scalar::ONE);
-        assert!(!verify(&case.header, &case.messages, &case.blind_messages, Some(&wrong_blind)), "wrong prover blind");
-        assert!(!verify(&case.header, &case.messages, &case.blind_messages, None), "missing prover blind");
-
-        // header
-        let mut header = case.header.clone();
-        header.push(0);
-        assert!(!verify(&header, &case.messages, &case.blind_messages, Some(prover_blind)), "different header");
-        assert!(!verify(&[], &case.messages, &case.blind_messages, Some(prover_blind)), "empty header");
-
-        // issuer / blind split
-        assert!(!verify(&case.header, &case.blind_messages, &case.messages, Some(prover_blind)), "swapped lists");
-        let mut fewer = case.messages.clone();
-        let mut more = vec![fewer.pop().unwrap()];
-        more.extend(case.blind_messages.iter().cloned());
-        assert!(!verify(&case.header, &fewer, &more, Some(prover_blind)), "issuer message moved to the blind list");
-        let all: Vec<Message> = case.messages.iter().chain(&case.blind_messages).cloned().collect();
-        assert!(!verify(&case.header, &all, &[], Some(prover_blind)), "all messages as issuer messages");
-
-        // single message changed or with the other flag
-        for i in 0..case.messages.len() {
-            let mut messages = case.messages.clone();
-            messages[i] = Message::Hash(b"tampered".to_vec());
-            assert!(!verify(&case.header, &messages, &case.blind_messages, Some(prover_blind)), "issuer message {i} changed");
-            messages[i] = flip_flag(&case.messages[i]);
-            assert!(!verify(&case.header, &messages, &case.blind_messages, Some(prover_blind)), "issuer message {i} flag");
-        }
-        for i in 0..case.blind_messages.len() {
-            let mut blind_messages = case.blind_messages.clone();
-            blind_messages[i] = Message::Hash(b"tampered".to_vec());
-            assert!(!verify(&case.header, &case.messages, &blind_messages, Some(prover_blind)), "blind message {i} changed");
-            blind_messages[i] = flip_flag(&case.blind_messages[i]);
-            assert!(!verify(&case.header, &case.messages, &blind_messages, Some(prover_blind)), "blind message {i} flag");
-        }
-
-        // a signature without commitment must not verify with a blind factor or blind messages
-        let no_commit = SignCase::load(&[dir, "signature005.json"].concat());
-        let signature = no_commit.signature::<S>();
-        let verify = |blind_messages: &[Message], blind: Option<&BlindFactor>| {
-            signature
-                .verify_blind_sign(&no_commit.pk, Some(&no_commit.header), Some(&no_commit.messages), Some(blind_messages), blind)
-                .is_ok()
-        };
-        assert!(verify(&[], None));
-        assert!(!verify(&[], Some(prover_blind)), "unexpected prover blind");
-        assert!(!verify(&case.blind_messages, None), "unexpected blind messages");
-    }
-
-    #[test]
-    fn verify_blind_sign_rejects_wrong_inputs() {
-        check_verify_rejects_wrong_inputs::<BbsBls12381Sha256>(SHA256_SIGNATURES);
-        check_verify_rejects_wrong_inputs::<BbsBls12381Shake256>(SHAKE256_SIGNATURES);
-    }
-}
+mod tests;

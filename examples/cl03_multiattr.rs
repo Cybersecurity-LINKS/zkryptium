@@ -60,7 +60,8 @@ mod cl03_example {
             issuer_keypair.private_key(),
             &a_bases,
             &messages
-        );
+        )
+        .expect("signing failed");
         let verify = signature.verify_multiattr(issuer_keypair.public_key(), &a_bases, &messages);
 
         log::info!("Bases:\t{:?}", a_bases);
