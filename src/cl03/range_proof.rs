@@ -321,15 +321,10 @@ impl Boudot2000RangeProof {
         let hash = <H as Digest>::digest(str);
         let output = Integer::from_digits(hash.as_slice(), Order::MsfBe);
 
-        if &(c * Integer::from(b)) <= D_1
+        &(c * Integer::from(b)) <= D_1
             && D_1
                 <= &(Integer::from(2).pow(T) * (Integer::from(2).pow(t + l) * b - Integer::from(1)))
             && C == &output
-        {
-            return true;
-        }
-
-        false
     }
 
     /* Algorithm 7 Proof with Tolerance Specific factor 2 ** T */

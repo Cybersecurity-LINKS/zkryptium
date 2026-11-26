@@ -124,7 +124,7 @@ impl BBSplusPoKSignature {
 
         let mut m_cap: Vec<Scalar> = Vec::new();
 
-        for chunk in bytes[240..].chunks_exact(32) {
+        for chunk in bytes[240..].as_chunks::<32>().0 {
             m_cap.push(
                 Scalar::from_bytes_be(chunk)
                     .map_err(|_| Error::InvalidProofOfKnowledgeSignature)?,
@@ -362,7 +362,9 @@ impl BBSplusBlindPoKSignature {
         let points_end = bbs_end + N * G1_LEN;
 
         let commitments = bytes[bbs_end..points_end]
-            .chunks_exact(G1_LEN)
+            .as_chunks::<G1_LEN>()
+            .0
+            .iter()
             .map(|c| {
                 let C = parse_g1_projective(c)
                     .map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
@@ -374,7 +376,9 @@ impl BBSplusBlindPoKSignature {
             .collect::<Result<Vec<_>, Error>>()?;
 
         let commitments_proof = bytes[points_end..]
-            .chunks_exact(SCALAR_LEN)
+            .as_chunks::<SCALAR_LEN>()
+            .0
+            .iter()
             .map(|c| {
                 let s = Scalar::from_bytes_be(c)
                     .map_err(|_| Error::InvalidProofOfKnowledgeSignature)?;
@@ -2037,7 +2041,7 @@ impl BBSplusZKPoK {
 
         let mut m_cap: Vec<Scalar> = Vec::new();
 
-        for chunk in bytes[Scalar::BYTES..].chunks_exact(Scalar::BYTES) {
+        for chunk in bytes[Scalar::BYTES..].as_chunks::<{ Scalar::BYTES }>().0 {
             m_cap.push(parse_scalar(chunk)?);
         }
 

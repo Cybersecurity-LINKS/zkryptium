@@ -600,9 +600,9 @@ impl NISPSignaturePoK {
         let mut idx: usize = 0;
         let mut idx_revealed_msgs: usize = 0;
 
-        for i in 0..n_signed_messages {
+        for (i, ai) in a_bases.0.iter().enumerate().take(n_signed_messages) {
             if unrevealed_message_indexes.contains(&i) {
-                t_Cx *= Integer::from(a_bases.0[i].pow_mod_ref(&self.s_5[idx], N).unwrap());
+                t_Cx *= Integer::from(ai.pow_mod_ref(&self.s_5[idx], N).unwrap());
                 idx += 1;
             } else {
                 let mi = &messages
@@ -610,7 +610,7 @@ impl NISPSignaturePoK {
                     .expect("index overflow!")
                     .value;
                 let val = mi + (mi * &self.challenge).complete();
-                t_Cx *= Integer::from(a_bases.0[i].pow_mod_ref(&val, N).unwrap());
+                t_Cx *= Integer::from(ai.pow_mod_ref(&val, N).unwrap());
                 idx_revealed_msgs += 1;
             }
         }
@@ -661,10 +661,10 @@ impl NISPSignaturePoK {
         let mut idx: usize = 0;
         let mut idx_revealed_msgs: usize = 0;
 
-        for i in 0..n_signed_messages {
+        for (i, gi) in commitment_pk.g_bases.iter().enumerate().take(n_signed_messages) {
             if unrevealed_message_indexes.contains(&i) {
                 input4 *= Integer::from(
-                        commitment_pk.g_bases[i]
+                        gi
                             .pow_mod_ref(&self.s_5[idx], N)
                             .unwrap(),
                     );
@@ -675,7 +675,7 @@ impl NISPSignaturePoK {
                     .expect("index overflow")
                     .value;
                 let val = mi + (mi * &self.challenge).complete();
-                input4 *= Integer::from(commitment_pk.g_bases[i].pow_mod_ref(&val, N).unwrap());
+                input4 *= Integer::from(gi.pow_mod_ref(&val, N).unwrap());
                 idx_revealed_msgs += 1;
             }
         }

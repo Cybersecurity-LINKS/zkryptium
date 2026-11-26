@@ -129,11 +129,7 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
             * &pk.c)
             % &pk.N;
 
-        if lhs == rhs {
-            return true;
-        }
-
-        false
+        lhs == rhs
     }
 
     /// `2^(le-1) < e < 2^le` and `v` is a unit modulo N.
@@ -170,11 +166,7 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
 
         rhs = (&rhs * Integer::from(pk.b.pow_mod_ref(&sign.s, &pk.N).unwrap()) * &pk.c) % &pk.N;
 
-        if lhs == rhs {
-            return true;
-        }
-
-        false
+        lhs == rhs
     }
 
     pub fn disclose_selectively(&self, messages: &[CL03Message], a_bases: Bases, pk: &CL03PublicKey, unrevealed_indexes: &[usize]) -> (Vec<CL03Message>, Bases) {
