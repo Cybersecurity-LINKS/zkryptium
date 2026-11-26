@@ -23,7 +23,6 @@ pub mod bbsplus_utils {
     use elliptic_curve::{
         group::Curve,
     };
-    use ff::Field;
     use hash2curve::{ExpandMsg, Expander};
     use rand::Rng;
     use std::num::NonZeroU16;
@@ -228,8 +227,8 @@ pub mod bbsplus_utils {
 
     impl ScalarExt for Scalar {
         fn to_bytes_be(&self) -> [u8; 32] {
-            let bytes = self.to_be_bytes();
-            bytes
+            
+            self.to_be_bytes()
         }
 
         fn from_bytes_be(bytes: &[u8]) -> Result<Self, Error> {
@@ -285,7 +284,7 @@ pub mod bbsplus_utils {
         T: Any,
     {
         let mut result: Vec<u8> = Vec::new();
-        if array.len() == 0 {
+        if array.is_empty() {
             println!("Empty array");
             return result;
         }
@@ -342,7 +341,7 @@ pub mod bbsplus_utils {
     /// # Returns
     ///
     /// * `P` - a point in G1
-    pub fn multi_exponentiation_g1(points: &Vec<G1Projective>, scalars: &Vec<Scalar>) -> G1Projective {
+    pub fn multi_exponentiation_g1(points: &[G1Projective], scalars: &[Scalar]) -> G1Projective {
         let mut P = G1Projective::IDENTITY;
 
         for i in 0..points.len() {
@@ -408,7 +407,10 @@ pub mod bbsplus_utils {
         out
     }
 
+    // Only the blind/nym code and the non-test `calculate_random_scalars` use it.
+    #[cfg(any(not(test), feature = "bbsplus_blind"))]
     pub(crate) fn get_random() -> Scalar {
+        use ff::Field;
         let mut rng = rand::rng();
         Scalar::random(&mut rng)
     }
@@ -497,7 +499,7 @@ pub mod bbsplus_utils {
     where
         CS: BbsCiphersuite,
     {
-        if generators.len() == 0 {
+        if generators.is_empty() {
             return Err(Error::NotEnoughGenerators);
         }
 
@@ -591,11 +593,11 @@ pub mod cl03_utils {
         let den;
         let mut module = m.clone();
         let r: Integer;
-        let mut result = b.invert_ref(&m);
+        let mut result = b.invert_ref(m);
         let mut ok = result.is_none();
         if ok {
-            let mut gcd = Integer::from(a.gcd_ref(&b));
-            gcd.gcd_mut(&m);
+            let mut gcd = Integer::from(a.gcd_ref(b));
+            gcd.gcd_mut(m);
             num = Integer::from(a.div_exact_ref(&gcd));
             den = Integer::from(b.div_exact_ref(&gcd));
             module = Integer::from(m.div_exact_ref(&gcd));
@@ -605,8 +607,8 @@ pub mod cl03_utils {
 
         if !ok {
             r = Integer::from(result.unwrap());
-            let z = (r * num) % module;
-            z
+            
+            (r * num) % module
         } else {
             panic!("No solution");
         }
@@ -628,11 +630,12 @@ pub mod cl03_utils {
     }
 }
 
+#[cfg(feature = "bbsplus")]
 pub(crate) fn get_remaining_indexes(length: usize, indexes: &[usize]) -> Vec<usize> {
     let mut remaining: Vec<usize> = Vec::new();
 
     for i in 0..length {
-        if indexes.contains(&i) == false {
+        if !indexes.contains(&i) {
             remaining.push(i);
         }
     }
@@ -640,7 +643,7 @@ pub(crate) fn get_remaining_indexes(length: usize, indexes: &[usize]) -> Vec<usi
     remaining
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "bbsplus"))]
 mod tests {
     use super::bbsplus_utils::i2osp;
 

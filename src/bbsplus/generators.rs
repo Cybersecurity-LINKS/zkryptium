@@ -194,7 +194,7 @@ mod tests {
         let mut result = BP == expected_BP;
         // println!("{}", result);
 
-        if result == false {
+        if !result {
             eprintln!("{}", result);
             eprintln!("  GENERATOR BP: {}", result);
             eprintln!("  Expected: {}", expected_BP);
@@ -230,6 +230,6 @@ mod tests {
                 }
             });
 
-        assert_eq!(result, true);
+        assert!(result);
     }
 }

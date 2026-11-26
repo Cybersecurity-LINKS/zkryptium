@@ -59,9 +59,7 @@ where
             &file_to_write,
             serde_json::to_string_pretty(&self).expect("failed to serializing key pair"),
         )
-        .expect(&format!(
-            "failed to write key pair to file: {}",
-            file_to_write.to_str().unwrap()
-        ));
+        .unwrap_or_else(|_| panic!("failed to write key pair to file: {}",
+            file_to_write.to_str().unwrap()));
     }
 }

@@ -43,7 +43,7 @@ impl BBSplusPublicKey {
         let mut x = [0u8; G2Affine::UNCOMPRESSED_BYTES / 2];
         let mut y = [0u8; G2Affine::UNCOMPRESSED_BYTES / 2];
         let mid_index = G2Affine::UNCOMPRESSED_BYTES / 2;
-        let (first, second) = uncompressed.split_at(mid_index).try_into().unwrap();
+        let (first, second) = uncompressed.split_at(mid_index);
         x.copy_from_slice(first);
         y.copy_from_slice(second);
         (x, y)
@@ -129,8 +129,8 @@ pub struct BBSplusSecretKey(pub Scalar);
 impl BBSplusSecretKey {
     /// In Big Endian order
     pub fn to_bytes(&self) -> [u8; Scalar::BYTES] {
-        let bytes = self.0.to_be_bytes();
-        bytes
+        
+        self.0.to_be_bytes()
     }
 
     /// Encodes the secret key to a hexadecimal string.
@@ -200,8 +200,8 @@ impl<CS: BbsCiphersuite> KeyPair<BBSplus<CS>> {
     /// * `key_material` (REQUIRED), a secret octet string.
     /// * `key_info` (OPTIONAL), an octet string. Defaults to an empty string if not supplied.
     /// * `key_dst` (OPTIONAL), an octet string representing the domain separation tag.
-    ///                         Defaults to the octet string
-    ///                          [`BbsCiphersuite::API_ID`] || "KEYGEN_DST_"
+    ///   Defaults to the octet string
+    ///   [`BbsCiphersuite::API_ID`] || "KEYGEN_DST_"
     /// # Output:
     /// * a keypair [`KeyPair`]
     ///  
@@ -246,10 +246,10 @@ impl<CS: BbsCiphersuite> KeyPair<BBSplus<CS>> {
 /// # Inputs:
 /// * `key_material` (REQUIRED), a secret octet string. MUST be at least 32 Bytes.
 /// * `key_info` (OPTIONAL), an octet string. Defaults to an empty string if
-///                          not supplied.
+///   not supplied.
 /// * `key_dst` (OPTIONAL), an octet string representing the domain separation
-///                         tag. Defaults to the octet string ciphersuite_id || "KEYGEN_DST_"
-///                         if not supplied.
+///   tag. Defaults to the octet string ciphersuite_id || "KEYGEN_DST_"
+///   if not supplied.
 /// # Output:
 /// * SK, a [`Scalar`]
 ///  
@@ -296,8 +296,8 @@ where
 ///
 fn sk_to_pk(sk: Scalar) -> G2Projective {
     // W = SK * BP2
-    let pk = G2Affine::generator() * sk;
-    pk
+    
+    G2Affine::generator() * sk
 }
 
 #[cfg(test)]
@@ -365,7 +365,7 @@ mod tests {
                 assert_pk_rejected(&pk[..95]);
                 for extra in [1usize, 32] {
                     let mut bytes = pk.clone();
-                    bytes.extend(std::iter::repeat(0u8).take(extra));
+                    bytes.extend(std::iter::repeat_n(0u8, extra));
                     assert_pk_rejected(&bytes);
                 }
             }
@@ -411,7 +411,7 @@ mod tests {
 
         let result1 = sk == SK_expected;
 
-        if result1 == false {
+        if !result1 {
             println!("      keyGen:        {}", result1);
             println!("      Expected key:  {}", SK_expected);
             println!("      Generated key: {}", sk);
@@ -419,7 +419,7 @@ mod tests {
 
         let result2 = pk == PK_expected;
 
-        if result2 == false {
+        if !result2 {
             println!("      skToPk:        {}", result2);
             println!("      Expected key:  {}", PK_expected);
             println!("      Generated key: {}", pk);

@@ -93,7 +93,7 @@ impl BBSplusPoKSignature {
         const MIN_LEN: usize = POINTS_LEN + 4 * SCALAR_LEN;
 
         // octets_to_proof requires exactly 3 * octet_point_length + (4 + U) * octet_scalar_length bytes
-        if bytes.len() < MIN_LEN || (bytes.len() - POINTS_LEN) % SCALAR_LEN != 0 {
+        if bytes.len() < MIN_LEN || !(bytes.len() - POINTS_LEN).is_multiple_of(SCALAR_LEN) {
             return Err(Error::InvalidProofOfKnowledgeSignature);
         }
 
@@ -217,6 +217,54 @@ pub struct AddZkpInfo {
     pub committed_message_scalars: Vec<Scalar>,
     /// Random scalars `s_i` used to create the respective commitments.
     pub commitment_rands: Vec<Scalar>,
+}
+
+#[cfg(feature = "bbsplus_blind")]
+/// Optional inputs of [`BlindPoKSignature::blind_proof_gen`] and
+/// [`BlindPoKSignature::proof_gen_with_nym`]. Every field defaults to empty (or none), so
+/// only the needed ones have to be set:
+///
+/// ```ignore
+/// BlindProofGenInput {
+///     header: Some(header),
+///     issuer_messages: &issuer_messages,
+///     issuer_message_disclosures: &issuer_message_disclosures,
+///     ..Default::default()
+/// }
+/// ```
+#[derive(Clone, Copy, Debug, Default)]
+pub struct BlindProofGenInput<'a> {
+    /// An octet string containing context and application specific information.
+    pub header: Option<&'a [u8]>,
+    /// The presentation header.
+    pub ph: Option<&'a [u8]>,
+    /// The messages supplied by the Signer.
+    pub issuer_messages: &'a [Message],
+    /// The messages committed by the Prover.
+    pub blind_messages: &'a [Message],
+    /// One [`Disclosure`] per issuer message.
+    pub issuer_message_disclosures: &'a [Disclosure],
+    /// One [`Disclosure`] per blind message.
+    pub blind_message_disclosures: &'a [Disclosure],
+    /// The Prover blind factor returned by the commitment. Defaults to zero.
+    pub secret_prover_blind: Option<&'a BlindFactor>,
+}
+
+#[cfg(feature = "bbsplus_blind")]
+/// Optional inputs of [`BlindPoKSignature::blind_proof_verify`] and
+/// [`BlindPoKSignature::proof_verify_with_nym`]. Every field defaults to empty, none or zero.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct BlindProofVerifyInput<'a> {
+    /// An octet string containing context and application specific information.
+    pub header: Option<&'a [u8]>,
+    /// The presentation header.
+    pub ph: Option<&'a [u8]>,
+    /// The number of messages known by the Signer.
+    pub issuer_known_messages_no: usize,
+    /// The disclosed issuer messages followed by the disclosed blind messages, in index order.
+    pub disclosed_messages: &'a [Message],
+    /// One [`Disclosure`] per signed message (issuer messages followed by blind messages).
+    pub message_disclosures: &'a [Disclosure],
 }
 
 #[cfg(feature = "bbsplus_blind")]
@@ -353,18 +401,19 @@ impl<CS: BbsCiphersuite> BlindPoKSignature<BBSplus<CS>> {
     /// # Inputs:
     /// * `pk` (REQUIRED), the Signer public key.
     /// * `signature` (REQUIRED), an octet string.
+    /// * `input`, a [`BlindProofGenInput`] holding the OPTIONAL inputs below.
     /// * `header` (OPTIONAL), an octet string containing context and application.
     /// * `ph` (OPTIONAL), an octet string containing the presentation header.
     /// * `issuer_messages` (OPTIONAL), a vector of [`Message`]. If not supplied,
-    ///                                 it defaults to the empty array.
+    ///   it defaults to the empty array.
     /// * `blind_messages` (OPTIONAL), a vector of [`Message`] committed by the Prover.
-    ///                                If not supplied, it defaults to the empty array.
+    ///   If not supplied, it defaults to the empty array.
     /// * `issuer_message_disclosures` (OPTIONAL), vector of [`Disclosure`], one per issuer
-    ///                                            message. If not supplied, it defaults to
-    ///                                            the empty vector.
+    ///   message. If not supplied, it defaults to
+    ///   the empty vector.
     /// * `blind_message_disclosures` (OPTIONAL), vector of [`Disclosure`], one per blind
-    ///                                           message. If not supplied, it defaults to
-    ///                                           the empty vector.
+    ///   message. If not supplied, it defaults to
+    ///   the empty vector.
     /// * `secret_prover_blind` (OPTIONAL), a [`BlindFactor`]. If not supplied it defaults to zero.
     ///
     /// # Output:
@@ -374,25 +423,24 @@ impl<CS: BbsCiphersuite> BlindPoKSignature<BBSplus<CS>> {
     pub fn blind_proof_gen(
         pk: &BBSplusPublicKey,
         signature: &[u8],
-        header: Option<&[u8]>,
-        ph: Option<&[u8]>,
-        issuer_messages: Option<&[Message]>,
-        blind_messages: Option<&[Message]>,
-        issuer_message_disclosures: Option<&[Disclosure]>,
-        blind_message_disclosures: Option<&[Disclosure]>,
-        secret_prover_blind: Option<&BlindFactor>,
+        input: BlindProofGenInput<'_>,
     ) -> Result<(Self, AddZkpInfo), Error> {
+        let BlindProofGenInput {
+            header,
+            ph,
+            issuer_messages,
+            blind_messages,
+            issuer_message_disclosures,
+            blind_message_disclosures,
+            secret_prover_blind,
+        } = input;
         let signature = BBSplusSignature::from_bytes(
             signature.try_into().map_err(|_| Error::InvalidSignature)?,
         )?;
         let api_id = CS::API_ID_BLIND;
-        let issuer_messages = issuer_messages.unwrap_or(&[]);
-        let blind_messages = blind_messages.unwrap_or(&[]);
         let secret_prover_blind = secret_prover_blind
             .map(|b| b.0)
             .unwrap_or(Scalar::ZERO);
-        let issuer_message_disclosures = issuer_message_disclosures.unwrap_or(&[]);
-        let blind_message_disclosures = blind_message_disclosures.unwrap_or(&[]);
 
         // Deserialization
         let L = issuer_messages.len();
@@ -472,15 +520,16 @@ impl<CS: BbsCiphersuite> BlindPoKSignature<BBSplus<CS>> {
     /// # Inputs:
     /// * `self`, a proof.
     /// * `pk` (REQUIRED), the Signer public key.
+    /// * `input`, a [`BlindProofVerifyInput`] holding the OPTIONAL inputs below.
     /// * `header` (OPTIONAL), an octet string containing context and application.
     /// * `ph` (OPTIONAL), an octet string containing the presentation header.
     /// * `issuer_known_messages_no` (OPTIONAL), the number of messages known by the Signer.
-    ///                                          If not supplied it defaults to 0.
+    ///   If not supplied it defaults to 0.
     /// * `disclosed_messages` (OPTIONAL), a vector of [`Message`]: the disclosed issuer messages
-    ///                                    followed by the disclosed blind messages, in index order.
+    ///   followed by the disclosed blind messages, in index order.
     /// * `message_disclosures` (OPTIONAL), a vector of [`Disclosure`], one per signed message
-    ///                                     (issuer messages followed by blind messages,
-    ///                                     the `secret_prover_blind` excluded).
+    ///   (issuer messages followed by blind messages,
+    ///   the `secret_prover_blind` excluded).
     ///
     /// # Output:
     /// a result: [`Ok`] or [`Error`].
@@ -488,17 +537,17 @@ impl<CS: BbsCiphersuite> BlindPoKSignature<BBSplus<CS>> {
     pub fn blind_proof_verify(
         &self,
         pk: &BBSplusPublicKey,
-        header: Option<&[u8]>,
-        ph: Option<&[u8]>,
-        issuer_known_messages_no: Option<usize>,
-        disclosed_messages: Option<&[Message]>,
-        message_disclosures: Option<&[Disclosure]>,
+        input: BlindProofVerifyInput<'_>,
     ) -> Result<(), Error> {
+        let BlindProofVerifyInput {
+            header,
+            ph,
+            issuer_known_messages_no: L,
+            disclosed_messages,
+            message_disclosures,
+        } = input;
         let proof = self.to_bbsplus_blind_proof();
         let api_id = CS::API_ID_BLIND;
-        let L = issuer_known_messages_no.unwrap_or(0);
-        let disclosed_messages = disclosed_messages.unwrap_or(&[]);
-        let message_disclosures = message_disclosures.unwrap_or(&[]);
 
         // Deserialization
         let undisclosed_msgs_no = proof.bbs_proof.m_cap.len();
@@ -675,7 +724,7 @@ pub(super) struct CommitmentInitRes {
 #[cfg(feature = "bbsplus_blind")]
 /// Checks that `indexes` is a strictly ascending list of integers in `0..L`.
 fn is_strictly_ascending_in_range(indexes: &[usize], L: usize) -> bool {
-    indexes.windows(2).all(|w| w[0] < w[1]) && indexes.last().map_or(true, |&i| i < L)
+    indexes.windows(2).all(|w| w[0] < w[1]) && indexes.last().is_none_or(|&i| i < L)
 }
 
 #[cfg(feature = "bbsplus_blind")]
@@ -730,6 +779,8 @@ where
 /// # Output:
 /// ([`BBSplusBlindPoKSignature`], [`AddZkpInfo`]) or [`Error`].
 ///
+// Same inputs, in the same order, as the draft procedure it implements.
+#[allow(clippy::too_many_arguments)]
 fn core_blind_proof_gen<CS>(
     pk: &BBSplusPublicKey,
     signature: &BBSplusSignature,
@@ -986,6 +1037,8 @@ where
 /// # Output:
 /// a result: [`Ok`] or [`Error`].
 ///
+// Same inputs, in the same order, as the draft procedure it implements.
+#[allow(clippy::too_many_arguments)]
 fn core_blind_proof_verify<CS>(
     pk: &BBSplusPublicKey,
     proof: &BBSplusBlindPoKSignature,
@@ -1147,10 +1200,10 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     /// * `header` (OPTIONAL), an octet string containing context and application.
     /// * `ph` (OPTIONAL), an octet string containing the presentation header.
     /// * `messages` (OPTIONAL), a vector of octet strings representing the signed messages. 
-    ///                            If not supplied, it defaults to the empty array ("()").
+    ///   If not supplied, it defaults to the empty array ("()").
     /// * `disclosed_indexes` (OPTIONAL), vector of unsigned integers in ascending order. 
-    ///                                   Indexes of disclosed messages.
-    ///                            If not supplied, it defaults to the empty array ("()").
+    ///   Indexes of disclosed messages.
+    ///   If not supplied, it defaults to the empty array ("()").
     ///
     /// # Output:
     /// a PoK of a Signature [`PoKSignature::BBSplus`] or [`Error`].
@@ -1181,8 +1234,8 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
             header,
             ph,
             Some(CS::API_ID),
-            &CS::SEED_MOCKED_SCALAR,
-            &CS::MOCKED_SCALAR_DST,
+            CS::SEED_MOCKED_SCALAR,
+            CS::MOCKED_SCALAR_DST,
         )?;
 
         Ok(Self::BBSplus(proof))
@@ -1199,9 +1252,9 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     /// * `self`, a proof.
     /// * `pk` (REQUIRED), the Signer public key.
     /// * `disclosed_messages` (OPTIONAL), a vector of octet string representing the messages 
-    ///                                    disclosed to the Verifier.
+    ///   disclosed to the Verifier.
     /// * `disclosed_indexes` (OPTIONAL), vector of usize in ascending order. 
-    ///                                   Indexes of disclosed messages.
+    ///   Indexes of disclosed messages.
     /// * `header` (OPTIONAL), an octet string containing context and application.
     /// * `ph` (OPTIONAL), an octet string containing the presentation header.
     ///
@@ -1230,7 +1283,9 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
 
         let generators = Generators::create::<CS>(U + R + 1, Some(CS::API_ID));
 
-        let result = core_proof_verify::<CS>(
+        
+
+        core_proof_verify::<CS>(
             pk,
             proof,
             &generators,
@@ -1239,9 +1294,7 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
             &disclosed_message_scalars,
             &disclosed_indexes,
             Some(CS::API_ID),
-        );
-
-        result
+        )
     }
 
     /// Converts the `PoKSignature` to a byte vector.
@@ -1283,6 +1336,8 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
 /// # Output:
 /// a PoK of a Signature [`BBSplusPoKSignature`] or [`Error`].
 ///
+// Same inputs, in the same order, as the draft procedure it implements.
+#[allow(clippy::too_many_arguments)]
 fn core_proof_gen<CS>(
     pk: &BBSplusPublicKey,
     signature: &BBSplusSignature,
@@ -1309,7 +1364,7 @@ where
         generators,
         header,
         messages,
-        &disclosed_indexes,
+        disclosed_indexes,
         api_id,
         _seed,
         _dst,
@@ -1392,12 +1447,14 @@ pub(super) fn validate_init_res(init_res: &ProofInitRes) -> Result<(), Error> {
 /// * `header` (OPTIONAL), an octet string containing context and application.
 /// * `messages` (OPTIONAL), a vector of scalars ([`BBSplusMessage`]).
 /// * `disclosed_indexes` (OPTIONAL), vector of usize in ascending order. 
-///                                   Indexes of undisclosed messages.
+///   Indexes of undisclosed messages.
 /// * `api_id` (OPTIONAL), an octet string.
 ///
 /// # Output:
 /// a [`ProofInitRes`] or [`Error`].
 ///
+// Same inputs, in the same order, as the draft procedure it implements.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn proof_init<CS>(
     pk: &BBSplusPublicKey,
     signature: &BBSplusSignature,
@@ -1445,6 +1502,8 @@ where
 /// Needed when the random scalars must be drawn together with other values in a
 /// single `calculate_random_scalars` call (e.g. the committed disclosure extension of
 /// draft-irtf-cfrg-bbs-blind-signatures-05 §4.3.4, which draws `5 + U + 2*N` scalars).
+// Same inputs, in the same order, as the draft procedure it implements.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn proof_init_with_scalars<CS>(
     pk: &BBSplusPublicKey,
     signature: &BBSplusSignature,
@@ -1512,8 +1571,8 @@ where
     let D = B * r2;
     let Abar = signature.A * (r1 * r2);
 
-    let Bbar = multi_exponentiation_g1(&[D, Abar].to_vec(), &[r1,-signature.e].to_vec());
-    let T1 = multi_exponentiation_g1(&[Abar, D].to_vec(), &[e_tilde, r1_tilde].to_vec());
+    let Bbar = multi_exponentiation_g1([D, Abar].as_ref(), [r1,-signature.e].as_ref());
+    let T1 = multi_exponentiation_g1([Abar, D].as_ref(), [e_tilde, r1_tilde].as_ref());
 
     let mut t2gens = Vec::with_capacity(undisclosed_generators.len() + 1);
     t2gens.push(D);
@@ -1551,7 +1610,7 @@ where
 ///
 /// # Inputs:
 /// * `init_res` (REQUIRED), [`ProofInitRes`] returned after initializing the proof generation
-///                          or verification operations.
+///   or verification operations.
 /// * `ph` (OPTIONAL), an octet string containing the presentation header.
 /// * `api_id` (OPTIONAL), an octet string.
 ///
@@ -1626,8 +1685,8 @@ fn proof_challenge_octets(
 ///
 /// # Inputs:
 /// * `init_res` (REQUIRED), [`ProofInitRes`] returned after initializing object representing
-///                          the value returned after initializing the proof generation
-///                          or verification operations
+///   the value returned after initializing the proof generation
+///   or verification operations
 /// * `challenge` (REQUIRED), a scalar value.
 ///
 /// # Output:
@@ -1699,14 +1758,16 @@ pub(super) fn proof_finalize(
 /// * `header` (OPTIONAL), an octet string containing context and application.
 /// * `ph` (OPTIONAL), an octet string containing the presentation header.
 /// * `disclosed_messages` (OPTIONAL), a vector of scalars ([`BBSplusMessage`])
-///                                    representing the messages disclosed to the Verifier.
+///   representing the messages disclosed to the Verifier.
 /// * `disclosed_indexes` (OPTIONAL), vector of unsigned integers in ascending order.
-///                                   Indexes of disclosed messages.
+///   Indexes of disclosed messages.
 /// * `api_id` (OPTIONAL), an octet string.
 ///
 /// # Output:
 /// a result: [`Ok`] or [`Error`].
 ///
+// Same inputs, in the same order, as the draft procedure it implements.
+#[allow(clippy::too_many_arguments)]
 fn core_proof_verify<CS>(
     pk: &BBSplusPublicKey,
     proof: &BBSplusPoKSignature,
@@ -1772,10 +1833,10 @@ pub(super) fn verify_proof_pairing(pk: &BBSplusPublicKey, proof: &BBSplusPoKSign
 /// * `generators` (REQUIRED), vector of pseudo-random points in G1.
 /// * `header` (OPTIONAL), an octet string containing context and application.
 /// * `disclosed_messages` (REQUIRED), a vector of scalars ([`BBSplusMessage`])
-///                                    representing the messages disclosed to the Verifier.
-///                                    It could be empty.
+///   representing the messages disclosed to the Verifier.
+///   It could be empty.
 /// * `disclosed_indexes` (REQUIRED), vector of unsigned integers in ascending order.
-///                                   Indexes of disclosed messages. It could be empty.
+///   Indexes of disclosed messages. It could be empty.
 /// * `api_id` (OPTIONAL), an octet string.
 ///
 /// # Output:
@@ -1815,11 +1876,11 @@ where
     let domain = calculate_domain::<CS>(pk, generators, header, api_id)?;
 
     let T1 = multi_exponentiation_g1(
-        &[proof.Bbar, proof.Abar, proof.D].to_vec(),
-        &[proof.challenge,proof.e_cap, proof.r1_cap].to_vec()
+        [proof.Bbar, proof.Abar, proof.D].as_ref(),
+        [proof.challenge,proof.e_cap, proof.r1_cap].as_ref()
     );
 
-    let disclosed_generators = get_generators_from_indexes(generators, &disclosed_indexes);
+    let disclosed_generators = get_generators_from_indexes(generators, disclosed_indexes);
 
     let mut Bvgens = Vec::with_capacity(disclosed_generators.len() + 1);
     Bvgens.push(generators.g1_base_point);
@@ -1912,7 +1973,7 @@ impl BBSplusZKPoK {
     /// * A Result containing the `BBSplusZKPoK` or an Error.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         // s^ and challenge are always present, followed by one m^ per committed message
-        if bytes.len() < 2 * Scalar::BYTES || bytes.len() % Scalar::BYTES != 0 {
+        if bytes.len() < 2 * Scalar::BYTES || !bytes.len().is_multiple_of(Scalar::BYTES) {
             return Err(Error::InvalidCommitmentProof);
         }
 
@@ -1964,7 +2025,10 @@ mod tests {
         bbsplus::{
             commitment::{BlindFactor, Message},
             generators::Generators,
-            proof::{core_blind_proof_gen, AddZkpInfo, BBSplusBlindPoKSignature, Disclosure},
+            proof::{
+                core_blind_proof_gen, AddZkpInfo, BBSplusBlindPoKSignature, BlindProofGenInput,
+                BlindProofVerifyInput, Disclosure,
+            },
             signature::BBSplusSignature,
         },
         schemes::generics::BlindPoKSignature,
@@ -2043,7 +2107,7 @@ mod tests {
             for proof in valid_fixture_bytes(dir, "proof") {
                 for extra in [1usize, 16, 31] {
                     let mut bytes = proof.clone();
-                    bytes.extend(std::iter::repeat(0u8).take(extra));
+                    bytes.extend(std::iter::repeat_n(0u8, extra));
                     assert_pok_rejected(&bytes);
                 }
             }
@@ -2134,7 +2198,7 @@ mod tests {
         ).to_bytes();
         for extra in [1usize, 31] {
             let mut bytes = valid.clone();
-            bytes.extend(std::iter::repeat(0u8).take(extra));
+            bytes.extend(std::iter::repeat_n(0u8, extra));
             assert_zkpok_rejected(&bytes);
         }
     }
@@ -2264,7 +2328,7 @@ mod tests {
             let scalar_expected = mocked_scalars_hex[i];
 
             if scalar_hex != scalar_expected {
-                if results == true {
+                if results {
                     results = false
                 }
                 eprintln!(" count: {}", i);
@@ -2337,10 +2401,10 @@ mod tests {
             Some(&revealed_message_indexes),
         )
         .unwrap();
-        let my_encoded_proof = hex::encode(&proof.to_bytes());
+        let my_encoded_proof = hex::encode(proof.to_bytes());
         let result0 = proof_expected == my_encoded_proof;
         let result1 = result0 == result_expected;
-        if result1 == false {
+        if !result1 {
             println!("  proofGen: {}", result1);
             println!("  Expected: {}", proof_expected);
             println!("  Computed: {}", my_encoded_proof);
@@ -2378,7 +2442,7 @@ mod tests {
             eprintln!("  proofVerify: {}", result3);
             eprintln!("  Expected: {}", result_expected);
             eprintln!("  Computed: {}", result2);
-            if result_expected == false {
+            if !result_expected {
                 eprintln!(
                     "{} ({})",
                     result3,
@@ -2449,13 +2513,15 @@ mod tests {
         let (proof, add_zkp_info) = BlindPoKSignature::<BBSplus<S::Ciphersuite>>::blind_proof_gen(
             &pk,
             &signature.to_bytes(),
-            Some(&header),
-            Some(&ph),
-            Some(&issuer_messages),
-            Some(&blind_messages),
-            Some(&issuer_disclosures),
-            Some(&blind_disclosures),
-            secret_prover_blind.as_ref(),
+            BlindProofGenInput {
+                header: Some(&header),
+                ph: Some(&ph),
+                issuer_messages: &issuer_messages,
+                blind_messages: &blind_messages,
+                issuer_message_disclosures: &issuer_disclosures,
+                blind_message_disclosures: &blind_disclosures,
+                secret_prover_blind: secret_prover_blind.as_ref(),
+            },
         )
         .unwrap();
 
@@ -2524,11 +2590,13 @@ mod tests {
         let result = parsed
             .blind_proof_verify(
                 &pk,
-                Some(&header),
-                Some(&ph),
-                Some(L),
-                Some(&disclosed_messages),
-                Some(&message_disclosures),
+                BlindProofVerifyInput {
+                    header: Some(&header),
+                    ph: Some(&ph),
+                    issuer_known_messages_no: L,
+                    disclosed_messages: &disclosed_messages,
+                    message_disclosures: &message_disclosures,
+                },
             )
             .is_ok();
 
@@ -2595,13 +2663,15 @@ mod tests {
             let (proof, add_zkp_info) = BlindSha256::blind_proof_gen(
                 &pk,
                 &signature,
-                Some(&header),
-                Some(&ph),
-                Some(&issuer_messages),
-                Some(&blind_messages),
-                Some(&issuer_disclosures),
-                Some(&blind_disclosures),
-                secret_prover_blind.as_ref(),
+                BlindProofGenInput {
+                    header: Some(&header),
+                    ph: Some(&ph),
+                    issuer_messages: &issuer_messages,
+                    blind_messages: &blind_messages,
+                    issuer_message_disclosures: &issuer_disclosures,
+                    blind_message_disclosures: &blind_disclosures,
+                    secret_prover_blind: secret_prover_blind.as_ref(),
+                },
             )
             .unwrap();
 
@@ -2650,13 +2720,15 @@ mod tests {
             BlindSha256::blind_proof_gen(
                 &self.pk,
                 &self.signature,
-                Some(&self.header),
-                Some(&self.ph),
-                Some(&self.issuer_messages),
-                Some(&self.blind_messages),
-                Some(issuer_disclosures),
-                Some(blind_disclosures),
-                self.secret_prover_blind.as_ref(),
+                BlindProofGenInput {
+                    header: Some(&self.header),
+                    ph: Some(&self.ph),
+                    issuer_messages: &self.issuer_messages,
+                    blind_messages: &self.blind_messages,
+                    issuer_message_disclosures: issuer_disclosures,
+                    blind_message_disclosures: blind_disclosures,
+                    secret_prover_blind: self.secret_prover_blind.as_ref(),
+                },
             )
         }
 
@@ -2670,11 +2742,13 @@ mod tests {
         ) -> Result<(), Error> {
             proof.blind_proof_verify(
                 &self.pk,
-                Some(&self.header),
-                Some(ph),
-                Some(L),
-                Some(disclosed_messages),
-                Some(message_disclosures),
+                BlindProofVerifyInput {
+                    header: Some(&self.header),
+                    ph: Some(ph),
+                    issuer_known_messages_no: L,
+                    disclosed_messages,
+                    message_disclosures,
+                },
             )
         }
 
@@ -2721,13 +2795,14 @@ mod tests {
         assert!(BlindSha256::blind_proof_gen(
             &case.pk,
             &case.signature,
-            Some(&case.header),
-            Some(&case.ph),
-            Some(&case.issuer_messages),
-            Some(&case.blind_messages),
-            None,
-            None,
-            case.secret_prover_blind.as_ref(),
+            BlindProofGenInput {
+                header: Some(&case.header),
+                ph: Some(&case.ph),
+                issuer_messages: &case.issuer_messages,
+                blind_messages: &case.blind_messages,
+                secret_prover_blind: case.secret_prover_blind.as_ref(),
+                ..Default::default()
+            },
         )
         .is_err());
     }

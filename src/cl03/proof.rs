@@ -104,7 +104,7 @@ impl<CS: CLCiphersuite> PoKSignature<CL03<CS>> {
             let proof_mi_ri = NISPSecrets::nisp2sec_generate_proof::<CS>(
                 mi,
                 &cmi,
-                &gi,
+                gi,
                 &commitment_pk.h,
                 &commitment_pk.N,
             );
@@ -116,7 +116,7 @@ impl<CS: CLCiphersuite> PoKSignature<CL03<CS>> {
                 RangeProof::Boudot2000 => Boudot2000RangeProof::prove::<CS::HashAlg>(
                     &mi.value,
                     &cmi,
-                    &gi,
+                    gi,
                     &commitment_pk.h,
                     &commitment_pk.N,
                     &min_x,
@@ -177,8 +177,7 @@ impl<CS: CLCiphersuite> PoKSignature<CL03<CS>> {
 
             if boolean_rproof_e {
                 //Verify RANGE PROOFS mi
-                let mut idx: usize = 0;
-                for i in unrevealed_message_indexes {
+                for (idx, i) in unrevealed_message_indexes.iter().enumerate() {
                     let gi = &commitment_pk.g_bases.get(*i).expect("unrevealed_message_indexes not valid with respect to the commitment_pk.g_bases!");
                     let ProofOfValue {
                         value: proof_mi,
@@ -186,7 +185,7 @@ impl<CS: CLCiphersuite> PoKSignature<CL03<CS>> {
                     } = CLSPoK.proofs_commited_mi.get(idx).expect("index overflow");
 
                     let boolean_proof_mi = proof_mi.nisp2sec_verify_proof::<CS>(
-                        &cmi,
+                        cmi,
                         gi,
                         &commitment_pk.h,
                         &commitment_pk.N,
@@ -201,7 +200,7 @@ impl<CS: CLCiphersuite> PoKSignature<CL03<CS>> {
                         .get(idx)
                         .expect("index overflow")
                         .verify::<CS::HashAlg>(
-                            &gi,
+                            gi,
                             &commitment_pk.h,
                             &commitment_pk.N,
                             &min_x,
@@ -211,7 +210,6 @@ impl<CS: CLCiphersuite> PoKSignature<CL03<CS>> {
                         println!("Range proof verification on mi Failed!");
                         return false;
                     }
-                    idx += 1;
                 }
             } else {
                 println!("Range proof verification on e Failed!");
@@ -245,33 +243,41 @@ pub struct CL03ZKPoK {
 
 impl CL03ZKPoK {}
 
+/// The commitment computed by a trusted party on the same secrets, with the public key it
+/// was computed with. The two values are only meaningful together: [`ZKPoK::generate_proof`]
+/// then also proves that the Prover commitment and the trusted one hide the same secrets, and
+/// [`ZKPoK::verify_proof`] requires that proof.
+#[derive(Clone, Copy, Debug)]
+pub struct CL03TrustedCommitment<'a> {
+    /// The trusted party commitment.
+    pub commitment: &'a CL03Commitment,
+    /// The public key used to compute `commitment`.
+    pub commitment_pk: &'a CL03CommitmentPublicKey,
+}
+
 impl<CS: CLCiphersuite> ZKPoK<CL03<CS>> {
     pub fn generate_proof(
         messages: &[CL03Message],
         C: &CL03Commitment,
-        C_trusted: Option<&CL03Commitment>,
+        trusted_commitment: Option<CL03TrustedCommitment<'_>>,
         signer_pk: &CL03PublicKey,
         a_bases: &Bases,
-        commitment_pk: Option<&CL03CommitmentPublicKey>,
         unrevealed_message_indexes: &[usize],
     ) -> Self
     where
         CS::HashAlg: Digest,
     {
-        let mut proof_C_Ctrusted: Option<NISP2Commitments> = None;
-        if let Some(C_trusted) = C_trusted {
-            if let Some(commitment_pk) = commitment_pk {
-                proof_C_Ctrusted = Some(NISP2Commitments::nisp2_generate_proof_MultiSecrets::<CS>(
-                    messages,
-                    C,
-                    &C_trusted,
-                    signer_pk,
-                    a_bases,
-                    commitment_pk,
-                    unrevealed_message_indexes,
-                ));
-            }
-        }
+        let proof_C_Ctrusted = trusted_commitment.map(|trusted| {
+            NISP2Commitments::nisp2_generate_proof_MultiSecrets::<CS>(
+                messages,
+                C,
+                trusted.commitment,
+                signer_pk,
+                a_bases,
+                trusted.commitment_pk,
+                unrevealed_message_indexes,
+            )
+        });
 
         let proof_msgs = NISPMultiSecrets::nispMultiSecrets_generate_proof::<CS>(
             messages,
@@ -294,13 +300,13 @@ impl<CS: CLCiphersuite> ZKPoK<CL03<CS>> {
                 "unreaveled_message_indexes not valid with respect to the commitment_pk.g_bases!",
             );
             let cmi =
-                Commitment::<CL03<CS>>::commit_with_pk(&[mi.clone()], signer_pk, a_bases, None)
+                Commitment::<CL03<CS>>::commit_with_pk(std::slice::from_ref(mi), signer_pk, a_bases, None)
                     .cl03Commitment()
                     .to_owned();
             let proof_mi = NISPSecrets::nisp2sec_generate_proof::<CS>(
                 mi,
                 &cmi,
-                &ai,
+                ai,
                 &signer_pk.b,
                 &signer_pk.N,
             );
@@ -313,7 +319,7 @@ impl<CS: CLCiphersuite> ZKPoK<CL03<CS>> {
                     let r_proof_mi = Boudot2000RangeProof::prove::<CS::HashAlg>(
                         &mi.value,
                         &cmi,
-                        &ai,
+                        ai,
                         &signer_pk.b,
                         &signer_pk.N,
                         &min_x,
@@ -328,7 +334,7 @@ impl<CS: CLCiphersuite> ZKPoK<CL03<CS>> {
         let min_r = Integer::from(0);
         let max_r = Integer::from(2).pow(CS::ln) - 1;
         let r = CL03Message::new(C.randomness.clone());
-        let cr = Commitment::<CL03<CS>>::commit_with_pk(&[r.clone()], &signer_pk, a_bases, None);
+        let cr = Commitment::<CL03<CS>>::commit_with_pk(std::slice::from_ref(&r), signer_pk, a_bases, None);
         let proof_r = ProofOfValue {
             value: NISPSecrets::nisp2sec_generate_proof::<CS>(
                 &r,
@@ -357,18 +363,20 @@ impl<CS: CLCiphersuite> ZKPoK<CL03<CS>> {
             proof_commited_msgs: proof_msgs,
             proofs_commited_mi: proofs_mi,
             range_proofs_mi: r_proofs_msgs,
-            proof_r: proof_r,
+            proof_r,
             range_proof_r: rproof_r,
         })
     }
 
+    /// Verifies the proof. It returns `false`, without panicking, when the proof does not
+    /// match the inputs: a missing proof for `trusted_commitment`, a different number of
+    /// proofs and `unrevealed_message_indexes`, or an index outside `a_bases`.
     pub fn verify_proof(
         &self,
         C: &CL03Commitment,
-        C_trusted: Option<&CL03Commitment>,
+        trusted_commitment: Option<CL03TrustedCommitment<'_>>,
         signer_pk: &CL03PublicKey,
         a_bases: &Bases,
-        commitment_pk: Option<&CL03CommitmentPublicKey>,
         unrevealed_message_indexes: &[usize],
     ) -> bool
     where
@@ -376,27 +384,30 @@ impl<CS: CLCiphersuite> ZKPoK<CL03<CS>> {
     {
         let zkpok = self.to_cl03_zkpok();
 
-        let mut boolean_C_Ctrusted: bool = true;
-        if let Some(C_trusted) = C_trusted {
-            if let Some(commitment_pk) = commitment_pk {
-                boolean_C_Ctrusted = zkpok
-                    .proof_C_Ctrusted
-                    .clone()
-                    .unwrap()
-                    .nisp2_verify_proof_MultiSecrets::<CS>(
-                        C,
-                        C_trusted,
-                        signer_pk,
-                        a_bases,
-                        commitment_pk,
-                        unrevealed_message_indexes,
-                    );
-            }
+        // Input-shape checks: the proof comes from the Prover, it must not make us panic.
+        let U = unrevealed_message_indexes.len();
+        if zkpok.proofs_commited_mi.len() != U || zkpok.range_proofs_mi.len() != U {
+            return false;
+        }
+        if a_bases.0.is_empty() || unrevealed_message_indexes.iter().any(|&i| i >= a_bases.0.len()) {
+            return false;
         }
 
-        if !boolean_C_Ctrusted {
-            println!("The trusted commitment is different from commitment received!");
-            return false;
+        if let Some(trusted) = trusted_commitment {
+            // The Signer asked for the trusted-commitment check: a proof without it is invalid.
+            let Some(proof_C_Ctrusted) = &zkpok.proof_C_Ctrusted else {
+                return false;
+            };
+            if !proof_C_Ctrusted.nisp2_verify_proof_MultiSecrets::<CS>(
+                C,
+                trusted.commitment,
+                signer_pk,
+                a_bases,
+                trusted.commitment_pk,
+                unrevealed_message_indexes,
+            ) {
+                return false;
+            }
         }
 
         let boolean_proof_msgs = zkpok
@@ -415,14 +426,11 @@ impl<CS: CLCiphersuite> ZKPoK<CL03<CS>> {
 
         let min_x = Integer::from(0);
         let max_x = Integer::from(2).pow(CS::lm) - 1;
-        let mut idx = 0usize;
 
-        for i in unrevealed_message_indexes {
-            let ai = &a_bases
-                .0
-                .get(*i)
-                .expect("unreaveled_message_indexes not valid with respect to the messages!");
-            let proof_mi = zkpok.proofs_commited_mi.get(idx).expect("index overflow");
+        for (idx, i) in unrevealed_message_indexes.iter().enumerate() {
+            // Lengths and indexes checked above.
+            let ai = &a_bases.0[*i];
+            let proof_mi = &zkpok.proofs_commited_mi[idx];
             let boolean_proof_mi = proof_mi.value.nisp2sec_verify_proof::<CS>(
                 &proof_mi.commitment,
                 ai,
@@ -434,15 +442,14 @@ impl<CS: CLCiphersuite> ZKPoK<CL03<CS>> {
                 println!("Verification of the Proof of Knowledge of m{}. Failed!", i);
                 return false;
             }
-            let rproof_mi = zkpok.range_proofs_mi.get(idx).expect("index overflow");
+            let rproof_mi = &zkpok.range_proofs_mi[idx];
             let boolean_rproof_mi =
-                rproof_mi.verify::<CS::HashAlg>(&ai, &signer_pk.b, &signer_pk.N, &min_x, &max_x);
+                rproof_mi.verify::<CS::HashAlg>(ai, &signer_pk.b, &signer_pk.N, &min_x, &max_x);
             if !boolean_rproof_mi {
                 println!("Verification of the Range Proof of m{}. Failed", i);
                 return false;
             }
 
-            idx += 1;
         }
 
         let boolean_proof_r = zkpok.proof_r.value.nisp2sec_verify_proof::<CS>(
@@ -475,7 +482,7 @@ impl<CS: CLCiphersuite> ZKPoK<CL03<CS>> {
 
     pub fn to_cl03_zkpok(&self) -> &CL03ZKPoK {
         match self {
-            Self::CL03(inner) => &inner,
+            Self::CL03(inner) => inner,
             _ => panic!("Cannot happen!"),
         }
     }
@@ -486,8 +493,13 @@ mod tests {
 
     use crate::cl03::ciphersuites::CLCiphersuite;
     use crate::schemes::algorithms::CL03_CL1024_SHA256;
+    use super::CL03TrustedCommitment;
     use crate::{
-        cl03::{bases::Bases, keys::CL03CommitmentPublicKey},
+        cl03::{
+            bases::Bases,
+            blind::{CL03BlindSignInput, CL03RevealedMessages},
+            keys::CL03CommitmentPublicKey,
+        },
         keys::pair::KeyPair,
         schemes::{
             algorithms::{Ciphersuite, Scheme, CL03},
@@ -566,7 +578,6 @@ mod tests {
             None,
             cl03_keypair.public_key(),
             &a_bases,
-            None,
             &unrevealed_message_indexes,
         );
 
@@ -575,7 +586,6 @@ mod tests {
             None,
             cl03_keypair.public_key(),
             &a_bases,
-            None,
             &unrevealed_message_indexes,
         );
 
@@ -586,7 +596,6 @@ mod tests {
             None,
             cl03_keypair.public_key(),
             &a_bases,
-            None,
             &unrevealed_message_indexes,
         );
 
@@ -596,7 +605,7 @@ mod tests {
 
         let trusted_party_commitment_pk = CL03CommitmentPublicKey::generate::<S::Ciphersuite>(
             None,
-            Some(msgs.len().try_into().unwrap()),
+            Some(msgs.len()),
         );
         let trusted_party_commitment =
             Commitment::<CL03<S::Ciphersuite>>::commit_with_commitment_pk(
@@ -614,19 +623,23 @@ mod tests {
         let zkpok2 = ZKPoK::<CL03<S::Ciphersuite>>::generate_proof(
             &messages,
             commitment.cl03Commitment(),
-            Some(trusted_party_commitment.cl03Commitment()),
+            Some(CL03TrustedCommitment {
+                commitment: trusted_party_commitment.cl03Commitment(),
+                commitment_pk: &trusted_party_commitment_pk,
+            }),
             cl03_keypair.public_key(),
             &a_bases,
-            Some(&trusted_party_commitment_pk),
             &unrevealed_message_indexes,
         );
 
         let valid = zkpok2.verify_proof(
             commitment.cl03Commitment(),
-            Some(trusted_party_commitment.cl03Commitment()),
+            Some(CL03TrustedCommitment {
+                commitment: trusted_party_commitment.cl03Commitment(),
+                commitment_pk: &trusted_party_commitment_pk,
+            }),
             cl03_keypair.public_key(),
             &a_bases,
-            Some(&trusted_party_commitment_pk),
             &unrevealed_message_indexes,
         );
 
@@ -635,19 +648,23 @@ mod tests {
         let zkpok2_wrong_tp_commitment = ZKPoK::<CL03<S::Ciphersuite>>::generate_proof(
             &messages,
             commitment.cl03Commitment(),
-            Some(trusted_party_commitment_wrong.cl03Commitment()),
+            Some(CL03TrustedCommitment {
+                commitment: trusted_party_commitment_wrong.cl03Commitment(),
+                commitment_pk: &trusted_party_commitment_pk,
+            }),
             cl03_keypair.public_key(),
             &a_bases,
-            Some(&trusted_party_commitment_pk),
             &unrevealed_message_indexes,
         );
 
         let valid = zkpok2_wrong_tp_commitment.verify_proof(
             commitment.cl03Commitment(),
-            Some(trusted_party_commitment.cl03Commitment()),
+            Some(CL03TrustedCommitment {
+                commitment: trusted_party_commitment.cl03Commitment(),
+                commitment_pk: &trusted_party_commitment_pk,
+            }),
             cl03_keypair.public_key(),
             &a_bases,
-            Some(&trusted_party_commitment_pk),
             &unrevealed_message_indexes,
         );
 
@@ -722,7 +739,6 @@ mod tests {
             None,
             cl03_keypair.public_key(),
             &a_bases,
-            None,
             &unrevealed_message_indexes,
         );
 
@@ -731,13 +747,16 @@ mod tests {
             cl03_keypair.private_key(),
             &a_bases,
             &zkpok,
-            Some(&revealed_messages),
             commitment.cl03Commitment(),
-            None,
-            None,
             &unrevealed_message_indexes,
-            Some(&revealed_message_indexes),
-        );
+            CL03BlindSignInput {
+                revealed: Some(CL03RevealedMessages {
+                    messages: &revealed_messages,
+                    indexes: &revealed_message_indexes,
+                }),
+                ..Default::default()
+            },
+        ).unwrap();
         let unblided_signature = blind_signature.unblind_sign(&commitment);
         let verify =
             unblided_signature.verify_multiattr(cl03_keypair.public_key(), &a_bases, &messages);
@@ -752,13 +771,16 @@ mod tests {
             cl03_keypair.private_key(),
             &a_bases,
             &zkpok,
-            Some(&revealed_messages_wrong),
             commitment.cl03Commitment(),
-            None,
-            None,
             &unrevealed_message_indexes,
-            Some(&revealed_message_indexes),
-        );
+            CL03BlindSignInput {
+                revealed: Some(CL03RevealedMessages {
+                    messages: &revealed_messages_wrong,
+                    indexes: &revealed_message_indexes,
+                }),
+                ..Default::default()
+            },
+        ).unwrap();
         let unblided_signature_wrong = blind_signature_wrong.unblind_sign(&commitment);
         let verify = unblided_signature_wrong.verify_multiattr(
             cl03_keypair.public_key(),

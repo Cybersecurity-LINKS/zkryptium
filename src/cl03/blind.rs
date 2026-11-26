@@ -14,11 +14,13 @@
 
 use super::{
     commitment::CL03Commitment,
-    keys::{CL03CommitmentPublicKey, CL03PublicKey, CL03SecretKey},
+    keys::{CL03PublicKey, CL03SecretKey},
+    proof::CL03TrustedCommitment,
     signature::CL03Signature,
 };
 use crate::{
     cl03::{bases::Bases, ciphersuites::CLCiphersuite},
+    errors::Error,
     schemes::algorithms::CL03,
     schemes::generics::{BlindSignature, Commitment, Signature, ZKPoK},
     utils::message::cl03_message::CL03Message,
@@ -28,6 +30,52 @@ use digest::Digest;
 use rug::{ops::Pow, Integer};
 use serde::{Deserialize, Serialize};
 use std::panic;
+
+/// Messages disclosed to the Signer, with their indexes in the full list of messages. The two
+/// slices must have the same length; every index must be a valid index of the bases.
+#[derive(Clone, Copy, Debug)]
+pub struct CL03RevealedMessages<'a> {
+    /// The revealed messages.
+    pub messages: &'a [CL03Message],
+    /// The index of each revealed message.
+    pub indexes: &'a [usize],
+}
+
+/// Optional inputs of [`BlindSignature::blind_sign`]. Both default to none.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct CL03BlindSignInput<'a> {
+    /// When set, the ZKPoK must also prove that the commitment hides the same secrets as
+    /// this trusted party commitment.
+    pub trusted_commitment: Option<CL03TrustedCommitment<'a>>,
+    /// Messages known to the Signer, added to the commitment before signing.
+    pub revealed: Option<CL03RevealedMessages<'a>>,
+}
+
+/// Returns `C` extended with the revealed messages, after checking that they are consistent
+/// with the bases (the extension itself panics on inconsistent input).
+fn extend_with_revealed<CS: CLCiphersuite>(
+    C: &CL03Commitment,
+    revealed: Option<CL03RevealedMessages<'_>>,
+    pk: &CL03PublicKey,
+    a_bases: &Bases,
+) -> Result<Commitment<CL03<CS>>, String> {
+    let mut extended_commitment: Commitment<CL03<CS>> = Commitment::CL03(C.clone());
+    if let Some(revealed) = revealed {
+        if revealed.messages.len() != revealed.indexes.len() {
+            return Err("revealed messages and indexes have different lengths".to_owned());
+        }
+        if revealed.indexes.iter().any(|&i| i >= a_bases.0.len()) {
+            return Err("revealed message index out of range of the bases".to_owned());
+        }
+        extended_commitment.extend_commitment_with_pk(
+            revealed.messages,
+            pk,
+            a_bases,
+            Some(revealed.indexes),
+        );
+    }
+    Ok(extended_commitment)
+}
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct CL03BlindSignature {
@@ -60,47 +108,41 @@ impl<CS: CLCiphersuite> BlindSignature<CL03<CS>> {
 
     //TODO: ("remove the indexes");
 
+    /// Signs the commitment `C` after verifying the Prover ZKPoK of the committed secrets.
+    ///
+    /// # Errors
+    /// [`Error::BlindSignError`] if the ZKPoK is not valid, or if `input.revealed` has
+    /// messages and indexes of different lengths or an index outside `a_bases`.
     pub fn blind_sign(
         pk: &CL03PublicKey,
         sk: &CL03SecretKey,
         a_bases: &Bases,
         zkpok: &ZKPoK<CL03<CS>>,
-        revealed_messages: Option<&[CL03Message]>,
         C: &CL03Commitment,
-        C_trusted: Option<&CL03Commitment>,
-        commitment_pk: Option<&CL03CommitmentPublicKey>,
         unrevealed_message_indexes: &[usize],
-        revealed_message_indexes: Option<&[usize]>,
-    ) -> Self
+        input: CL03BlindSignInput<'_>,
+    ) -> Result<Self, Error>
     where
         CS::HashAlg: Digest,
     {
         if !zkpok.verify_proof(
             C,
-            C_trusted,
+            input.trusted_commitment,
             pk,
             a_bases,
-            commitment_pk,
             unrevealed_message_indexes,
         ) {
-            panic!("Knowledge of committed secrets not verified");
+            return Err(Error::BlindSignError(
+                "knowledge of committed secrets not verified".to_owned(),
+            ));
         }
 
-        let mut extended_commitment: Commitment<CL03<CS>> = Commitment::CL03(C.clone());
-        if revealed_messages.is_some() && revealed_message_indexes.is_some() {
-            extended_commitment.extend_commitment_with_pk(
-                revealed_messages.unwrap(),
-                pk,
-                a_bases,
-                revealed_message_indexes,
-            );
-        }
+        let extended_commitment =
+            extend_with_revealed::<CS>(C, input.revealed, pk, a_bases).map_err(Error::BlindSignError)?;
         let mut e = random_prime(CS::le);
         let phi_n = (&sk.p - Integer::from(1)) * (&sk.q - Integer::from(1));
-        while ((&e > &Integer::from(2).pow(CS::le - 1))
-            && (&e < &Integer::from(2).pow(CS::le))
-            && (Integer::from(e.gcd_ref(&phi_n)) == 1))
-            == false
+        while !((e > Integer::from(2).pow(CS::le - 1))
+            && (e < Integer::from(2).pow(CS::le)) && (Integer::from(e.gcd_ref(&phi_n)) == 1))
         {
             e = random_prime(CS::le);
         }
@@ -119,7 +161,7 @@ impl<CS: CLCiphersuite> BlindSignature<CL03<CS>> {
         let sig = CL03BlindSignature { e, rprime, v };
         // sig = { 'e':e, 'rprime':rprime, 'v':v }
 
-        Self::CL03(sig)
+        Ok(Self::CL03(sig))
     }
 
     pub fn unblind_sign(&self, commitment: &Commitment<CL03<CS>>) -> Signature<CL03<CS>> {
@@ -131,24 +173,22 @@ impl<CS: CLCiphersuite> BlindSignature<CL03<CS>> {
         })
     }
 
+    /// Re-signs the commitment `C` extended with new values of the revealed messages, keeping
+    /// `e` and `rprime`.
+    ///
+    /// # Errors
+    /// [`Error::UpdateSignatureError`] if `revealed` has messages and indexes of different
+    /// lengths or an index outside `a_bases`.
     pub fn update_signature(
         &self,
-        revealed_messages: Option<&[CL03Message]>,
         C: &CL03Commitment,
         sk: &CL03SecretKey,
         pk: &CL03PublicKey,
         a_bases: &Bases,
-        revealed_message_indexes: Option<&[usize]>,
-    ) -> Self {
-        let mut extended_commitment: Commitment<CL03<CS>> = Commitment::CL03(C.clone());
-        if revealed_messages.is_some() && revealed_message_indexes.is_some() {
-            extended_commitment.extend_commitment_with_pk(
-                revealed_messages.unwrap(),
-                pk,
-                a_bases,
-                revealed_message_indexes,
-            );
-        }
+        revealed: Option<CL03RevealedMessages<'_>>,
+    ) -> Result<Self, Error> {
+        let extended_commitment = extend_with_revealed::<CS>(C, revealed, pk, a_bases)
+            .map_err(Error::UpdateSignatureError)?;
 
         let phi_N = (&sk.p - Integer::from(1)) * (&sk.q - Integer::from(1));
         let e2n = Integer::from(self.e().invert_ref(&phi_N).unwrap());
@@ -166,7 +206,7 @@ impl<CS: CLCiphersuite> BlindSignature<CL03<CS>> {
             rprime: self.rprime().clone(),
             v,
         };
-        Self::CL03(sig)
+        Ok(Self::CL03(sig))
     }
 }
 
@@ -175,8 +215,10 @@ mod tests {
 
     use crate::cl03::ciphersuites::CLCiphersuite;
     use crate::schemes::algorithms::CL03_CL1024_SHA256;
+    use super::{CL03BlindSignInput, CL03RevealedMessages};
     use crate::{
-        cl03::bases::Bases,
+        cl03::{bases::Bases, keys::CL03CommitmentPublicKey, proof::CL03TrustedCommitment},
+        errors::Error,
         keys::pair::KeyPair,
         schemes::algorithms::{Ciphersuite, Scheme, CL03},
         schemes::generics::{BlindSignature, Commitment, ZKPoK},
@@ -194,6 +236,87 @@ mod tests {
     #[test]
     fn update_signature_cl1024_sha256() {
         update_signature::<CL03_CL1024_SHA256>();
+    }
+
+    // CL03-01..04: invalid Prover input or inconsistent Signer input must return an error
+    // (or `false` from verify_proof) instead of panicking or being silently ignored.
+    #[test]
+    fn blind_sign_rejects_invalid_input_cl1024_sha256() {
+        blind_sign_rejects_invalid_input::<CL03_CL1024_SHA256>();
+    }
+
+    fn blind_sign_rejects_invalid_input<S: Scheme>()
+    where
+        S::Ciphersuite: CLCiphersuite,
+        <S::Ciphersuite as Ciphersuite>::HashAlg: Digest,
+    {
+        let msgs = ["01", "02", "03"];
+        let wrong_msgs = ["11", "12", "13"];
+        let to_messages = |m: &[&str]| -> Vec<CL03Message> {
+            m.iter()
+                .map(|m| CL03Message::map_message_to_integer_as_hash::<S::Ciphersuite>(&hex::decode(m).unwrap()))
+                .collect()
+        };
+        let messages = to_messages(&msgs);
+        let wrong_messages = to_messages(&wrong_msgs);
+
+        let keypair = KeyPair::<CL03<S::Ciphersuite>>::generate();
+        let (pk, sk) = (keypair.public_key(), keypair.private_key());
+        let a_bases = Bases::generate(pk, msgs.len());
+        let unrevealed = [0usize];
+        let revealed_indexes = [1usize, 2];
+        let revealed_messages = [messages[1].clone(), messages[2].clone()];
+        let revealed = CL03RevealedMessages { messages: &revealed_messages, indexes: &revealed_indexes };
+
+        let commitment = Commitment::<CL03<S::Ciphersuite>>::commit_with_pk(&messages, pk, &a_bases, Some(&unrevealed));
+        let C = commitment.cl03Commitment();
+        let zkpok = ZKPoK::<CL03<S::Ciphersuite>>::generate_proof(&messages, C, None, pk, &a_bases, &unrevealed);
+        let sign = |zkpok: &ZKPoK<CL03<S::Ciphersuite>>, unrevealed: &[usize], input: CL03BlindSignInput<'_>| {
+            BlindSignature::<CL03<S::Ciphersuite>>::blind_sign(pk, sk, &a_bases, zkpok, C, unrevealed, input)
+        };
+
+        // Sanity: the valid input is accepted.
+        assert!(sign(&zkpok, &unrevealed, CL03BlindSignInput { revealed: Some(revealed), ..Default::default() }).is_ok());
+
+        // CL03-01: ZKPoK of a different commitment -> Err, not panic.
+        let other = Commitment::<CL03<S::Ciphersuite>>::commit_with_pk(&wrong_messages, pk, &a_bases, Some(&unrevealed));
+        let other_zkpok = ZKPoK::<CL03<S::Ciphersuite>>::generate_proof(
+            &wrong_messages, other.cl03Commitment(), None, pk, &a_bases, &unrevealed,
+        );
+        assert!(matches!(
+            sign(&other_zkpok, &unrevealed, CL03BlindSignInput::default()),
+            Err(Error::BlindSignError(_))
+        ));
+
+        // CL03-04: proof shorter than the unrevealed indexes, or index outside the bases.
+        assert!(!zkpok.verify_proof(C, None, pk, &a_bases, &[0, 1]));
+        assert!(!zkpok.verify_proof(C, None, pk, &a_bases, &[7]));
+        assert!(sign(&zkpok, &[0, 1], CL03BlindSignInput::default()).is_err());
+
+        // CL03-03: the Signer asks for the trusted-commitment check, the proof lacks it.
+        let tp_pk = CL03CommitmentPublicKey::generate::<S::Ciphersuite>(None, Some(msgs.len()));
+        let tp_commitment =
+            Commitment::<CL03<S::Ciphersuite>>::commit_with_commitment_pk(&messages, &tp_pk, Some(&unrevealed));
+        let trusted = CL03TrustedCommitment { commitment: tp_commitment.cl03Commitment(), commitment_pk: &tp_pk };
+        assert!(!zkpok.verify_proof(C, Some(trusted), pk, &a_bases, &unrevealed));
+        assert!(sign(&zkpok, &unrevealed, CL03BlindSignInput { trusted_commitment: Some(trusted), ..Default::default() }).is_err());
+
+        // CL03-02: revealed messages and indexes of different lengths, or index out of range.
+        let short = CL03RevealedMessages { messages: &revealed_messages[..1], indexes: &revealed_indexes };
+        let out_of_range = CL03RevealedMessages { messages: &revealed_messages, indexes: &[1, 9] };
+        for bad in [short, out_of_range] {
+            assert!(matches!(
+                sign(&zkpok, &unrevealed, CL03BlindSignInput { revealed: Some(bad), ..Default::default() }),
+                Err(Error::BlindSignError(_))
+            ));
+        }
+        let blind_signature = sign(&zkpok, &unrevealed, CL03BlindSignInput { revealed: Some(revealed), ..Default::default() }).unwrap();
+        for bad in [short, out_of_range] {
+            assert!(matches!(
+                blind_signature.update_signature(C, sk, pk, &a_bases, Some(bad)),
+                Err(Error::UpdateSignatureError(_))
+            ));
+        }
     }
 
     fn blind_sign<S: Scheme>()
@@ -263,7 +386,6 @@ mod tests {
             None,
             cl03_keypair.public_key(),
             &a_bases,
-            None,
             &unrevealed_message_indexes,
         );
 
@@ -272,13 +394,16 @@ mod tests {
             cl03_keypair.private_key(),
             &a_bases,
             &zkpok,
-            Some(&revealed_messages),
             commitment.cl03Commitment(),
-            None,
-            None,
             &unrevealed_message_indexes,
-            Some(&revealed_message_indexes),
-        );
+            CL03BlindSignInput {
+                revealed: Some(CL03RevealedMessages {
+                    messages: &revealed_messages,
+                    indexes: &revealed_message_indexes,
+                }),
+                ..Default::default()
+            },
+        ).unwrap();
         let unblided_signature = blind_signature.unblind_sign(&commitment);
         let verify =
             unblided_signature.verify_multiattr(cl03_keypair.public_key(), &a_bases, &messages);
@@ -293,13 +418,16 @@ mod tests {
             cl03_keypair.private_key(),
             &a_bases,
             &zkpok,
-            Some(&revealed_messages_wrong),
             commitment.cl03Commitment(),
-            None,
-            None,
             &unrevealed_message_indexes,
-            Some(&revealed_message_indexes),
-        );
+            CL03BlindSignInput {
+                revealed: Some(CL03RevealedMessages {
+                    messages: &revealed_messages_wrong,
+                    indexes: &revealed_message_indexes,
+                }),
+                ..Default::default()
+            },
+        ).unwrap();
         let unblided_signature_wrong = blind_signature_wrong.unblind_sign(&commitment);
         let verify = unblided_signature_wrong.verify_multiattr(
             cl03_keypair.public_key(),
@@ -377,7 +505,6 @@ mod tests {
             None,
             cl03_keypair.public_key(),
             &a_bases,
-            None,
             &unrevealed_message_indexes,
         );
 
@@ -386,13 +513,16 @@ mod tests {
             cl03_keypair.private_key(),
             &a_bases,
             &zkpok,
-            Some(&revealed_messages),
             commitment.cl03Commitment(),
-            None,
-            None,
             &unrevealed_message_indexes,
-            Some(&revealed_message_indexes),
-        );
+            CL03BlindSignInput {
+                revealed: Some(CL03RevealedMessages {
+                    messages: &revealed_messages,
+                    indexes: &revealed_message_indexes,
+                }),
+                ..Default::default()
+            },
+        ).unwrap();
         let unblided_signature = blind_signature.unblind_sign(&commitment);
         let verify =
             unblided_signature.verify_multiattr(cl03_keypair.public_key(), &a_bases, &messages);
@@ -403,13 +533,15 @@ mod tests {
         );
 
         let updated_signature = blind_signature.update_signature(
-            Some(&revealed_updated_messages),
-            &commitment.cl03Commitment(),
+            commitment.cl03Commitment(),
             cl03_keypair.private_key(),
             cl03_keypair.public_key(),
             &a_bases,
-            Some(&revealed_message_indexes),
-        );
+            Some(CL03RevealedMessages {
+                messages: &revealed_updated_messages,
+                indexes: &revealed_message_indexes,
+            }),
+        ).unwrap();
         let unblinded_updated_signature = updated_signature.unblind_sign(&commitment);
 
         let verify = unblinded_updated_signature.verify_multiattr(

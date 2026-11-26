@@ -25,7 +25,10 @@ mod bbsplus_example {
         },
         utils::util::bbsplus_utils::generate_random_secret,
     };
-    use zkryptium::bbsplus::{commitment::Message, proof::Disclosure};
+    use zkryptium::bbsplus::{
+        commitment::Message,
+        proof::{BlindProofGenInput, BlindProofVerifyInput, Disclosure},
+    };
 
     pub(crate) fn bbsplus_main<S: Scheme>() -> Result<(), Error>
     where
@@ -114,13 +117,15 @@ mod bbsplus_example {
         let (poks, add_zkp_info) = BlindPoKSignature::<BBSplus<S::Ciphersuite>>::blind_proof_gen(
             issuer_pk,
             &blind_signature.to_bytes(),
-            Some(&header),
-            Some(&nonce_verifier),
-            Some(&messages),
-            Some(&committed_messages),
-            Some(&issuer_message_disclosures),
-            Some(&blind_message_disclosures),
-            Some(&secret_prover_blind),
+            BlindProofGenInput {
+                header: Some(&header),
+                ph: Some(&nonce_verifier),
+                issuer_messages: &messages,
+                blind_messages: &committed_messages,
+                issuer_message_disclosures: &issuer_message_disclosures,
+                blind_message_disclosures: &blind_message_disclosures,
+                secret_prover_blind: Some(&secret_prover_blind),
+            },
         )?;
         // add_zkp_info (committed message scalars and commitment randomness) stays with the
         // Holder: it can be used for external ZKPs over the commitments, never sent to the Verifier.
@@ -157,11 +162,13 @@ mod bbsplus_example {
             BlindPoKSignature::<BBSplus<S::Ciphersuite>>::from_bytes(&poks_bytes, commitments_count)?;
         received_poks.blind_proof_verify(
             issuer_pk,
-            Some(&header),
-            Some(&nonce_verifier),
-            Some(messages.len()),
-            Some(&disclosed_messages),
-            Some(&message_disclosures),
+            BlindProofVerifyInput {
+                header: Some(&header),
+                ph: Some(&nonce_verifier),
+                issuer_known_messages_no: messages.len(),
+                disclosed_messages: &disclosed_messages,
+                message_disclosures: &message_disclosures,
+            },
         )?;
         log::info!("Signature Proof of Knowledge is VALID!");
 

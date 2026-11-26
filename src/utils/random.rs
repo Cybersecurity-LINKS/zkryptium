@@ -48,15 +48,15 @@ pub fn random_number(n: Integer) -> Integer {
     let mut binding = CryptographicallySecurePRNG(ChaCha20Rng::from_seed(seed));
     let mut rand = RandState::new_custom(&mut binding);
 
-    let number = n.random_below(&mut rand);
-    number
+    
+    n.random_below(&mut rand)
 }
 
 /// Generates a random prime number with the specified number of bits.
 pub fn random_prime(n: u32) -> Integer {
     let r = random_bits(n);
-    let prime = r.next_prime();
-    prime
+    
+    r.next_prime()
 }
 
 /// Generates a random quadratic residue modulo n.
@@ -64,7 +64,7 @@ pub fn random_qr(n: &Integer) -> Integer {
     let mut r = random_number(n.clone());
     let mut qr = r.secure_pow_mod(&Integer::from(2), n);
     while !(qr.cmp(&Integer::from(1)) == Ordering::Greater
-        && qr.clone().gcd(&n).cmp(&Integer::from(1)) == Ordering::Equal)
+        && qr.clone().gcd(n).cmp(&Integer::from(1)) == Ordering::Equal)
     {
         r = random_number(n.clone());
         qr = r.secure_pow_mod(&Integer::from(2), n);
@@ -82,5 +82,5 @@ pub fn rand_int(a: Integer, b: Integer) -> Integer {
 
     let range = (&b - &a).complete() + Integer::from(1);
     // NOTE: return a random integer in the range [a, b], including both end points.
-    return a + range.random_below(&mut rand);
+    a + range.random_below(&mut rand)
 }

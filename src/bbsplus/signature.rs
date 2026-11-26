@@ -230,8 +230,8 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
         let H_i = H_points.get(update_index).ok_or(Error::Unspecified)?;
         let sk_e = sk.0 + self.e();
         let mut B = self.a() * sk_e;
-        B = B + (-H_i * old_message_scalar.value);
-        B = B + (H_i * new_message_scalar.value);
+        B += -H_i * old_message_scalar.value;
+        B += H_i * new_message_scalar.value;
 
         let sk_e_inv = Option::<Scalar>::from(sk_e.invert())
             .ok_or_else(|| Error::UpdateSignatureError("Invert scalar failed".to_owned()))?;
@@ -241,7 +241,7 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
             return Err(Error::UpdateSignatureError("A == IDENTITY G1".to_owned()));
         }
 
-        return Ok(Self::BBSplus(BBSplusSignature { A, e: self.e() }));
+        Ok(Self::BBSplus(BBSplusSignature { A, e: self.e() }))
     }
 }
 
@@ -256,7 +256,7 @@ impl<CS: BbsCiphersuite> Signature<BBSplus<CS>> {
 /// * `generators` (REQUIRED), vector of pseudo-random points in G1.
 /// * `header` (OPTIONAL), an octet string containing context and application specific information.
 /// * `messages` (REQUIRED), a vector of scalars (`BBSplusMessage`) representing the messages,
-///                          it could be an empty vector.
+///   it could be an empty vector.
 /// * `api_id` (OPTIONAL), an octet string. If not supplied it defaults to the empty octet string ("").
 ///
 /// # Output:
@@ -325,7 +325,7 @@ where
 /// * `pk` (REQUIRED), a public key
 /// * `signature` (REQUIRED), a `BBSplusSignature`
 /// * `messages` (REQUIRED), a vector of scalars (`BBSplusMessage`) representing the messages, 
-///                          it could be an empty vector.
+///   it could be an empty vector.
 /// * `generators` (REQUIRED), vector of pseudo-random points in G1.
 /// * `header` (OPTIONAL), an octet string containing context and application specific information.
 /// * `api_id` (OPTIONAL), an octet string. If not supplied it defaults to theempty octet string ("").
@@ -542,7 +542,7 @@ mod tests {
             eprintln!("  VERIFY: {}", result3);
             eprintln!("  Expected: {}", RESULT_expected);
             eprintln!("  Computed: {}", result2);
-            if RESULT_expected == false {
+            if !RESULT_expected {
                 eprintln!(
                     "{} ({})",
                     result3,
@@ -567,8 +567,8 @@ mod tests {
         let header = hex::decode(header_hex).unwrap();
 
         let keypair = KeyPair::<BBSplus<S::Ciphersuite>>::generate(
-            &hex::decode(&IKM).unwrap(),
-            Some(&hex::decode(&KEY_INFO).unwrap()),
+            &hex::decode(IKM).unwrap(),
+            Some(&hex::decode(KEY_INFO).unwrap()),
             None,
         )
         .unwrap();
@@ -595,7 +595,7 @@ mod tests {
         let updated_signature = signature
             .update_signature(
                 sk,
-                &old_message_bytes,
+                old_message_bytes,
                 &new_message_bytes,
                 update_index,
                 messages.len(),

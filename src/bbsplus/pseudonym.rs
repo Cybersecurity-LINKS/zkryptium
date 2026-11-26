@@ -37,7 +37,7 @@ use super::proof::{
     blind_proof_challenge_calculate, commitments_proof_finalize, commitments_proof_init,
     commitments_verify_init, proof_finalize, proof_init_with_scalars, proof_verify_init, split,
     validate_disclosure_indexes, verify_proof_pairing, AddZkpInfo, BBSplusBlindPoKSignature,
-    Disclosure,
+    BlindProofGenInput, BlindProofVerifyInput,
 };
 use super::signature::{core_verify, BBSplusSignature};
 use bls12_381_plus::group::Curve;
@@ -156,13 +156,13 @@ impl PseudonymSecret {
 
 }
 
-impl Into<BBSplusMessage> for PseudonymSecret {
-    fn into(self) -> BBSplusMessage {
-        BBSplusMessage::new(self.0)
+impl From<PseudonymSecret> for BBSplusMessage {
+    fn from(val: PseudonymSecret) -> Self {
+        BBSplusMessage::new(val.0)
     }
 }
 
-impl<'a, 'b> Add<&'b PseudonymSecret> for &'a PseudonymSecret {
+impl<'b> Add<&'b PseudonymSecret> for &PseudonymSecret {
     type Output = PseudonymSecret;
 
     #[inline]
@@ -188,7 +188,7 @@ impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>>{
     ///
     /// # Inputs:
     /// * `blind_messages` (OPTIONAL), a vector of [Message].
-    ///                                 If not supplied it defaults to the empty array.
+    ///   If not supplied it defaults to the empty array.
     /// * `prover_nyms` (REQUIRED), a non-empty vector of [`PseudonymSecret`].
     ///
     /// # Output:
@@ -217,7 +217,7 @@ impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>>{
 ///
 /// # Inputs:
 /// * `blind_messages` (OPTIONAL), a vector of [Message].
-///                                 If not supplied it defaults to the empty array.
+///   If not supplied it defaults to the empty array.
 /// * `prover_nyms` (REQUIRED), a non-empty vector of [`PseudonymSecret`].
 /// * `api_id` (OPTIONAL), octet string. If not supplied it defaults to the empty octet string.
 ///
@@ -257,6 +257,23 @@ where
     core_commit::<CS>(blind_generators, Some(committed_message_scalars), Some(api_id))
 }
 
+/// Optional inputs of
+/// [`BlindSignature::verify_finalize_with_nym`](crate::schemes::generics::BlindSignature::verify_finalize_with_nym).
+/// Every field defaults to empty, none or zero.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct VerifyFinalizeWithNymInput<'a> {
+    /// An octet string containing context and application specific information.
+    pub header: Option<&'a [u8]>,
+    /// The messages supplied by the Signer.
+    pub messages: &'a [Message],
+    /// The messages committed by the Prover.
+    pub blind_messages: &'a [Message],
+    /// The Signer nym entropy. Defaults to zero.
+    pub signer_nym_entropy: Option<&'a PseudonymSecret>,
+    /// The Prover blind factor returned by the commitment. Defaults to zero.
+    pub secret_prover_blind: Option<&'a BlindFactor>,
+}
+
 impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-per-verifier-linkability-05#section-7.1.2>
     ///
@@ -273,14 +290,14 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     /// * `sk` (REQUIRED), a secret key
     /// * `pk` (REQUIRED), a public key
     /// * `commitment_with_proof` (OPTIONAL), an octet string, representing a serialized commitment
-    ///                                       and commitment_proof, as the first element outputted
-    ///                                       by the `commit_with_nym` operation. If not supplied,
-    ///                                       it defaults to the empty string ("").
+    ///   and commitment_proof, as the first element outputted
+    ///   by the `commit_with_nym` operation. If not supplied,
+    ///   it defaults to the empty string ("").
     /// * `length_nym_vector` (REQUIRED), the length of the prover_nyms secret vector.
     /// * `header` (OPTIONAL), an octet string containing context and application-specific information.
     /// * `signer_nym_entropy` (REQUIRED), a [`PseudonymSecret`] value
     /// * `messages` (OPTIONAL), a vector of [`Message`]. If not supplied,
-    ///                         it defaults to the empty array.
+    ///   it defaults to the empty array.
     ///
     /// # Output:
     /// a [`BlindSignature::BBSplus`] or [`Error`].
@@ -373,32 +390,34 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     /// # Inputs:
     /// * `self`, a blind signature computed with the `blind_sign_with_nym` operation
     /// * `pk` (REQUIRED), a public key
+    /// * `prover_nyms` (REQUIRED), a vector of scalar values ([`PseudonymSecret`]).
+    /// * `input`, a [`VerifyFinalizeWithNymInput`] holding the OPTIONAL inputs below.
     /// * `header` (OPTIONAL), an octet string containing context and application specific information.
     /// * `messages` (OPTIONAL), a vector of [`Message`] supplied by the Signer.
-    ///                         If not supplied, it defaults to the empty array.
+    ///   If not supplied, it defaults to the empty array.
     /// * `blind_messages` (OPTIONAL), a vector of [`Message`] messages committed by the Prover.
-    /// * `prover_nyms` (REQUIRED), a vector of scalar values ([`PseudonymSecret`]).
     /// * `signer_nym_entropy` (OPTIONAL), a scalar value ([`PseudonymSecret`]).
-    ///                                     If not supplied it defaults to zero "0"
+    ///   If not supplied it defaults to zero "0"
     /// * `secret_prover_blind` (OPTIONAL), a scalar value ([`BlindFactor`]).
-    ///                                     If not supplied it defaults to zero "0"
+    ///   If not supplied it defaults to zero "0"
     ///
     /// # Output:
     /// * `nym_secrets`, a vector of scalar values ([`PseudonymSecret`]) or [`Error`].
     pub fn verify_finalize_with_nym(
         &self,
         pk: &BBSplusPublicKey,
-        header: Option<&[u8]>,
-        messages: Option<&[Message]>,
-        blind_messages: Option<&[Message]>,
         prover_nyms: Vec<PseudonymSecret>,
-        signer_nym_entropy: Option<&PseudonymSecret>,
-        secret_prover_blind: Option<&BlindFactor>,
+        input: VerifyFinalizeWithNymInput<'_>,
     ) -> Result<Vec<PseudonymSecret>, Error> {
+        let VerifyFinalizeWithNymInput {
+            header,
+            messages,
+            blind_messages,
+            signer_nym_entropy,
+            secret_prover_blind,
+        } = input;
 
         let api_id: &[u8] = CS::API_ID_NYM;
-        let messages = messages.unwrap_or(&[]);
-        let blind_messages = blind_messages.unwrap_or(&[]);
         let secret_prover_blind = secret_prover_blind.unwrap_or(
             &BlindFactor(Scalar::ZERO)
         );
@@ -490,20 +509,21 @@ impl<CS: BbsCiphersuite> BlindPoKSignature<BBSplus<CS>> {
     /// # Inputs:
     /// * `pk` (REQUIRED), the Signer public key.
     /// * `signature` (REQUIRED), an octet string.
+    /// * `nym_secrets` (REQUIRED), the non-empty vector of nym secrets known to the Prover
+    ///   (returned by `verify_finalize_with_nym`).
+    /// * `context_id` (REQUIRED), an octet string, the context the pseudonym is bound to.
+    /// * `input`, a [`BlindProofGenInput`] holding the OPTIONAL inputs below.
     /// * `header` (OPTIONAL), an octet string containing context and application.
     /// * `ph` (OPTIONAL), an octet string containing the presentation header.
-    /// * `nym_secrets` (REQUIRED), the non-empty vector of nym secrets known to the Prover
-    ///                             (returned by `verify_finalize_with_nym`).
-    /// * `context_id` (REQUIRED), an octet string, the context the pseudonym is bound to.
     /// * `issuer_messages` (OPTIONAL), a vector of [`Message`]. If not supplied, it defaults to
-    ///                                 the empty array.
+    ///   the empty array.
     /// * `blind_messages` (OPTIONAL), a vector of [`Message`] committed by the Prover. If not
-    ///                                supplied, it defaults to the empty array.
-    /// * `issuer_message_disclosures` (OPTIONAL), vector of [`Disclosure`], one per issuer
-    ///                                            message. If not supplied, it defaults to the
-    ///                                            empty vector.
-    /// * `blind_message_disclosures` (OPTIONAL), vector of [`Disclosure`], one per blind message.
-    ///                                           If not supplied, it defaults to the empty vector.
+    ///   supplied, it defaults to the empty array.
+    /// * `issuer_message_disclosures` (OPTIONAL), vector of [`Disclosure`](super::proof::Disclosure), one per issuer
+    ///   message. If not supplied, it defaults to the
+    ///   empty vector.
+    /// * `blind_message_disclosures` (OPTIONAL), vector of [`Disclosure`](super::proof::Disclosure), one per blind message.
+    ///   If not supplied, it defaults to the empty vector.
     /// * `secret_prover_blind` (OPTIONAL), a [`BlindFactor`]. If not supplied it defaults to zero.
     ///
     /// # Output:
@@ -513,24 +533,23 @@ impl<CS: BbsCiphersuite> BlindPoKSignature<BBSplus<CS>> {
     pub fn proof_gen_with_nym(
         pk: &BBSplusPublicKey,
         signature: &[u8],
-        header: Option<&[u8]>,
-        ph: Option<&[u8]>,
         nym_secrets: &[PseudonymSecret],
         context_id: &[u8],
-        issuer_messages: Option<&[Message]>,
-        blind_messages: Option<&[Message]>,
-        issuer_message_disclosures: Option<&[Disclosure]>,
-        blind_message_disclosures: Option<&[Disclosure]>,
-        secret_prover_blind: Option<&BlindFactor>,
+        input: BlindProofGenInput<'_>,
     ) -> Result<(Self, BBSplusPseudonym, AddZkpInfo), Error> {
+        let BlindProofGenInput {
+            header,
+            ph,
+            issuer_messages,
+            blind_messages,
+            issuer_message_disclosures,
+            blind_message_disclosures,
+            secret_prover_blind,
+        } = input;
         let signature = BBSplusSignature::from_bytes(
             signature.try_into().map_err(|_| Error::InvalidSignature)?,
         )?;
         let api_id = CS::API_ID_NYM;
-        let issuer_messages = issuer_messages.unwrap_or(&[]);
-        let blind_messages = blind_messages.unwrap_or(&[]);
-        let issuer_message_disclosures = issuer_message_disclosures.unwrap_or(&[]);
-        let blind_message_disclosures = blind_message_disclosures.unwrap_or(&[]);
         let secret_prover_blind = secret_prover_blind.map(|b| b.0).unwrap_or(Scalar::ZERO);
 
         // Deserialization
@@ -622,20 +641,21 @@ impl<CS: BbsCiphersuite> BlindPoKSignature<BBSplus<CS>> {
     ///
     /// # Inputs:
     /// * `self`, a proof (see [`BlindPoKSignature::from_bytes`]: the number of committed
-    ///   disclosures is the number of [`Disclosure::Commit`] in `message_disclosures`).
+    ///   disclosures is the number of [`Disclosure::Commit`](super::proof::Disclosure::Commit) in `message_disclosures`).
     /// * `pk` (REQUIRED), the Signer public key.
-    /// * `header` (OPTIONAL), an octet string containing context and application.
-    /// * `ph` (OPTIONAL), an octet string containing the presentation header.
     /// * `pseudonym` (REQUIRED), a [`BBSplusPseudonym`].
     /// * `context_id` (REQUIRED), an octet string, the context the pseudonym is bound to.
     /// * `length_nym_vector` (REQUIRED), the length of the Prover's nym secrets vector.
+    /// * `input`, a [`BlindProofVerifyInput`] holding the OPTIONAL inputs below.
+    /// * `header` (OPTIONAL), an octet string containing context and application.
+    /// * `ph` (OPTIONAL), an octet string containing the presentation header.
     /// * `issuer_known_messages_no` (OPTIONAL), the number of messages known by the Signer.
-    ///                                          If not supplied it defaults to 0.
+    ///   If not supplied it defaults to 0.
     /// * `disclosed_messages` (OPTIONAL), a vector of [`Message`]: the disclosed issuer messages
-    ///                                    followed by the disclosed blind messages, in index order.
-    /// * `message_disclosures` (OPTIONAL), a vector of [`Disclosure`], one per signed message
-    ///                                     (issuer messages followed by blind messages; the
-    ///                                     `secret_prover_blind` and the nym secrets excluded).
+    ///   followed by the disclosed blind messages, in index order.
+    /// * `message_disclosures` (OPTIONAL), a vector of [`Disclosure`](super::proof::Disclosure), one per signed message
+    ///   (issuer messages followed by blind messages; the
+    ///   `secret_prover_blind` and the nym secrets excluded).
     ///
     /// # Output:
     /// a result: [`Ok`] or [`Error`].
@@ -643,20 +663,20 @@ impl<CS: BbsCiphersuite> BlindPoKSignature<BBSplus<CS>> {
     pub fn proof_verify_with_nym(
         &self,
         pk: &BBSplusPublicKey,
-        header: Option<&[u8]>,
-        ph: Option<&[u8]>,
         pseudonym: &BBSplusPseudonym,
         context_id: &[u8],
         length_nym_vector: usize,
-        issuer_known_messages_no: Option<usize>,
-        disclosed_messages: Option<&[Message]>,
-        message_disclosures: Option<&[Disclosure]>,
+        input: BlindProofVerifyInput<'_>,
     ) -> Result<(), Error> {
+        let BlindProofVerifyInput {
+            header,
+            ph,
+            issuer_known_messages_no: L,
+            disclosed_messages,
+            message_disclosures,
+        } = input;
         let proof = self.to_bbsplus_blind_proof();
         let api_id = CS::API_ID_NYM;
-        let L = issuer_known_messages_no.unwrap_or(0);
-        let disclosed_messages = disclosed_messages.unwrap_or(&[]);
-        let message_disclosures = message_disclosures.unwrap_or(&[]);
 
         // Deserialization
         // 1-3. proof_msgs_no = undisclosed_msgs_no + length(disclosed_messages)
@@ -776,6 +796,8 @@ fn nym_secrets_not_revealed(
 /// # Output:
 /// ([`BBSplusBlindPoKSignature`], [`BBSplusPseudonym`], [`AddZkpInfo`]) or [`Error`].
 ///
+// Same inputs, in the same order, as the draft procedure it implements.
+#[allow(clippy::too_many_arguments)]
 fn core_proof_gen_with_nym<CS>(
     pk: &BBSplusPublicKey,
     signature: &BBSplusSignature,
@@ -925,6 +947,8 @@ where
 /// # Output:
 /// a result: [`Ok`] or [`Error`].
 ///
+// Same inputs, in the same order, as the draft procedure it implements.
+#[allow(clippy::too_many_arguments)]
 fn core_proof_verify_with_nym<CS>(
     pk: &BBSplusPublicKey,
     proof: &BBSplusBlindPoKSignature,
@@ -1140,8 +1164,8 @@ mod tests {
     use crate::{
         bbsplus::{ciphersuites::BbsCiphersuite, commitment::{BlindFactor, Message}, generators::Generators,
                   keys::{BBSplusPublicKey, BBSplusSecretKey},
-        proof::{AddZkpInfo, BBSplusBlindPoKSignature, Disclosure},
-        pseudonym::{core_proof_gen_with_nym, PseudonymSecret}, signature::BBSplusSignature,
+        proof::{AddZkpInfo, BBSplusBlindPoKSignature, BlindProofGenInput, BlindProofVerifyInput, Disclosure},
+        pseudonym::{core_proof_gen_with_nym, PseudonymSecret, VerifyFinalizeWithNymInput}, signature::BBSplusSignature,
         test_utils::{hex_value, parse_disclosures, read_fixture}},
         schemes::{
             algorithms::{BBSplus, BbsBls12381Sha256, BbsBls12381Shake256, Scheme},
@@ -1187,7 +1211,7 @@ mod tests {
                 assert_pseudonym_rejected(&nym[..47]);
                 for extra in [1usize, 32] {
                     let mut bytes = nym.clone();
-                    bytes.extend(std::iter::repeat(0u8).take(extra));
+                    bytes.extend(std::iter::repeat_n(0u8, extra));
                     assert_pseudonym_rejected(&bytes);
                 }
             }
@@ -1374,8 +1398,15 @@ mod tests {
         let signature = sign(Some(&commitment), 10).unwrap();
         assert!(matches!(
             signature.verify_finalize_with_nym(
-                &pk, Some(&header), Some(&messages), Some(&blind_messages),
-                Vec::new(), Some(&entropy), None,
+                &pk,
+                Vec::new(),
+                VerifyFinalizeWithNymInput {
+                    header: Some(&header),
+                    messages: &messages,
+                    blind_messages: &blind_messages,
+                    signer_nym_entropy: Some(&entropy),
+                    ..Default::default()
+                },
             ),
             Err(Error::InvalidNymSecretsLength)
         ));
@@ -1437,12 +1468,14 @@ mod tests {
         let nym_secrets = signature
             .verify_finalize_with_nym(
                 &pk,
-                Some(&header),
-                Some(&messages),
-                Some(&blind_messages),
                 prover_nyms,
-                Some(&signer_nym_entropy),
-                prover_blind.as_ref(),
+                VerifyFinalizeWithNymInput {
+                    header: Some(&header),
+                    messages: &messages,
+                    blind_messages: &blind_messages,
+                    signer_nym_entropy: Some(&signer_nym_entropy),
+                    secret_prover_blind: prover_blind.as_ref(),
+                },
             ).unwrap();
 
         let expected_nym_secrets: Vec<PseudonymSecret> = proof_json["nym_secrets"]
@@ -1547,15 +1580,17 @@ mod tests {
             BlindPoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen_with_nym(
                 &self.pk,
                 &self.signature,
-                Some(&self.header),
-                Some(&self.ph),
                 &self.nym_secrets,
                 &self.context_id,
-                Some(&self.issuer_messages),
-                Some(&self.blind_messages),
-                Some(&self.issuer_disclosures),
-                Some(&self.blind_disclosures),
-                self.secret_prover_blind.as_ref(),
+                BlindProofGenInput {
+                    header: Some(&self.header),
+                    ph: Some(&self.ph),
+                    issuer_messages: &self.issuer_messages,
+                    blind_messages: &self.blind_messages,
+                    issuer_message_disclosures: &self.issuer_disclosures,
+                    blind_message_disclosures: &self.blind_disclosures,
+                    secret_prover_blind: self.secret_prover_blind.as_ref(),
+                },
             )
         }
 
@@ -1587,14 +1622,16 @@ mod tests {
         {
             proof.proof_verify_with_nym(
                 &self.pk,
-                Some(&self.header),
-                Some(&self.ph),
                 pseudonym,
                 &self.context_id,
                 self.nym_secrets.len(),
-                Some(self.issuer_messages.len()),
-                Some(&self.disclosed_messages()),
-                Some(&self.message_disclosures()),
+                BlindProofVerifyInput {
+                    header: Some(&self.header),
+                    ph: Some(&self.ph),
+                    issuer_known_messages_no: self.issuer_messages.len(),
+                    disclosed_messages: &self.disclosed_messages(),
+                    message_disclosures: &self.message_disclosures(),
+                },
             )
         }
     }
@@ -1766,9 +1803,17 @@ mod tests {
         let U = proof.to_bbsplus_blind_proof().bbs_proof.m_cap.len();
         for n in [0, 2, U, U + 1, usize::MAX] {
             let res = proof.proof_verify_with_nym(
-                &case.pk, Some(&case.header), Some(&case.ph), &pseudonym, &case.context_id, n,
-                Some(case.issuer_messages.len()), Some(&case.disclosed_messages()),
-                Some(&case.message_disclosures()),
+                &case.pk,
+                &pseudonym,
+                &case.context_id,
+                n,
+                BlindProofVerifyInput {
+                    header: Some(&case.header),
+                    ph: Some(&case.ph),
+                    issuer_known_messages_no: case.issuer_messages.len(),
+                    disclosed_messages: &case.disclosed_messages(),
+                    message_disclosures: &case.message_disclosures(),
+                },
             );
             assert!(res.is_err(), "length_nym_vector = {n}");
         }
@@ -1779,8 +1824,17 @@ mod tests {
         let (case, proof, pseudonym) = nym_negative_case();
         let verify = |L: usize, disclosed: &[Message], disclosures: &[Disclosure], ph: &[u8]| {
             proof.proof_verify_with_nym(
-                &case.pk, Some(&case.header), Some(ph), &pseudonym, &case.context_id,
-                case.nym_secrets.len(), Some(L), Some(disclosed), Some(disclosures),
+                &case.pk,
+                &pseudonym,
+                &case.context_id,
+                case.nym_secrets.len(),
+                BlindProofVerifyInput {
+                    header: Some(&case.header),
+                    ph: Some(ph),
+                    issuer_known_messages_no: L,
+                    disclosed_messages: disclosed,
+                    message_disclosures: disclosures,
+                },
             )
         };
         let L = case.issuer_messages.len();

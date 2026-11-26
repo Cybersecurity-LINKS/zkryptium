@@ -12,6 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Clippy compares the real variant with the zero-sized `_Unreachable` marker, or
+// BBS+ with CL03 when both features are on. Boxing would add an allocation to every
+// value and change the public enum for no benefit.
+#![allow(clippy::large_enum_variant)]
+
 use super::algorithms::Scheme;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;

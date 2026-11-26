@@ -81,6 +81,8 @@ impl Boudot2000RangeProof {
     const s2: u32 = 552;
 
     /* Algorithm 1 Proof of Same Secret */
+    // Private sub-protocol of [Boudot2000]: same inputs as in the paper.
+    #[allow(clippy::too_many_arguments)]
     fn proof_same_secret<H>(
         x: &Integer,
         r_1: &Integer,
@@ -136,6 +138,8 @@ impl Boudot2000RangeProof {
     }
 
     /* Algorithm 2 Verify Proof of Same Secret*/
+    // Private sub-protocol of [Boudot2000]: same inputs as in the paper.
+    #[allow(clippy::too_many_arguments)]
     fn verify_same_secret<H>(
         E: &Integer,
         F: &Integer,
@@ -176,6 +180,8 @@ impl Boudot2000RangeProof {
     }
 
     /* Algorithm 3 Proof of Square */
+    // Private sub-protocol of [Boudot2000]: same inputs as in the paper.
+    #[allow(clippy::too_many_arguments)]
     fn proof_of_square<H>(
         x: &Integer,
         r_1: &Integer,
@@ -229,6 +235,8 @@ impl Boudot2000RangeProof {
     }
 
     /* Algorithm 5 Proof of Larger Interval Specific factor 2 ** T */
+    // Private sub-protocol of [Boudot2000]: same inputs as in the paper.
+    #[allow(clippy::too_many_arguments)]
     fn proof_large_interval_specific<H>(
         x: &Integer,
         r: &Integer,
@@ -285,6 +293,8 @@ impl Boudot2000RangeProof {
     }
 
     /* Algorithm 6 Verify Proof of Larger Interval Specific factor 2 ** T */
+    // Private sub-protocol of [Boudot2000]: same inputs as in the paper.
+    #[allow(clippy::too_many_arguments)]
     fn verify_large_interval_specific<H>(
         proof_li: &ProofLi,
         E: &Integer,
@@ -323,6 +333,8 @@ impl Boudot2000RangeProof {
     }
 
     /* Algorithm 7 Proof with Tolerance Specific factor 2 ** T */
+    // Private sub-protocol of [Boudot2000]: same inputs as in the paper.
+    #[allow(clippy::too_many_arguments)]
     fn proof_of_tolerance_specific<H>(
         x: Integer,
         r: Integer,
@@ -441,6 +453,8 @@ impl Boudot2000RangeProof {
     }
 
     /* Algorithm 8 Verify Proof with Tolerance Specific factor 2 ** T */
+    // Private sub-protocol of [Boudot2000]: same inputs as in the paper.
+    #[allow(clippy::too_many_arguments)]
     fn verify_of_tolerance_specific<H>(
         proof_wt: &ProofWt,
         g: &Integer,
@@ -512,6 +526,8 @@ impl Boudot2000RangeProof {
     }
 
     /* Algorithm 9 Square Decomposition Range Proof (i.e. Proof without tolerance) from [Boudot2000] on section 3.1.2 */
+    // Private sub-protocol of [Boudot2000]: same inputs as in the paper.
+    #[allow(clippy::too_many_arguments)]
     fn proof_of_square_decomposition_range<H>(
         x: &Integer,
         r: &Integer,
@@ -548,6 +564,8 @@ impl Boudot2000RangeProof {
     }
 
     /* Algorithm 10 Verify Square Decomposition Range Proof (i.e. Proof without tolerance) from [Boudot2000] on section 3.1.2 */
+    // Private sub-protocol of [Boudot2000]: same inputs as in the paper.
+    #[allow(clippy::too_many_arguments)]
     fn verify_of_square_decomposition_range<H>(
         &self,
         g: &Integer,
@@ -577,7 +595,7 @@ impl Boudot2000RangeProof {
             );
             return res_verify_ts;
         }
-        return false;
+        false
     }
 
     pub fn prove<H>(
@@ -597,7 +615,8 @@ impl Boudot2000RangeProof {
         }
 
         let T = 2 * (Self::t + Self::l + 1) + ((rmax - rmin).complete().significant_bits());
-        let proof_of_sdr = Self::proof_of_square_decomposition_range::<H>(
+        
+        Self::proof_of_square_decomposition_range::<H>(
             value,
             &commitment.randomness,
             base1,
@@ -612,8 +631,7 @@ impl Boudot2000RangeProof {
             Self::s1,
             Self::s2,
             T,
-        );
-        proof_of_sdr
+        )
     }
 
     pub fn verify<H>(
@@ -633,7 +651,8 @@ impl Boudot2000RangeProof {
 
         let T = 2 * (Self::t + Self::l + 1) + ((rmax - rmin).complete().significant_bits());
 
-        let valid = Self::verify_of_square_decomposition_range::<H>(
+        
+        Self::verify_of_square_decomposition_range::<H>(
             self,
             base1,
             base2,
@@ -643,7 +662,6 @@ impl Boudot2000RangeProof {
             Self::t,
             Self::l,
             T,
-        );
-        valid
+        )
     }
 }

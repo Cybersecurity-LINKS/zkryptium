@@ -174,7 +174,7 @@ pub mod bbsplus_message {
                 };
             }
 
-            assert_eq!(boolean, true);
+            assert!(boolean);
         }
 
         fn messages_to_scalars<S: Scheme>(filename: &str)

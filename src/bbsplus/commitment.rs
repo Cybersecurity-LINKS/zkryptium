@@ -91,7 +91,7 @@ impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
     ///
     /// # Inputs:
     /// * `committed_messages` (OPTIONAL), a vector of [`Message`].
-    ///                                    If not supplied it defaults to the empty array.
+    ///   If not supplied it defaults to the empty array.
     ///
     /// # Output:
     /// ([`Commitment::BBSplus`], [`BlindFactor`]), a tuple (**`commitment_with_proof`**, **`secret_prover_blind`**) or [`Error`].
@@ -111,7 +111,7 @@ impl<CS: BbsCiphersuite> Commitment<BBSplus<CS>> {
     ///
     /// # Inputs:
     /// * `commitment_with_proof` (OPTIONAL), octet string representing the serialization of [`BBSplusCommitment`]. 
-    ///                                       If it is not supplied it defaults to the empty octet string.
+    ///   If it is not supplied it defaults to the empty octet string.
     /// * `blind_generators` (OPTIONAL), vector of points of G1. If it is not supplied it defaults to the empty set
     /// * `api_id` (OPTIONAL), octet string. If not supplied it defaults to the empty octet string ("").
     ///
@@ -332,7 +332,7 @@ where
     {
 
     let committed_messages_scalars = committed_message_scalars
-            .unwrap_or(Vec::new());
+            .unwrap_or_default();
     let api_id = api_id.unwrap_or(b"");
 
     let M: usize = committed_messages_scalars.len();
@@ -458,8 +458,8 @@ where
     let G2: G1Projective = blind_generators[0];
     let Js: &[G1Projective] = &blind_generators[1..];
     let mut Cbar: G1Projective = G2 * commitment_proof.s_cap;
-    for i in 0..M {
-        Cbar += Js[i] * commitment_proof.m_cap[i];
+    for (Ji, mi_cap) in Js.iter().zip(&commitment_proof.m_cap) {
+        Cbar += Ji * mi_cap;
     }
 
     Cbar += commitment * (-commitment_proof.challenge);
@@ -541,7 +541,7 @@ mod tests {
                 let mut cases = vec![c[..48].to_vec(), c[..48 + 32].to_vec(), c[..c.len() - 1].to_vec()];
                 for extra in [1usize, 31] {
                     let mut bytes = c.clone();
-                    bytes.extend(std::iter::repeat(0u8).take(extra));
+                    bytes.extend(std::iter::repeat_n(0u8, extra));
                     cases.push(bytes);
                 }
                 for bytes in cases {

@@ -39,7 +39,7 @@ impl CL03PublicKey {
         Self { N, b, c }
     }
 
-    pub fn to_bytes<S: Scheme>(&self) -> Vec<u8>
+    pub fn to_bytes<S>(&self) -> Vec<u8>
     where
         S: Scheme,
         S::Ciphersuite: CLCiphersuite,
@@ -58,7 +58,7 @@ impl CL03PublicKey {
         bytes
     }
 
-    pub fn from_bytes<S: Scheme>(bytes: &[u8]) -> Self
+    pub fn from_bytes<S>(bytes: &[u8]) -> Self
     where
         S: Scheme,
         S::Ciphersuite: CLCiphersuite,
@@ -67,7 +67,7 @@ impl CL03PublicKey {
         let N_len = <S as Scheme>::Ciphersuite::ln as usize;
 
         let len = bytes.len();
-        if len < 3 * N_len || (len - (3 * N_len)) % (N_len) != 0 {
+        if len < 3 * N_len || !(len - (3 * N_len)).is_multiple_of(N_len) {
             panic!("Invalid number of bytes submitted!");
         }
 
@@ -107,7 +107,7 @@ impl CL03SecretKey {
         bytes
     }
 
-    pub fn from_bytes<S: Scheme>(bytes: &[u8]) -> Self
+    pub fn from_bytes<S>(bytes: &[u8]) -> Self
     where
         S: Scheme,
         S::Ciphersuite: CLCiphersuite,
@@ -244,8 +244,8 @@ impl CL03CommitmentPublicKey {
                 }
             }
 
-            let N = p.clone() * q.clone();
-            N
+            
+            p.clone() * q.clone()
         });
 
         let h = random_qr(&N);
@@ -257,9 +257,7 @@ impl CL03CommitmentPublicKey {
             let mut g_i = Integer::from(h.pow_mod_ref(&f, &N).unwrap());
 
             loop {
-                if ((g_i > Integer::from(1))
-                    && (Integer::from(g_i.gcd_ref(&N)) == Integer::from(1)))
-                    == false
+                if !((g_i > 1) && (Integer::from(g_i.gcd_ref(&N)) == 1))
                 {
                     f = random_number(N.clone());
                     g_i = Integer::from(h.pow_mod_ref(&f, &N).unwrap());
@@ -271,9 +269,9 @@ impl CL03CommitmentPublicKey {
         }
 
         CL03CommitmentPublicKey {
-            N: N,
-            h: h,
-            g_bases: g_bases,
+            N,
+            h,
+            g_bases,
         }
     }
 }

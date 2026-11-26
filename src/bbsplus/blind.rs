@@ -64,7 +64,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
     /// * `sk` (REQUIRED), a secret key
     /// * `pk` (REQUIRED), a public key
     /// * `commitment_with_proof` (OPTIONAL), an octet string, representing a serialized commitment and commitment_proof.
-    ///                                       If not supplied, it defaults to the empty string ("").
+    ///   If not supplied, it defaults to the empty string ("").
     /// * `header` (OPTIONAL), an octet string containing context and application specific information.
     /// * `messages` (OPTIONAL), a vector of [`Message`]. If not supplied, it defaults to the empty array.
     ///
@@ -310,10 +310,7 @@ pub fn calculate_b<CS: BbsCiphersuite>(
         return Err(Error::G1IdentityError);
     }
 
-    let mut b_value:Vec<G1Projective> = Vec::<G1Projective>::new();
-    b_value.push(B);
-
-    Ok(b_value)
+    Ok(vec![B])
 
 }
 
@@ -322,13 +319,12 @@ pub fn calculate_b<CS: BbsCiphersuite>(
 /// # Description
 /// This operation computes a blind BBS signature from a secret key (SK) and the point to be signed (B).
 ///  The operation also accepts the identifier of the BBS Interface that calls this core operation.
-
 ///
 /// # Inputs:
 /// * `sk` (REQUIRED), a secret key
 /// * `B` (REQUIRED), a point of G1, different than Identity_G1.
 /// * `api_id` (OPTIONAL), an octet string ([`BbsCiphersuite::API_ID_BLIND`]).
-///                        If not supplied, it defaults to the empty octet string ("")
+///   If not supplied, it defaults to the empty octet string ("")
 ///
 /// # Output:
 /// a [`BBSplusSignature`] or [`Error`].

@@ -19,8 +19,8 @@ mod bbsplus_example {
         bbsplus::{
             ciphersuites::BbsCiphersuite,
             commitment::Message,
-            proof::Disclosure,
-            pseudonym::{BBSplusPseudonym, PseudonymSecret},
+            proof::{BlindProofGenInput, BlindProofVerifyInput, Disclosure},
+            pseudonym::{BBSplusPseudonym, PseudonymSecret, VerifyFinalizeWithNymInput},
         },
         errors::Error,
         keys::pair::KeyPair,
@@ -102,12 +102,14 @@ mod bbsplus_example {
         // nym_secrets are secret: they stay with the Prover and are never logged or sent.
         let nym_secrets = blind_sig.verify_finalize_with_nym(
             issuer_pk,
-            Some(&header),
-            Some(&messages),
-            Some(&committed_messages),
             prover_nyms,
-            Some(&signer_nym_entropy),
-            Some(&secret_prover_blind),
+            VerifyFinalizeWithNymInput {
+                header: Some(&header),
+                messages: &messages,
+                blind_messages: &committed_messages,
+                signer_nym_entropy: Some(&signer_nym_entropy),
+                secret_prover_blind: Some(&secret_prover_blind),
+            },
         )?;
         log::info!("Blind Signature with Pseudonym is VALID!");
 
@@ -135,15 +137,17 @@ mod bbsplus_example {
             BlindPoKSignature::<BBSplus<S::Ciphersuite>>::proof_gen_with_nym(
                 issuer_pk,
                 &blind_sig.to_bytes(),
-                Some(&header),
-                Some(&nonce_verifier),
                 &nym_secrets,
                 context_id,
-                Some(&messages),
-                Some(&committed_messages),
-                Some(&issuer_message_disclosures),
-                Some(&blind_message_disclosures),
-                Some(&secret_prover_blind),
+                BlindProofGenInput {
+                    header: Some(&header),
+                    ph: Some(&nonce_verifier),
+                    issuer_messages: &messages,
+                    blind_messages: &committed_messages,
+                    issuer_message_disclosures: &issuer_message_disclosures,
+                    blind_message_disclosures: &blind_message_disclosures,
+                    secret_prover_blind: Some(&secret_prover_blind),
+                },
             )?;
         // add_zkp_info stays with the Holder, never sent to the Verifier.
         log::info!(
@@ -180,14 +184,16 @@ mod bbsplus_example {
         let received_pseudonym = BBSplusPseudonym::from_bytes(&pseudonym_bytes)?;
         received_poks.proof_verify_with_nym(
             issuer_pk,
-            Some(&header),
-            Some(&nonce_verifier),
             &received_pseudonym,
             context_id,
             prover_nyms_len,
-            Some(messages.len()),
-            Some(&disclosed_messages),
-            Some(&message_disclosures),
+            BlindProofVerifyInput {
+                header: Some(&header),
+                ph: Some(&nonce_verifier),
+                issuer_known_messages_no: messages.len(),
+                disclosed_messages: &disclosed_messages,
+                message_disclosures: &message_disclosures,
+            },
         )?;
         log::info!("Signature Proof of Knowledge with Pseudonym is VALID!");
 

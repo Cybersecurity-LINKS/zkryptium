@@ -40,10 +40,8 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
         let mut e = random_prime(CS::le);
         let phi_n = (&sk.p - Integer::from(1)) * (&sk.q - Integer::from(1));
 
-        while ((&e > &Integer::from(2).pow(CS::le - 1))
-            && (&e < &Integer::from(2).pow(CS::le))
-            && (Integer::from(e.gcd_ref(&phi_n)) == 1))
-            == false
+        while !((e > Integer::from(2).pow(CS::le - 1))
+            && (e < Integer::from(2).pow(CS::le)) && (Integer::from(e.gcd_ref(&phi_n)) == 1))
         {
             e = random_prime(CS::le);
         }
@@ -70,10 +68,8 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
         let mut e = random_prime(CS::le);
         let phi_n = (&sk.p - Integer::from(1)) * (&sk.q - Integer::from(1));
 
-        while ((&e > &Integer::from(2).pow(CS::le - 1))
-            && (&e < &Integer::from(2).pow(CS::le))
-            && (Integer::from(e.gcd_ref(&phi_n)) == 1))
-            == false
+        while !((e > Integer::from(2).pow(CS::le - 1))
+            && (e < Integer::from(2).pow(CS::le)) && (Integer::from(e.gcd_ref(&phi_n)) == 1))
         {
             e = random_prime(CS::le);
         }
@@ -83,7 +79,7 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
         // v = powmod((powmod(pk['a0'], m, pk['N']) * powmod(pk['b'], s, pk['N']) * pk['c']), (e2n), pk['N'])
         let mut v: Integer = Integer::from(1);
         for (index, message) in messages.iter().enumerate() {
-            v = v * Integer::from(a_bases.0[index].pow_mod_ref(&message.value, &pk.N).unwrap())
+            v *= Integer::from(a_bases.0[index].pow_mod_ref(&message.value, &pk.N).unwrap())
         }
         v = (v * Integer::from(pk.b.pow_mod_ref(&s, &pk.N).unwrap()) * &pk.c)
             .pow_mod(&e2n, &pk.N)
@@ -156,7 +152,7 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
 
         let mut sd_messages: Vec<CL03Message> = Vec::from(messages);
 
-        if unrevealed_indexes.len() == 0 {
+        if unrevealed_indexes.is_empty() {
             return (sd_messages, a_bases)
         }
 

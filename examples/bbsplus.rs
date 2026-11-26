@@ -88,7 +88,7 @@ mod bbsplus_example {
 
         log::info!("Proof of Knowledge of the Signature verification...");
         proof.proof_verify(
-            &issuer_pk,
+            issuer_pk,
             Some(&disclosed_messages),
             Some(&disclosed_indexes),
             Some(&header),
