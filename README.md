@@ -23,7 +23,8 @@ This library enables the creation of zero-knowledge proofs, exposing cryptograph
 
 - [Rust](https://www.rust-lang.org/) (>= 1.88)
 - [Cargo](https://doc.rust-lang.org/cargo/) (>= 1.88)
-- The ZKryptium **CL03** implementation also depends on the [Rug crate](https://crates.io/crates/rug) which depends on GMP, MPFR and MPC libraries through the low-level FFI bindings in the [gmp-mpfr-sys crate](https://crates.io/crates/gmp-mpfr-sys), which needs some setup to build; the [gmp-mpfr-sys documentation](https://docs.rs/gmp-mpfr-sys/1.6.1/gmp_mpfr_sys/index.html) has some details on usage under [GNU/Linux](https://docs.rs/gmp-mpfr-sys/1.6.1/gmp_mpfr_sys/index.html#building-on-gnulinux), [macOS](https://docs.rs/gmp-mpfr-sys/1.6.1/gmp_mpfr_sys/index.html#building-on-macos) and [Windows](https://docs.rs/gmp-mpfr-sys/1.6.1/gmp_mpfr_sys/index.html#building-on-windows).
+- The ZKryptium **CL03** implementation also depends on the [Rug crate](https://crates.io/crates/rug) which depends on GMP, MPFR and MPC libraries through the low-level FFI bindings in the [gmp-mpfr-sys crate](https://crates.io/crates/gmp-mpfr-sys), which needs some setup to build; the [gmp-mpfr-sys documentation](https://docs.rs/gmp-mpfr-sys/1.7.1/gmp_mpfr_sys/index.html) has some details on usage under [GNU/Linux](https://docs.rs/gmp-mpfr-sys/1.7.1/gmp_mpfr_sys/index.html#building-on-gnulinux), [macOS](https://docs.rs/gmp-mpfr-sys/1.7.1/gmp_mpfr_sys/index.html#building-on-macos) and [Windows](https://docs.rs/gmp-mpfr-sys/1.7.1/gmp_mpfr_sys/index.html#building-on-windows).
+- **License note:** the optional `cl03` feature adds dependencies licensed under LGPL-3.0-or-later: [rug](https://crates.io/crates/rug) and [gmp-mpfr-sys](https://crates.io/crates/gmp-mpfr-sys), which by default builds GMP, MPFR and MPC and links them statically. If you distribute a binary built with `cl03`, the LGPL obligations apply (for example, allowing users to relink it with a modified version of those libraries). The BBS+ features only use permissively licensed dependencies.
 
 
 ### Usage
@@ -90,9 +91,12 @@ To test the library you can launch the test vectors with:
 cargo test
 ```
 
-The default features cover BBS+ and Blind BBS. To also run the tests of the other schemes, enable their features, e.g.:
+The default features cover BBS+, Blind BBS and BBS per Verifier Linkability. To also run the CL2003 tests, enable its feature:
 
 ```bash
 cargo test --features="cl03"
 ```
 
+## License
+
+ZKryptium is licensed under the [Apache License 2.0](LICENSE). The optional `cl03` feature pulls in LGPL-3.0-or-later dependencies: see the license note under [Requirements](#requirements).
