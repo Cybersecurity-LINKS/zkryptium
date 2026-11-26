@@ -279,16 +279,11 @@ pub mod bbsplus_utils {
     /// # Returns
     ///
     /// A vector of bytes representing the serialized elements.
-    pub fn serialize<T>(array: &[T]) -> Vec<u8>
+    pub(crate) fn serialize<T>(array: &[T]) -> Vec<u8>
     where
         T: Any,
     {
         let mut result: Vec<u8> = Vec::new();
-        if array.is_empty() {
-            println!("Empty array");
-            return result;
-        }
-
         let first_type = TypeId::of::<T>();
 
         if first_type == TypeId::of::<Scalar>() {
@@ -321,8 +316,6 @@ pub mod bbsplus_utils {
                     result.extend_from_slice(&g2.to_affine().to_compressed());
                 }
             }
-        } else {
-            println!("Unknown struct type");
         }
 
         result
@@ -341,7 +334,9 @@ pub mod bbsplus_utils {
     /// # Returns
     ///
     /// * `P` - a point in G1
-    pub fn multi_exponentiation_g1(points: &[G1Projective], scalars: &[Scalar]) -> G1Projective {
+    pub(crate) fn multi_exponentiation_g1(points: &[G1Projective], scalars: &[Scalar]) -> G1Projective {
+        // Every caller checks the lengths first (BBS-02); crate-private since QA-06.
+        debug_assert_eq!(points.len(), scalars.len());
         let mut P = G1Projective::IDENTITY;
 
         for i in 0..points.len() {
@@ -360,7 +355,7 @@ pub mod bbsplus_utils {
     /// # Returns
     ///
     /// A vector of `BBSplusMessage` containing the messages at the specified indexes.
-    pub fn get_messages(messages: &[BBSplusMessage], indexes: &[usize]) -> Vec<BBSplusMessage> {
+    pub(crate) fn get_messages(messages: &[BBSplusMessage], indexes: &[usize]) -> Vec<BBSplusMessage> {
         let mut out: Vec<BBSplusMessage> = Vec::new();
         for &i in indexes {
             out.push(messages[i]);
@@ -379,7 +374,7 @@ pub mod bbsplus_utils {
     /// # Returns
     ///
     /// A vector of `G1Projective` containing the generators at the specified indexes.
-    pub fn get_generators_from_indexes(generators: &Generators, indexes: &[usize]) -> Vec<G1Projective> {
+    pub(crate) fn get_generators_from_indexes(generators: &Generators, indexes: &[usize]) -> Vec<G1Projective> {
         let mut out: Vec<G1Projective> = Vec::new();
         for &i in indexes {
             out.push(generators.values[i + 1]);
@@ -398,6 +393,10 @@ pub mod bbsplus_utils {
     /// # Returns
     ///
     /// A vector of `Vec<u8>` containing the messages at the specified indexes.
+    ///
+    /// # Panics
+    ///
+    /// If an index is not smaller than `messages.len()`.
     pub fn get_messages_vec(messages: &[Vec<u8>], indexes: &[usize]) -> Vec<Vec<u8>> {
         let mut out: Vec<Vec<u8>> = Vec::new();
         for &i in indexes {
@@ -428,7 +427,7 @@ pub mod bbsplus_utils {
     /// * a [`Vec<Scalar>`].
     ///
     #[cfg(not(test))]
-    pub fn calculate_random_scalars(count: usize) -> Vec<Scalar> {
+    pub(crate) fn calculate_random_scalars(count: usize) -> Vec<Scalar> {
         let mut random_scalars: Vec<Scalar> = Vec::new();
 
         for _i in 0..count {
@@ -454,7 +453,7 @@ pub mod bbsplus_utils {
     /// * a [`Vec<Scalar>`].
     ///
     #[cfg(test)]
-    pub fn seeded_random_scalars<CS>(count: usize, seed: &[u8], dst: &[u8]) -> Vec<Scalar>
+    pub(crate) fn seeded_random_scalars<CS>(count: usize, seed: &[u8], dst: &[u8]) -> Vec<Scalar>
     where
         CS: BbsCiphersuite,
     {
@@ -490,7 +489,8 @@ pub mod bbsplus_utils {
     /// # Output:
     /// * a [`Scalar`] or [`Error`].
     ///
-    pub fn calculate_blind_challenge<CS>(
+    #[cfg(feature = "bbsplus_blind")]
+    pub(crate) fn calculate_blind_challenge<CS>(
         C: G1Projective,
         Cbar: G1Projective,
         generators: &[G1Projective],
