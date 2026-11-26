@@ -519,67 +519,7 @@ pub mod bbsplus_utils {
     }
 
     #[cfg(test)]
-    mod tests {
-
-        use crate::bbsplus::ciphersuites::BbsCiphersuite;
-        use crate::schemes::algorithms::Scheme;
-        use crate::schemes::algorithms::{BbsBls12381Sha256, BbsBls12381Shake256};
-        use crate::utils::util::bbsplus_utils::{hash_to_scalar, ScalarExt};
-        use std::fs;
-
-        //h2s - SHA256
-        #[test]
-        fn h2s_sha256_1() {
-            h2s::<BbsBls12381Sha256>("./fixture_data/fixture_data/bls12-381-sha-256/", "h2s.json");
-        }
-        #[test]
-        fn h2s_sha256_2() {
-            h2s::<BbsBls12381Sha256>("./fixture_data/fixture_data/bls12-381-sha-256/", "h2s.json");
-        }
-
-        //h2s - SHAKE256
-        #[test]
-        fn h2s_shake256_1() {
-            h2s::<BbsBls12381Shake256>("./fixture_data/fixture_data/bls12-381-shake-256/", "h2s.json");
-        }
-        #[test]
-        fn h2s_shake256_2() {
-            h2s::<BbsBls12381Shake256>("./fixture_data/fixture_data/bls12-381-shake-256/", "h2s.json");
-        }
-
-        fn h2s<S: Scheme>(pathname: &str, filename: &str)
-        where
-            S::Ciphersuite: BbsCiphersuite,
-        {
-            let data =
-                fs::read_to_string([pathname, filename].concat()).expect("Unable to read file");
-            let res: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
-            println!("{}\n", res["caseName"]);
-
-            let msg_hex = res["message"].as_str().unwrap();
-            let dst_hex = res["dst"].as_str().unwrap();
-            let scalar_hex_expected = res["scalar"].as_str().unwrap();
-
-            let msg = hex::decode(msg_hex).unwrap();
-            let dst = hex::decode(dst_hex).unwrap();
-
-            let scalar = hash_to_scalar::<S::Ciphersuite>(&msg, &dst).unwrap();
-
-            let mut result = true;
-
-            let scalar_hex = hex::encode(scalar.to_bytes_be());
-
-            if scalar_hex != scalar_hex_expected {
-                result = false;
-                eprintln!("{}", result);
-
-                eprintln!(" Expected scalar: {}", scalar_hex_expected);
-                eprintln!(" Computed scalar: {}", scalar_hex);
-            }
-
-            assert!(result, "Failed");
-        }
-    }
+    mod tests;
 }
 
 #[cfg(feature = "cl03")]
@@ -651,27 +591,4 @@ pub(crate) fn get_remaining_indexes(length: usize, indexes: &[usize]) -> Vec<usi
 }
 
 #[cfg(all(test, feature = "bbsplus"))]
-mod tests {
-    use super::bbsplus_utils::i2osp;
-
-    #[test]
-    fn test_i2osp() {
-        assert_eq!([0, 0, 0, 0, 1, 2, 3, 4], i2osp::<8>(0x1020304));
-        assert_eq!([0xf0, 0x0f], i2osp::<2>(0xf00f));
-        assert_eq!([0, 0, 0, 0, 0, 0, 0x12, 0x34], i2osp::<8>(0x1234));
-        assert_eq!([0, 0, 0, 0, 0x12, 0x34, 0x56, 0x78], i2osp::<8>(0x12345678));
-        assert_eq!([0, 0, 0x12, 0x34, 0x56, 0x78], i2osp::<6>(0x12345678));
-        assert_eq!([0, 0x12, 0x34, 0x56, 0x78], i2osp::<5>(0x12345678));
-        assert_eq!([0x12, 0x34, 0x56, 0x78], i2osp::<4>(0x12345678));
-        assert_eq!(
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0x12, 0x34, 0x56, 0x78],
-            i2osp::<13>(0x12345678)
-        );
-    }
-
-    #[test]
-    #[should_panic(expected = "i2osp overflow")]
-    fn test_i2osp_over() {
-        let _x = i2osp::<3>(0x12345678);
-    }
-}
+mod tests;

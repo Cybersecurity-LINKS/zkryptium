@@ -291,16 +291,4 @@ impl CL03CommitmentPublicKey {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::CL03SecretKey;
-    use rug::Integer;
-
-    // p and q must not leak through {:?}.
-    #[test]
-    fn secret_key_debug_is_redacted() {
-        let sk = CL03SecretKey::new(Integer::from(1_000_003), Integer::from(1_000_033));
-        let debug = format!("{:?}", sk);
-        assert_eq!(debug, "CL03SecretKey(<redacted>)");
-        assert!(!debug.contains("1000003"));
-    }
-}
+mod tests;
