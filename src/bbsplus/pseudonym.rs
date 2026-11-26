@@ -156,6 +156,22 @@ impl PseudonymSecret {
 
 }
 
+impl zeroize::Zeroize for PseudonymSecret {
+    fn zeroize(&mut self) {
+        self.0.zeroize();
+    }
+}
+
+/// Overwrites the secret with zero when the value is dropped (best effort: copies made
+/// before, e.g. by `Clone` or by moves, are not erased).
+impl Drop for PseudonymSecret {
+    fn drop(&mut self) {
+        zeroize::Zeroize::zeroize(self);
+    }
+}
+
+impl zeroize::ZeroizeOnDrop for PseudonymSecret {}
+
 impl From<PseudonymSecret> for BBSplusMessage {
     fn from(val: PseudonymSecret) -> Self {
         BBSplusMessage::new(val.0)
@@ -418,12 +434,9 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         } = input;
 
         let api_id: &[u8] = CS::API_ID_NYM;
-        let secret_prover_blind = secret_prover_blind.unwrap_or(
-            &BlindFactor(Scalar::ZERO)
-        );
-        let signer_nym_entropy = signer_nym_entropy.unwrap_or(
-            &PseudonymSecret(Scalar::ZERO)
-        );
+        let secret_prover_blind = secret_prover_blind.map_or(Scalar::ZERO, |b| b.0);
+        let zero_entropy = PseudonymSecret(Scalar::ZERO);
+        let signer_nym_entropy = signer_nym_entropy.unwrap_or(&zero_entropy);
         let header = header.unwrap_or(&[]);
 
         let L = messages.len();
@@ -453,7 +466,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
 
         let mut proof_scalars = signer_scalars;
 
-        proof_scalars.push(secret_prover_blind.0);
+        proof_scalars.push(secret_prover_blind);
         proof_scalars.append(&mut blind_message_scalars);
 
         let mut nym_secrets = prover_nyms.clone();
@@ -1189,6 +1202,19 @@ mod tests {
             "pseudonym of {} bytes should be rejected",
             bytes.len()
         );
+    }
+
+    #[test]
+    fn pseudonym_secret_is_zeroized() {
+        use zeroize::{Zeroize, ZeroizeOnDrop};
+        fn zeroize_on_drop<T: ZeroizeOnDrop>() {}
+        zeroize_on_drop::<PseudonymSecret>();
+
+        let mut secrets = PseudonymSecret::random_vec(3);
+        secrets[0].zeroize();
+        assert_eq!(secrets[0].0, Scalar::ZERO);
+        secrets.zeroize();
+        assert!(secrets.is_empty());
     }
 
     #[test]

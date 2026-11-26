@@ -173,7 +173,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
         let api_id: &[u8] = CS::API_ID_BLIND;
         let messages = messages.unwrap_or(&[]);
         let blind_messages = blind_messages.unwrap_or(&[]);
-        let secret_prover_blind = secret_prover_blind.unwrap_or(&BlindFactor(Scalar::ZERO));
+        let secret_prover_blind = secret_prover_blind.map_or(Scalar::ZERO, |b| b.0);
 
         let L = messages.len();
         let M = blind_messages.len();
@@ -187,7 +187,7 @@ impl<CS: BbsCiphersuite> BlindSignature<BBSplus<CS>> {
 
         let mut proof_scalars = signer_scalars;
 
-        proof_scalars.push(secret_prover_blind.0);
+        proof_scalars.push(secret_prover_blind);
         proof_scalars.append(&mut committed_message_scalars);
 
         let proof_scalars  = proof_scalars.iter()

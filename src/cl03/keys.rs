@@ -85,10 +85,19 @@ impl CL03PublicKey {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+/// CL03 secret key: the factors `p`, `q` of the modulus. Its [`Debug`](std::fmt::Debug) output
+/// is redacted. The values live in GMP-managed memory, which `zeroize` cannot clear: they are
+/// not wiped on drop.
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CL03SecretKey {
     pub p: Integer,
     pub q: Integer,
+}
+
+impl std::fmt::Debug for CL03SecretKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("CL03SecretKey(<redacted>)")
+    }
 }
 
 impl CL03SecretKey {
@@ -286,5 +295,20 @@ impl CL03CommitmentPublicKey {
             h,
             g_bases,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CL03SecretKey;
+    use rug::Integer;
+
+    // p and q must not leak through {:?}.
+    #[test]
+    fn secret_key_debug_is_redacted() {
+        let sk = CL03SecretKey::new(Integer::from(1_000_003), Integer::from(1_000_033));
+        let debug = format!("{:?}", sk);
+        assert_eq!(debug, "CL03SecretKey(<redacted>)");
+        assert!(!debug.contains("1000003"));
     }
 }

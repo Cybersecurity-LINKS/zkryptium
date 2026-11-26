@@ -122,9 +122,33 @@ impl BBSplusPublicKey {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// Represents a BBS+ secret key.
+///
+/// Its [`Debug`](std::fmt::Debug) output is redacted and its memory is zeroized on drop.
 pub struct BBSplusSecretKey(pub Scalar);
+
+impl std::fmt::Debug for BBSplusSecretKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("BBSplusSecretKey(<redacted>)")
+    }
+}
+
+impl zeroize::Zeroize for BBSplusSecretKey {
+    fn zeroize(&mut self) {
+        self.0.zeroize();
+    }
+}
+
+/// Overwrites the secret with zero when the value is dropped (best effort: copies made
+/// before, e.g. by `Clone` or by moves, are not erased).
+impl Drop for BBSplusSecretKey {
+    fn drop(&mut self) {
+        zeroize::Zeroize::zeroize(self);
+    }
+}
+
+impl zeroize::ZeroizeOnDrop for BBSplusSecretKey {}
 
 impl BBSplusSecretKey {
     /// In Big Endian order
@@ -308,6 +332,27 @@ mod tests {
     use crate::schemes::algorithms::{BbsBls12381Sha256, BbsBls12381Shake256};
     use crate::{keys::pair::KeyPair, schemes::algorithms::BBSplus};
     use std::fs;
+
+    // The secret key must not leak through {:?}, also inside a KeyPair, and is zeroized on drop.
+    #[test]
+    fn secret_key_debug_is_redacted_and_zeroized() {
+        use crate::bbsplus::keys::BBSplusSecretKey;
+        use bls12_381_plus::Scalar;
+        use zeroize::{Zeroize, ZeroizeOnDrop};
+        fn zeroize_on_drop<T: ZeroizeOnDrop>() {}
+        zeroize_on_drop::<BBSplusSecretKey>();
+
+        let keypair = KeyPair::<BbsBls12381Sha256>::generate(&[7u8; 32], None, None).unwrap();
+        let sk_hex = hex::encode(keypair.private_key().to_bytes());
+        for debug in [format!("{:?}", keypair.private_key()), format!("{:?}", keypair)] {
+            assert!(debug.contains("BBSplusSecretKey(<redacted>)"), "{debug}");
+            assert!(!debug.contains(&sk_hex[..16]), "{debug}");
+        }
+
+        let mut sk = keypair.private_key().clone();
+        sk.zeroize();
+        assert_eq!(sk.0, Scalar::ZERO);
+    }
 
     // FROM_BYTES LENGTH VALIDATION
 

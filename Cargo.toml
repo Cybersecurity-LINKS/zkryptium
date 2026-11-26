@@ -17,6 +17,7 @@ rand = "0.10.4"
 serde = { version = "1.0.229", default-features = false, features = ["derive", "serde_derive"] }
 hex = "0.4.3"
 thiserror = "2.0.21"
+zeroize = "1.9.2"
 
 # cl03
 rug = { version = "1.30.0", features = ["serde"], optional = true }

@@ -189,6 +189,22 @@ impl std::fmt::Debug for BlindFactor {
     }
 }
 
+impl zeroize::Zeroize for BlindFactor {
+    fn zeroize(&mut self) {
+        self.0.zeroize();
+    }
+}
+
+/// Overwrites the secret with zero when the value is dropped (best effort: copies made
+/// before, e.g. by `Clone` or by moves, are not erased).
+impl Drop for BlindFactor {
+    fn drop(&mut self) {
+        zeroize::Zeroize::zeroize(self);
+    }
+}
+
+impl zeroize::ZeroizeOnDrop for BlindFactor {}
+
 impl BlindFactor {
     /// Generates a random blind factor.
     pub fn random() -> Self {
@@ -680,6 +696,27 @@ mod tests {
         // BLIND-08: tampered proof or commitment must fail CoreCommitVerify.
         check_rejects_tampered_commitment::<BbsBls12381Sha256>(COMMIT_FIXTURE_DIRS[0]);
         check_rejects_tampered_commitment::<BbsBls12381Shake256>(COMMIT_FIXTURE_DIRS[1]);
+    }
+
+    #[test]
+    fn blind_secrets_are_zeroized() {
+        use crate::bbsplus::proof::AddZkpInfo;
+        use bls12_381_plus::Scalar;
+        use zeroize::{Zeroize, ZeroizeOnDrop};
+        fn zeroize_on_drop<T: ZeroizeOnDrop>() {}
+        zeroize_on_drop::<BlindFactor>();
+        zeroize_on_drop::<AddZkpInfo>();
+
+        let mut blind = BlindFactor::random();
+        blind.zeroize();
+        assert_eq!(blind.0, Scalar::ZERO);
+
+        let mut info = AddZkpInfo {
+            committed_message_scalars: vec![Scalar::ONE; 3],
+            commitment_rands: vec![Scalar::ONE; 3],
+        };
+        info.zeroize();
+        assert!(info.committed_message_scalars.is_empty() && info.commitment_rands.is_empty());
     }
 
     #[test]

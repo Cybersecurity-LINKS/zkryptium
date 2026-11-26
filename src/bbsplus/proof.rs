@@ -220,6 +220,25 @@ pub struct AddZkpInfo {
 }
 
 #[cfg(feature = "bbsplus_blind")]
+impl zeroize::Zeroize for AddZkpInfo {
+    fn zeroize(&mut self) {
+        self.committed_message_scalars.zeroize();
+        self.commitment_rands.zeroize();
+    }
+}
+
+#[cfg(feature = "bbsplus_blind")]
+/// Overwrites the secret scalars with zero when the value is dropped (best effort).
+impl Drop for AddZkpInfo {
+    fn drop(&mut self) {
+        zeroize::Zeroize::zeroize(self);
+    }
+}
+
+#[cfg(feature = "bbsplus_blind")]
+impl zeroize::ZeroizeOnDrop for AddZkpInfo {}
+
+#[cfg(feature = "bbsplus_blind")]
 /// Optional inputs of [`BlindPoKSignature::blind_proof_gen`] and
 /// [`BlindPoKSignature::proof_gen_with_nym`]. Every field defaults to empty (or none), so
 /// only the needed ones have to be set:
