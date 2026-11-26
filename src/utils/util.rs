@@ -587,6 +587,13 @@ pub mod bbsplus_utils {
 pub mod cl03_utils {
     use rug::{integer::Order, Integer};
 
+    /// `true` if `x` is in `(0, n)` and invertible modulo `n`. Group elements received from
+    /// another party must pass this check before being raised to a possibly negative exponent
+    /// or inverted, which otherwise fails (and used to panic) when `gcd(x, n) != 1`.
+    pub(crate) fn is_unit(x: &Integer, n: &Integer) -> bool {
+        *x > 0 && x < n && Integer::from(x.gcd_ref(n)) == 1
+    }
+
     /// Function for b * x = a mod m: returns x.
     pub fn divm(a: &Integer, b: &Integer, m: &Integer) -> Integer {
         let mut num = a.clone();

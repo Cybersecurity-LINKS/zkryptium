@@ -1253,8 +1253,12 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     /// * `pk` (REQUIRED), the Signer public key.
     /// * `disclosed_messages` (OPTIONAL), a vector of octet string representing the messages 
     ///   disclosed to the Verifier.
-    /// * `disclosed_indexes` (OPTIONAL), vector of usize in ascending order. 
-    ///   Indexes of disclosed messages.
+    /// * `disclosed_indexes` (OPTIONAL), vector of usize, one per disclosed message: the index
+    ///   that message had in the vector of signed messages. Indexes must be unique; if they are
+    ///   not in ascending order, indexes and messages are sorted together.
+    ///
+    /// Returns [`Error::PoKSVerificationError`] if the numbers of disclosed messages and indexes
+    /// differ or an index is repeated.
     /// * `header` (OPTIONAL), an octet string containing context and application.
     /// * `ph` (OPTIONAL), an octet string containing the presentation header.
     ///
@@ -1271,15 +1275,33 @@ impl<CS: BbsCiphersuite> PoKSignature<BBSplus<CS>> {
     ) -> Result<(), Error> {
         let proof = self.to_bbsplus_proof();
         let disclosed_messages = disclosed_messages.unwrap_or(&[]);
-        let mut disclosed_indexes = disclosed_indexes.unwrap_or(&[]).to_vec();
-        disclosed_indexes.sort();
-        disclosed_indexes.dedup();
-
-        let U = proof.m_cap.len();
-        let R = disclosed_indexes.len();
+        let disclosed_indexes = disclosed_indexes.unwrap_or(&[]);
+        // Messages and indexes come from the Prover presentation: a different count must be an
+        // error, not a panic in the multi-exponentiation.
+        if disclosed_messages.len() != disclosed_indexes.len() {
+            return Err(Error::PoKSVerificationError(
+                "number of disclosed messages different from number of disclosed indexes".to_owned(),
+            ));
+        }
 
         let disclosed_message_scalars =
             BBSplusMessage::messages_to_scalar::<CS>(disclosed_messages, CS::API_ID)?;
+
+        // Sort the (index, message) pairs by index, so that each message keeps its index.
+        let mut disclosed: Vec<(usize, BBSplusMessage)> = disclosed_indexes
+            .iter()
+            .copied()
+            .zip(disclosed_message_scalars)
+            .collect();
+        disclosed.sort_by_key(|&(i, _)| i);
+        if disclosed.windows(2).any(|w| w[0].0 == w[1].0) {
+            return Err(Error::PoKSVerificationError("repeated disclosed index".to_owned()));
+        }
+        let (disclosed_indexes, disclosed_message_scalars): (Vec<usize>, Vec<BBSplusMessage>) =
+            disclosed.into_iter().unzip();
+
+        let U = proof.m_cap.len();
+        let R = disclosed_indexes.len();
 
         let generators = Generators::create::<CS>(U + R + 1, Some(CS::API_ID));
 
@@ -1856,6 +1878,11 @@ where
 {
     let U = proof.m_cap.len();
     let R = disclosed_indexes.len();
+    if disclosed_messages.len() != R {
+        return Err(Error::PoKSVerificationError(
+            "number of disclosed messages different from number of disclosed indexes".to_owned(),
+        ));
+    }
 
     let L = U + R;
 
@@ -2036,6 +2063,33 @@ mod tests {
     };
     #[cfg(feature = "bbsplus_blind")]
     use crate::bbsplus::test_utils::{parse_disclosures, parse_messages};
+
+    // BBS-02: disclosed messages and indexes come from the Prover presentation. A different
+    // count or a repeated index must be an error (it used to panic in the multi-exponentiation),
+    // and unsorted indexes must keep each message paired with its index.
+    #[test]
+    fn proof_verify_disclosed_messages_and_indexes() {
+        use crate::{errors::Error, keys::pair::KeyPair};
+        type S = BbsBls12381Sha256;
+
+        let keypair = KeyPair::<S>::generate(&[7u8; 32], None, None).unwrap();
+        let (sk, pk) = (keypair.private_key(), keypair.public_key());
+        let messages: Vec<Vec<u8>> = vec![b"m0".to_vec(), b"m1".to_vec(), b"m2".to_vec()];
+        let signature = Signature::<S>::sign(Some(&messages), sk, pk, None).unwrap().to_bytes();
+        let proof =
+            PoKSignature::<S>::proof_gen(pk, &signature, None, None, Some(&messages), Some(&[0, 2])).unwrap();
+        let verify = |msgs: &[Vec<u8>], idx: &[usize]| proof.proof_verify(pk, Some(msgs), Some(idx), None, None);
+        let (m0, m2) = (messages[0].clone(), messages[2].clone());
+
+        assert!(verify(&[m0.clone(), m2.clone()], &[0, 2]).is_ok());
+        // Same pairs, indexes not in ascending order.
+        assert!(verify(&[m2.clone(), m0.clone()], &[2, 0]).is_ok());
+        // Different counts, in both directions.
+        assert!(matches!(verify(std::slice::from_ref(&m0), &[0, 2]), Err(Error::PoKSVerificationError(_))));
+        assert!(matches!(verify(&[m0.clone(), m2.clone()], &[0]), Err(Error::PoKSVerificationError(_))));
+        // Repeated index.
+        assert!(matches!(verify(&[m0.clone(), m0], &[0, 0]), Err(Error::PoKSVerificationError(_))));
+    }
 
     //mocked_rng - SHA256 - UPDATED
     #[test]

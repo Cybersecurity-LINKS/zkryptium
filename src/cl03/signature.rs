@@ -15,6 +15,7 @@
 use super::keys::{CL03PublicKey, CL03SecretKey};
 use crate::{
     cl03::{bases::Bases, ciphersuites::CLCiphersuite},
+    errors::Error,
     schemes::algorithms::CL03,
     schemes::generics::Signature,
     utils::message::cl03_message::CL03Message,
@@ -93,6 +94,11 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
     pub fn verify(&self, pk: &CL03PublicKey, a_bases: &Bases, message: &CL03Message) -> bool {
         let sign = self.cl03Signature();
 
+        // Check e and v before using them: the signature may come from an untrusted party.
+        if !Self::valid_e_v(sign, pk) || a_bases.0.is_empty() {
+            return false;
+        }
+
         let lhs = Integer::from(sign.v.pow_mod_ref(&sign.e, &pk.N).unwrap());
 
         let rhs = (Integer::from(a_bases.0[0].pow_mod_ref(&message.value, &pk.N).unwrap())
@@ -100,15 +106,18 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
             * &pk.c)
             % &pk.N;
 
-        if sign.e <= Integer::from(2).pow(CS::le - 1) || sign.e >= Integer::from(2).pow(CS::le) {
-            return false;
-        }
-
         if lhs == rhs {
             return true;
         }
 
         false
+    }
+
+    /// `2^(le-1) < e < 2^le` and `v` is a unit modulo N.
+    fn valid_e_v(sign: &CL03Signature, pk: &CL03PublicKey) -> bool {
+        sign.e > Integer::from(2).pow(CS::le - 1)
+            && sign.e < Integer::from(2).pow(CS::le)
+            && crate::utils::util::cl03_utils::is_unit(&sign.v, &pk.N)
     }
 
     pub fn verify_multiattr(
@@ -118,10 +127,14 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
         messages: &[CL03Message],
     ) -> bool {
         if messages.len() > a_bases.0.len() {
-            panic!("Not enought a_bases!");
+            return false;
         }
 
         let sign = self.cl03Signature();
+        // Check e and v before using them: the signature may come from an untrusted party.
+        if !Self::valid_e_v(sign, pk) {
+            return false;
+        }
 
         let lhs = Integer::from(sign.v.pow_mod_ref(&sign.e, &pk.N).unwrap());
 
@@ -132,10 +145,6 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
         });
 
         rhs = (&rhs * Integer::from(pk.b.pow_mod_ref(&sign.s, &pk.N).unwrap()) * &pk.c) % &pk.N;
-
-        if sign.e <= Integer::from(2).pow(CS::le - 1) {
-            return false;
-        }
 
         if lhs == rhs {
             return true;
@@ -187,7 +196,14 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
         bytes
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> Self {
+    /// Parses the output of [`Self::to_bytes`].
+    ///
+    /// # Errors
+    /// [`Error::InvalidSignature`] if `bytes` is too short to contain `e`, `s` and `v`.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        if bytes.len() <= CS::le as usize + CS::ls as usize {
+            return Err(Error::InvalidSignature);
+        }
         let e = Integer::from_digits(&bytes[0usize..CS::le as usize], Order::MsfBe);
         let s = Integer::from_digits(
             &bytes[CS::le as usize..(CS::le as usize + CS::ls as usize)],
@@ -195,7 +211,7 @@ impl<CS: CLCiphersuite> Signature<CL03<CS>> {
         );
         let v = Integer::from_digits(&bytes[(CS::le as usize + CS::ls as usize)..], Order::MsfBe);
 
-        Self::CL03(CL03Signature { e, s, v })
+        Ok(Self::CL03(CL03Signature { e, s, v }))
     }
 }
 

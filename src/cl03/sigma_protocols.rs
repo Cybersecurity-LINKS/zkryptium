@@ -22,7 +22,7 @@ use super::{
 use crate::{
     schemes::algorithms::CL03,
     schemes::generics::Commitment,
-    utils::{message::cl03_message::CL03Message, random::random_bits, util::cl03_utils::divm},
+    utils::{message::cl03_message::CL03Message, random::random_bits, util::cl03_utils::{divm, is_unit}},
 };
 use digest::Digest;
 use rug::{integer::Order, Complete, Integer};
@@ -149,6 +149,17 @@ impl NISP2Commitments {
             d_1,
             d_2,
         } = self;
+
+        // Input checks: c1 comes from the Prover and is raised to -challenge.
+        if d.len() != unrevealed_message_indexes.len()
+            || unrevealed_message_indexes
+                .iter()
+                .any(|&i| i >= a_bases.0.len() || i >= commitment_pk.g_bases.len())
+            || !is_unit(&c1.value, n1)
+            || !is_unit(&c2.value, n2)
+        {
+            return false;
+        }
 
         let inv_C1 = Integer::from(
             c1.value
@@ -354,8 +365,10 @@ impl NISPMultiSecrets {
         let n1 = &signer_pk.N;
         let Self { t, s1, s2 } = self;
 
-        if unrevealed_message_indexes.len() != s1.len() {
-            panic!("unrevealed_message_indexes not valid");
+        if unrevealed_message_indexes.len() != s1.len()
+            || unrevealed_message_indexes.iter().any(|&i| i >= a_bases.0.len())
+        {
+            return false;
         }
 
         let mut lhs = Integer::from(1);
@@ -363,10 +376,7 @@ impl NISPMultiSecrets {
 
         for (idx, i) in unrevealed_message_indexes.iter().enumerate() {
             lhs *= Integer::from(
-                    a_bases
-                        .0
-                        .get(*i)
-                        .expect("unrevealed_message_indexes not valid (overflow)")
+                    a_bases.0[*i]
                         .pow_mod_ref(&s1[idx], n1)
                         .unwrap(),
                 );
@@ -569,12 +579,24 @@ impl NISPSignaturePoK {
     where
         CS::HashAlg: Digest,
     {
-        if a_bases.0.len() < n_signed_messages && commitment_pk.g_bases.len() < n_signed_messages {
-            panic!("Not enough a_bases OR g_bases for the number of attributes");
+        // Input checks: the commitments come from the Prover and are raised to possibly
+        // negative exponents; the vector lengths must match the number of signed messages.
+        let N = &signer_pk.N;
+        let U = (0..n_signed_messages)
+            .filter(|i| unrevealed_message_indexes.contains(i))
+            .count();
+        if a_bases.0.len() < n_signed_messages
+            || commitment_pk.g_bases.len() < n_signed_messages.max(1)
+            || self.s_5.len() != U
+            || messages.len() != n_signed_messages - U
+            || ![&self.Cx, &self.Cv, &self.Cw, &self.Ce]
+                .iter()
+                .all(|C| is_unit(&C.value, N))
+        {
+            return false;
         }
 
         let mut t_Cx = Integer::from(1);
-        let N = &signer_pk.N;
         let mut idx: usize = 0;
         let mut idx_revealed_msgs: usize = 0;
 

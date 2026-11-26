@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::commitment::CL03Commitment;
-use crate::utils::{random::rand_int, util::cl03_utils::divm};
+use crate::utils::{random::rand_int, util::cl03_utils::{divm, is_unit}};
 use digest::Digest;
 use rug::{integer::Order, ops::Pow, Complete, Integer};
 use serde::{Deserialize, Serialize};
@@ -646,12 +646,30 @@ impl Boudot2000RangeProof {
         H: Digest,
     {
         if rmax <= rmin {
-            panic!("rmin > rmax");
+            return false;
+        }
+
+        // Every group element of the proof comes from the Prover: it must be a unit modulo
+        // `module`, otherwise the verification equations fail with a panic.
+        let w = &self.proof_of_tolerance;
+        let elements = [
+            &self.E,
+            &self.E_prime,
+            &w.E_a_1,
+            &w.E_a_2,
+            &w.E_b_1,
+            &w.E_b_2,
+            &w.proof_of_square_a.E,
+            &w.proof_of_square_a.F,
+            &w.proof_of_square_b.E,
+            &w.proof_of_square_b.F,
+        ];
+        if !elements.iter().all(|x| is_unit(x, module)) {
+            return false;
         }
 
         let T = 2 * (Self::t + Self::l + 1) + ((rmax - rmin).complete().significant_bits());
 
-        
         Self::verify_of_square_decomposition_range::<H>(
             self,
             base1,

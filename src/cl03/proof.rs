@@ -152,6 +152,15 @@ impl<CS: CLCiphersuite> PoKSignature<CL03<CS>> {
         let min_x = Integer::from(0);
         let max_x = Integer::from(2).pow(CS::lm) - 1;
         let CLSPoK = self.to_cl03_proof();
+        // Input-shape checks: the proof comes from the Prover, it must not make us panic.
+        let U = unrevealed_message_indexes.len();
+        if CLSPoK.proofs_commited_mi.len() != U
+            || CLSPoK.range_proofs_commited_mi.len() != U
+            || commitment_pk.g_bases.is_empty()
+            || unrevealed_message_indexes.iter().any(|&i| i >= commitment_pk.g_bases.len())
+        {
+            return false;
+        }
         let boolean_spok = NISPSignaturePoK::nisp5_MultiAttr_verify_proof::<CS>(
             &CLSPoK.spok,
             commitment_pk,
@@ -178,11 +187,12 @@ impl<CS: CLCiphersuite> PoKSignature<CL03<CS>> {
             if boolean_rproof_e {
                 //Verify RANGE PROOFS mi
                 for (idx, i) in unrevealed_message_indexes.iter().enumerate() {
-                    let gi = &commitment_pk.g_bases.get(*i).expect("unrevealed_message_indexes not valid with respect to the commitment_pk.g_bases!");
+                    // Lengths and indexes checked above.
+                    let gi = &commitment_pk.g_bases[*i];
                     let ProofOfValue {
                         value: proof_mi,
                         commitment: cmi,
-                    } = CLSPoK.proofs_commited_mi.get(idx).expect("index overflow");
+                    } = &CLSPoK.proofs_commited_mi[idx];
 
                     let boolean_proof_mi = proof_mi.nisp2sec_verify_proof::<CS>(
                         cmi,
@@ -195,10 +205,7 @@ impl<CS: CLCiphersuite> PoKSignature<CL03<CS>> {
                         return false;
                     }
 
-                    let boolean_rproofs_mi = CLSPoK
-                        .range_proofs_commited_mi
-                        .get(idx)
-                        .expect("index overflow")
+                    let boolean_rproofs_mi = CLSPoK.range_proofs_commited_mi[idx]
                         .verify::<CS::HashAlg>(
                             gi,
                             &commitment_pk.h,
@@ -519,6 +526,105 @@ mod tests {
     #[test]
     fn spok_cl1024_sha256() {
         spok::<CL03_CL1024_SHA256>();
+    }
+
+    // CL03-05..07: proofs, signatures and keys come from other parties. Malformed values found
+    // by fuzzing (non-invertible group elements, truncated vectors, short byte strings) must
+    // make the verifiers return false / the parsers return an error, not panic.
+    #[test]
+    fn verifiers_reject_malformed_input_cl1024_sha256() {
+        use crate::{cl03::keys::CL03PublicKey, errors::Error, schemes::generics::Signature};
+        use serde_json::Value;
+        type CS = <CL03_CL1024_SHA256 as Scheme>::Ciphersuite;
+
+        // Returns `v` with the JSON value at `path` replaced by `new`.
+        fn edit(v: &Value, path: &str, new: Value) -> Value {
+            let mut v = v.clone();
+            *v.pointer_mut(path).unwrap_or_else(|| panic!("no {path}")) = new;
+            v
+        }
+        fn truncated(v: &Value, path: &str) -> Value {
+            let mut a = v.pointer(path).unwrap().as_array().unwrap().clone();
+            a.pop();
+            edit(v, path, Value::Array(a))
+        }
+        let zero = || Value::String("0".into());
+
+        let messages: Vec<CL03Message> = ["01", "02", "03"]
+            .iter()
+            .map(|m| CL03Message::map_message_to_integer_as_hash::<CS>(&hex::decode(m).unwrap()))
+            .collect();
+        let keypair = KeyPair::<CL03<CS>>::generate();
+        let (pk, sk) = (keypair.public_key(), keypair.private_key());
+        let a_bases = Bases::generate(pk, messages.len());
+        let unrevealed = [0usize];
+        let revealed_indexes = [1usize, 2];
+        let revealed_messages = [messages[1].clone(), messages[2].clone()];
+
+        // ZKPoK (Prover -> Signer).
+        let commitment = Commitment::<CL03<CS>>::commit_with_pk(&messages, pk, &a_bases, Some(&unrevealed));
+        let C = commitment.cl03Commitment();
+        let zkpok = ZKPoK::<CL03<CS>>::generate_proof(&messages, C, None, pk, &a_bases, &unrevealed);
+        let zj = serde_json::to_value(&zkpok).unwrap();
+        for bad in [
+            edit(&zj, "/CL03/proof_commited_msgs/s1", Value::Array(vec![])),
+            edit(&zj, "/CL03/range_proof_r/proof_of_tolerance/proof_of_square_a/F/value", zero()),
+            edit(&zj, "/CL03/range_proofs_mi/0/proof_of_tolerance/E_a_1/value", zero()),
+        ] {
+            let bad: ZKPoK<CL03<CS>> = serde_json::from_value(bad).unwrap();
+            assert!(!bad.verify_proof(C, None, pk, &a_bases, &unrevealed));
+        }
+
+        // SPoK (Prover -> Verifier).
+        let blind_signature = BlindSignature::<CL03<CS>>::blind_sign(
+            pk,
+            sk,
+            &a_bases,
+            &zkpok,
+            C,
+            &unrevealed,
+            CL03BlindSignInput {
+                revealed: Some(CL03RevealedMessages { messages: &revealed_messages, indexes: &revealed_indexes }),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let signature = blind_signature.unblind_sign(&commitment);
+        let verifier_pk = CL03CommitmentPublicKey::generate::<CS>(Some(pk.N.clone()), Some(messages.len()));
+        let spok = PoKSignature::<CL03<CS>>::proof_gen(
+            signature.cl03Signature(), &verifier_pk, pk, &a_bases, &messages, &unrevealed,
+        );
+        let verify = |p: &PoKSignature<CL03<CS>>| {
+            p.proof_verify(&verifier_pk, pk, &a_bases, &revealed_messages, &unrevealed, messages.len())
+        };
+        assert!(verify(&spok));
+        let sj = serde_json::to_value(&spok).unwrap();
+        for bad in [
+            edit(&sj, "/CL03/spok/Cx/value/value", zero()),
+            edit(&sj, "/CL03/spok/s_5", Value::Array(vec![])),
+            truncated(&sj, "/CL03/proofs_commited_mi"),
+            truncated(&sj, "/CL03/range_proofs_commited_mi"),
+            edit(&sj, "/CL03/range_proof_e/proof_of_tolerance/E_b_1/value", zero()),
+        ] {
+            let bad: PoKSignature<CL03<CS>> = serde_json::from_value(bad).unwrap();
+            assert!(!verify(&bad));
+        }
+
+        // Signature (Signer -> Prover) and byte parsers.
+        assert!(signature.verify_multiattr(pk, &a_bases, &messages));
+        let too_many: Vec<CL03Message> = messages.iter().chain(&messages).cloned().collect();
+        assert!(!signature.verify_multiattr(pk, &a_bases, &too_many));
+        let gj = serde_json::to_value(&signature).unwrap();
+        let e = gj.pointer("/CL03/e/value").unwrap().as_str().unwrap().to_owned();
+        let bad = edit(&edit(&gj, "/CL03/v/value", zero()), "/CL03/e/value", Value::String(format!("-{e}")));
+        let bad: Signature<CL03<CS>> = serde_json::from_value(bad).unwrap();
+        assert!(!bad.verify_multiattr(pk, &a_bases, &messages));
+        assert!(!bad.verify(pk, &a_bases, &messages[0]));
+        assert!(matches!(Signature::<CL03<CS>>::from_bytes(&[1, 2, 3]), Err(Error::InvalidSignature)));
+        assert!(matches!(
+            CL03PublicKey::from_bytes::<CL03_CL1024_SHA256>(&[1, 2, 3]),
+            Err(Error::KeyDeserializationError)
+        ));
     }
 
     fn zkpok<S: Scheme>()

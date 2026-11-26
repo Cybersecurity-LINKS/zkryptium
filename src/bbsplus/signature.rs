@@ -304,7 +304,10 @@ where
     let B = multi_exponentiation_g1(&gens, &msg);
 
     // A = B * (1 / (SK + e))
-    let A = B * (sk.0 + e).invert().unwrap();
+    // SK + e = 0 only with negligible probability; return an error rather than panic.
+    let sk_e_inv = Option::<Scalar>::from((sk.0 + e).invert())
+        .ok_or_else(|| Error::SignatureGenerationError("Invert scalar failed".to_owned()))?;
+    let A = B * sk_e_inv;
 
     if A == G1Projective::IDENTITY {
         return Err(Error::SignatureGenerationError(

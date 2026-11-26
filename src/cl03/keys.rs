@@ -14,6 +14,7 @@
 
 use crate::{
     cl03::ciphersuites::CLCiphersuite,
+    errors::Error,
     keys::{
         pair::KeyPair,
         traits::{PrivateKey, PublicKey},
@@ -58,7 +59,12 @@ impl CL03PublicKey {
         bytes
     }
 
-    pub fn from_bytes<S>(bytes: &[u8]) -> Self
+    /// Parses the output of [`Self::to_bytes`].
+    ///
+    /// # Errors
+    /// [`Error::KeyDeserializationError`] if `bytes` is shorter than `3 * ln` or its length is
+    /// not a multiple of `ln`.
+    pub fn from_bytes<S>(bytes: &[u8]) -> Result<Self, Error>
     where
         S: Scheme,
         S::Ciphersuite: CLCiphersuite,
@@ -68,14 +74,14 @@ impl CL03PublicKey {
 
         let len = bytes.len();
         if len < 3 * N_len || !(len - (3 * N_len)).is_multiple_of(N_len) {
-            panic!("Invalid number of bytes submitted!");
+            return Err(Error::KeyDeserializationError);
         }
 
         let N = Integer::from_digits(&bytes[0usize..N_len], Order::MsfBe);
         let b = Integer::from_digits(&bytes[N_len..2 * N_len], Order::MsfBe);
         let c = Integer::from_digits(&bytes[2 * N_len..3 * N_len], Order::MsfBe);
 
-        Self { N, b, c }
+        Ok(Self { N, b, c })
     }
 }
 
@@ -107,16 +113,23 @@ impl CL03SecretKey {
         bytes
     }
 
-    pub fn from_bytes<S>(bytes: &[u8]) -> Self
+    /// Parses the output of [`Self::to_bytes`].
+    ///
+    /// # Errors
+    /// [`Error::KeyDeserializationError`] if `bytes` is not exactly two values long.
+    pub fn from_bytes<S>(bytes: &[u8]) -> Result<Self, Error>
     where
         S: Scheme,
         S::Ciphersuite: CLCiphersuite,
     {
         let delta = (<S as Scheme>::Ciphersuite::SECPARAM as usize) / 8usize + 1usize;
+        if bytes.len() != 2 * delta {
+            return Err(Error::KeyDeserializationError);
+        }
         let p = Integer::from_digits(&bytes[0usize..delta], Order::MsfBe);
         let q = Integer::from_digits(&bytes[delta..(2 * delta)], Order::MsfBe);
 
-        Self { p, q }
+        Ok(Self { p, q })
     }
 }
 
