@@ -47,7 +47,9 @@ pub enum BlindSignature<S: Scheme> {
     #[cfg(feature = "cl03")]
     /// CL03 signature variant
     CL03(CL03BlindSignature),
-    /// Unreachable variant to satisfy the type system
+    /// Unreachable variant to satisfy the type system. Never (de)serialized: decoding it from
+    /// untrusted input would reach the `panic!` in the accessors.
+    #[serde(skip)]
     _Unreachable(std::marker::PhantomData<S>),
 }
 
@@ -60,7 +62,9 @@ pub enum Commitment<S: Scheme> {
     #[cfg(feature = "cl03")]
     /// CL03 commitment variant
     CL03(CL03Commitment),
-    /// Unreachable variant to satisfy the type system
+    /// Unreachable variant to satisfy the type system. Never (de)serialized: decoding it from
+    /// untrusted input would reach the `panic!` in the accessors.
+    #[serde(skip)]
     _Unreachable(std::marker::PhantomData<S>),
 }
 
@@ -73,7 +77,9 @@ pub enum PoKSignature<S: Scheme> {
     #[cfg(feature = "cl03")]
     /// CL03 proof of knowledge signature variant
     CL03(CL03PoKSignature),
-    /// Unreachable variant to satisfy the type system
+    /// Unreachable variant to satisfy the type system. Never (de)serialized: decoding it from
+    /// untrusted input would reach the `panic!` in the accessors.
+    #[serde(skip)]
     _Unreachable(PhantomData<S>),
 }
 
@@ -84,7 +90,9 @@ pub enum BlindPoKSignature<S: Scheme> {
     #[cfg(feature = "bbsplus_blind")]
     /// BBS+ blind proof of knowledge signature variant
     BBSplus(BBSplusBlindPoKSignature),
-    /// Unreachable variant to satisfy the type system
+    /// Unreachable variant to satisfy the type system. Never (de)serialized: decoding it from
+    /// untrusted input would reach the `panic!` in the accessors.
+    #[serde(skip)]
     _Unreachable(PhantomData<S>),
 }
 
@@ -97,7 +105,9 @@ pub enum ZKPoK<S: Scheme> {
     ///CL03 zero-knowledge proof of knowledge variant
     #[cfg(feature = "cl03")]
     CL03(CL03ZKPoK),
-    /// Unreachable variant to satisfy the type system
+    /// Unreachable variant to satisfy the type system. Never (de)serialized: decoding it from
+    /// untrusted input would reach the `panic!` in the accessors.
+    #[serde(skip)]
     _Unreachable(PhantomData<S>),
 }
 
@@ -110,6 +120,8 @@ pub enum Signature<S: Scheme> {
     #[cfg(feature = "cl03")]
     /// CL03 signature variant
     CL03(CL03Signature),
-    /// Unreachable variant to satisfy the type system
+    /// Unreachable variant to satisfy the type system. Never (de)serialized: decoding it from
+    /// untrusted input would reach the `panic!` in the accessors.
+    #[serde(skip)]
     _Unreachable(PhantomData<S>),
 }
