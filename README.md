@@ -33,28 +33,28 @@ This library enables the creation of zero-knowledge proofs, exposing cryptograph
 
 ```toml
 [dependencies]
-zkryptium = { version = "0.8.3", default-features = false, features = ["bbsplus"] }
+zkryptium = { version = "0.9.0", default-features = false, features = ["bbsplus"] }
 ```
 
 ##### BBS+ Blind signature:
 
 ```toml
 [dependencies]
-zkryptium = { version = "0.8.3", default-features = false, features = ["bbsplus", "bbsplus_blind"] }
+zkryptium = { version = "0.9.0", default-features = false, features = ["bbsplus", "bbsplus_blind"] }
 ```
 
 ##### BBS+ per Verifier Linkability:
 
 ```toml
 [dependencies]
-zkryptium = { version = "0.8.3", default-features = true}
+zkryptium = { version = "0.9.0", default-features = true}
 ```
 
 ##### CL2003:
 
 ```toml
 [dependencies]
-zkryptium = { version = "0.8.3", default-features = false, features = ["cl03"] }
+zkryptium = { version = "0.9.0", default-features = false, features = ["cl03"] }
 ```
 
 ### Examples

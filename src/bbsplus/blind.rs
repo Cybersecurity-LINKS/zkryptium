@@ -26,7 +26,7 @@
 //! 
 //! ```toml
 //! [dependencies]
-//! zkryptium = { version = "0.8.3", default-features = false, features = ["bbsplus", "bbsplus_blind"] }
+//! zkryptium = { version = "0.9.0", default-features = false, features = ["bbsplus", "bbsplus_blind"] }
 //! ```
 
 use super::{
