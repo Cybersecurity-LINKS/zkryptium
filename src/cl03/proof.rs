@@ -174,7 +174,6 @@ impl<CS: CLCiphersuite> PoKSignature<CL03<CS>> {
             n_signed_messages,
         );
         if !boolean_spok {
-            println!("Signature PoK Failed!");
             return false;
         }
         if CLSPoK.spok.Ce.value == CLSPoK.range_proof_e.E {
@@ -204,7 +203,6 @@ impl<CS: CLCiphersuite> PoKSignature<CL03<CS>> {
                         &commitment_pk.N,
                     );
                     if !boolean_proof_mi {
-                        println!("Knowledge verification of mi Failed!");
                         return false;
                     }
 
@@ -217,16 +215,13 @@ impl<CS: CLCiphersuite> PoKSignature<CL03<CS>> {
                             &max_x,
                         );
                     if !boolean_rproofs_mi {
-                        println!("Range proof verification on mi Failed!");
                         return false;
                     }
                 }
             } else {
-                println!("Range proof verification on e Failed!");
                 return false;
             }
         } else {
-            println!("Commitment on 'e' used in the SPoK different from the one used in the Range Proof!");
             return false;
         }
 
@@ -430,7 +425,6 @@ impl<CS: CLCiphersuite> ZKPoK<CL03<CS>> {
             );
 
         if !boolean_proof_msgs {
-            println!("Verification of the PoK of secrets Failed!");
             return false;
         }
 
@@ -449,14 +443,12 @@ impl<CS: CLCiphersuite> ZKPoK<CL03<CS>> {
             );
 
             if !boolean_proof_mi {
-                println!("Verification of the Proof of Knowledge of m{}. Failed!", i);
                 return false;
             }
             let rproof_mi = &zkpok.range_proofs_mi[idx];
             let boolean_rproof_mi =
                 rproof_mi.verify::<CS::HashAlg>(ai, &signer_pk.b, &signer_pk.N, &min_x, &max_x);
             if !boolean_rproof_mi {
-                println!("Verification of the Range Proof of m{}. Failed", i);
                 return false;
             }
 
@@ -469,25 +461,18 @@ impl<CS: CLCiphersuite> ZKPoK<CL03<CS>> {
             &signer_pk.N,
         );
         if !boolean_proof_r {
-            println!("Verification of the Proof of Knowledge of r. Failed!");
             return false;
         }
 
         let min_r = Integer::from(0);
         let max_r = Integer::from(2).pow(CS::ln) - 1;
-        let boolean_rproof_r = zkpok.range_proof_r.verify::<CS::HashAlg>(
+        zkpok.range_proof_r.verify::<CS::HashAlg>(
             &a_bases.0[0],
             &signer_pk.b,
             &signer_pk.N,
             &min_r,
             &max_r,
-        );
-        if !boolean_rproof_r {
-            println!("Verification of the Range Proof of r. Failed");
-            return false;
-        }
-
-        true
+        )
     }
 
     pub fn to_cl03_zkpok(&self) -> &CL03ZKPoK {
