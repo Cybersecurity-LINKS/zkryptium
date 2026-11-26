@@ -240,10 +240,6 @@ impl CL03CommitmentPublicKey {
             let mut pprime;
             let mut p;
             loop {
-                // println!("{} INT", p);
-                // let digits = p.to_digits::<u8>(Order::MsfBe);
-                // let bignum = BigUint::from_bytes_be(&digits);
-                // println!("{} BIGNUM", bignum);
                 pprime = random_prime(n);
                 p = Integer::from(2) * pprime + Integer::from(1);
 
@@ -255,10 +251,6 @@ impl CL03CommitmentPublicKey {
             let mut qprime;
             let mut q;
             loop {
-                // println!("{} INT", p);
-                // let digits = p.to_digits::<u8>(Order::MsfBe);
-                // let bignum = BigUint::from_bytes_be(&digits);
-                // println!("{} BIGNUM", bignum);
                 qprime = random_prime(n);
                 q = Integer::from(2) * qprime + Integer::from(1);
                 if p != q && q.is_probably_prime(qreps) != IsPrime::No {
